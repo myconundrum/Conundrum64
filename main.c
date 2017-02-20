@@ -24,6 +24,7 @@ int main(int argc, char**argv) {
 	//assembleFile(&assembler,"asm//testcart.asm");
 	loadBinFile(&assembler,"asm/901227-03-kernal.bin",0xE0,0x00);
 	loadBinFile(&assembler,"asm/901226-01-basic.bin",0xA0,0x00);
+	//loadBinFile(&assembler,"asm/901225-01-char.bin",0xD0,0x00);
 
 
 	do {

@@ -20,6 +20,20 @@ const char * g_regNames[] = {
 OPCODE g_opcodes[256];
 
 
+
+
+
+
+
+
+void incLoc(byte *high, byte * low) {
+
+	*low = *low+1;
+	if (!*low) {
+		*high = *high + 1;
+	}
+} 
+
 byte getByte(CPU6502 *c,byte high, byte low) {
 	
 	return c->ram[high][low];
@@ -702,7 +716,8 @@ void handle_SBC (CPU6502 *c, ENUM_AM m) {
 	unsigned int temp;
 	byte src = getval(c,m);
 
-	temp = 	c->reg_a - src - (c->reg_status & C_FLAG) ? 0 : 1;
+	temp = 	 c->reg_a - src - ((c->reg_status & C_FLAG) ? 0 : 1);
+	fprintf(c->log,"%02X%02X: %02X - %02X = %02X \n ",c->pc_high, c->pc_low,c->reg_a, src, temp);
 
 	setOrClearNFlag(c,temp);
 	setOrClearZFlag(c,temp & 0xff);

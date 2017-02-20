@@ -82,12 +82,17 @@ typedef struct {
 extern OPCODE g_opcodes[256];
 
 
-
-
-
-
 extern void runcpu(CPU6502 *);
 extern void init_computer(CPU6502 *);
 extern void destroy_computer(CPU6502 *);
+
+
+void incLoc(byte *high, byte * low);
+byte getByte(CPU6502 *c,byte high, byte low);
+byte getNextByte(CPU6502 *c);
+void setByte(CPU6502 *c, byte high, byte low, byte val);
+
+
+
 
 #endif

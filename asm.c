@@ -399,6 +399,112 @@ byte getRelativeOffset(ASSEMBLER * a,byte high,byte low) {
 	return r;
 }
 
+void disassembleLine(ASSEMBLER * a,char * buf,byte * dish,byte *disl) {
+	
+	int i = 0;
+	byte b = getByte(a->cpu,*dish,*disl);
+	byte h;
+	char * p = buf;
+	byte relhigh;
+	byte rellow;
+
+
+	sprintf(p,"$%02X%02X:\t",*dish,*disl);
+	p += strlen(p);
+	incLoc(dish,disl);
+
+	for (i = 0; i < 256; i++) {
+		if (g_opcodes[i].op == b) {
+			break;
+		}
+	}
+	if (i == 256) {
+		sprintf(p,"$%02X",b);
+	}
+	else {
+		strcpy(p,g_opcodes[i].name);
+		p += strlen(p);
+		switch(g_opcodes[i].am) {
+			case AM_IMMEDIATE:
+				sprintf(p," #$%02X",getByte(a->cpu,*dish,*disl));
+				incLoc(dish,disl);
+			break;
+			case AM_ZEROPAGE:
+				sprintf(p," $%02X",getByte(a->cpu,*dish,*disl));
+				incLoc(dish,disl);
+			break;
+			case AM_ZEROPAGEX:
+				sprintf(p," $%02X,X",getByte(a->cpu,*dish,*disl));
+				incLoc(dish,disl);
+			break;
+			case AM_ZEROPAGEY:
+				sprintf(p," $%02X,Y",getByte(a->cpu,*dish,*disl));
+				incLoc(dish,disl);
+			case AM_ABSOLUTE:
+				b = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				h = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				sprintf(p," $%02X%02X",h,b);
+			break;
+			case AM_ABSOLUTEX:
+				b = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				h = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				sprintf(p," $%02X%02X,X",h,b);
+			break;
+			case AM_ABSOLUTEY:
+				b = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				h = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				sprintf(p," $%02X%02X,Y",h,b);
+			break;
+			case AM_INDIRECT:
+				b = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				h = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				sprintf(p," ($%02X%02X)",h,b);
+			break;
+			case AM_INDEXEDINDIRECT:
+				sprintf(p," ($%02X,X)",getByte(a->cpu,*dish,*disl));
+				incLoc(dish,disl);
+			break;
+			case AM_INDIRECTINDEXED:
+				sprintf(p," ($%02X),Y",getByte(a->cpu,*dish,*disl));
+				incLoc(dish,disl);
+			break;
+			case AM_RELATIVE:
+				b = getByte(a->cpu,*dish,*disl);
+				incLoc(dish,disl);
+				if (b & N_FLAG) {
+					b = ~b + 1;
+					relhigh = *dish;
+					rellow = *disl - b;
+					if (rellow > *disl) {
+						relhigh--;
+					}
+				}
+				else {
+					relhigh = *dish;
+					rellow = *disl + b;
+					if (rellow < *disl) {
+						relhigh++;
+					}
+				}
+				sprintf(p," $%02X%02X",relhigh,rellow);
+			break;
+			default: 
+			break;
+		}
+	}
+
+
+}
+
+
 void assemble_instruction(ASSEMBLER *a, LINE * line, char * name, ENUM_AM mode, byte high, byte low, byte count) {
 
 	int i;

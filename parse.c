@@ -36,6 +36,35 @@ void parseMem (UX * ux, CPU6502 *c, char * s) {
 	}
 }
 
+void parseDis (UX * ux, CPU6502 *c, char * s) {
+
+	byte dish;
+	byte disl;
+	int i;
+	int len;
+	char * p;
+
+	s = strtok(NULL," ");
+	if (s) {
+		dish = strtoul(s,NULL,16);
+		s = strtok(NULL," ");
+		disl = strtoul(s,NULL,16);
+	}
+	else {
+		dish = c->pc_high;
+		disl = c->pc_low;
+	}
+
+	p = ux->disbuf;
+	for (int i = 0; i < 10; i++) {
+		disassembleLine(ux->assembler,p,&dish,&disl);
+		fprintf(ux->log,"%s\n",p);
+		p += strlen(p);
+		*p++ = '\n';
+	}
+
+}
+
 void parseSet (UX * ux, CPU6502 *c, char * s) {
 
 	int val = 0;
@@ -241,35 +270,13 @@ void parseStop (UX *ux, CPU6502 *c, char *s) {
 }
 
 
-void parseAsmfile2 (UX *ux, CPU6502 *c, char *s) {
+void parseAsmfile (UX *ux, CPU6502 *c, char *s) {
 	
 	char * p = strtok(NULL," ");
 	if (p) {
 		assembleFile(ux->assembler,p);
 	}
 	
-}
-
-void parseAsmfile (UX *ux, CPU6502 *c, char *s) {
-	
-	FILE * f;
-	char * p;
-	char buf[256];
-
-	s = strtok(NULL," ");
-	f = fopen (s,"r");
-	if (f) {
-		do {
-			p = fgets(buf,256,f);
-			if (p) {
-				sprintf(ux->buf,"ASM %s",p);
-				ux->buf[strlen(ux->buf)-1]=0;
-				handle_command(ux,c);
-			}
-		} while (p);
-
-		fclose(f);
-	}
 }
 
 void parseComment (UX *ux, CPU6502 *c, char *s) {}
@@ -309,8 +316,8 @@ PARSECMD g_commands[] = {
 	{"ASMAT",parseAsmat},
 	{"EXEC",parseExec},
 	{"STOP",parseStop},
-	{"ASMFILE",parseAsmfile},
-	{"@",parseAsmfile2},
+	{"DIS",parseDis},
+	{"@",parseAsmfile},
 	{"S",parseStep},
 	{";",parseComment},
 	{"*",parsePC}

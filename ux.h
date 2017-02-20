@@ -16,8 +16,10 @@ typedef struct {
 	WINDOW * 	console;
 	WINDOW * 	registers;
 	WINDOW * 	display;
+	WINDOW * 	disassembly;
 	byte 		curpage;
 	char 		buf[256];
+	char 		disbuf[1024];
 	bool 		done;
 	int 		bpos;
 	byte 		asmh; // where to add asm instructions.

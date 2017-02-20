@@ -29,7 +29,8 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 	ux->registers 	= newwin (1,COLS,0,0);
 	ux->display 	= newwin (29,44,1,61);
 	ux->memory 		= newwin (20,60,1,0);
-	ux->console  	= newwin (1,30,26,0);
+	ux->disassembly = newwin (18,60,21,0);
+	ux->console  	= newwin (1,30,41,0);
 
 	ux->log = fopen("log.txt","w+");
 	ux->running = false;
@@ -94,6 +95,15 @@ void draw_border(UX *ux, CPU6502 *c) {
 		waddch(ux->display,' ');
 	}
 	wattroff(ux->display,COLOR_PAIR(4));
+}
+
+
+void refresh_disassembly(UX * ux, CPU6502 * c) {
+
+	werase(ux->disassembly);
+	wprintw(ux->disassembly,"%s",ux->disbuf);
+	wrefresh(ux->disassembly);
+	
 }
 
 void refresh_display(UX * ux, CPU6502 * c) {
@@ -187,4 +197,5 @@ void update_ux(UX *ux, CPU6502 *cpu) {
 	refresh_registers(ux,cpu);
 	refresh_console(ux,cpu);
 	refresh_display(ux,cpu);
+	refresh_disassembly(ux,cpu);
 }
