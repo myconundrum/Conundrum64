@@ -85,7 +85,10 @@ void setPCFromOffset(CPU6502 * c, byte val) {
 
 	
 	bool negative = val & N_FLAG;
-	val &= ~N_FLAG;
+
+	if (negative) {
+		val = ~val + 1;
+	}
 
 	//
 	// add a cycle on successful branch.

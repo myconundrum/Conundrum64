@@ -389,7 +389,8 @@ byte getRelativeOffset(ASSEMBLER * a,byte high,byte low) {
 	else {
 
 		if (diff < 0)  {
-			r = abs(diff) | N_FLAG;
+			r = abs(diff) - 1;
+			r = ~r;
 		}
 		else {
 			r = diff;
