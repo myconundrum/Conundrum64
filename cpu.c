@@ -99,6 +99,7 @@ void setPCFromOffset(CPU6502 * c, byte val) {
 
 	
 	bool negative = val & N_FLAG;
+	byte oldl;
 
 	if (negative) {
 		val = ~val + 1;
@@ -108,26 +109,21 @@ void setPCFromOffset(CPU6502 * c, byte val) {
 	// add a cycle on successful branch.
 	//
 	c->cycles++;
-
+	oldl = c->pc_low;
 	if (negative) {
-		if (val > c->pc_low) {
+		c->pc_low -= val;
+		if (c->pc_low > oldl) {
 			c->pc_high--;
-			//
-			// add a cycle on page boundary.
-			//
 			c->cycles++;
 		}
-		c->pc_low -= val;
+		
 	}
 	else {
-		if (c->pc_low + val < c->pc_low) {
+		c->pc_low += val;
+		if (c->pc_low < oldl) {
 			c->pc_high++;
-			//
-			// add a cycle on page boundary.
-			//
 			c->cycles++;
 		}
-		c->pc_low += val;
 	}
 }
 
