@@ -106,6 +106,20 @@ void refresh_disassembly(UX * ux, CPU6502 * c) {
 	
 }
 
+
+//
+// BUGBUG terribly incomplete.
+//
+char getScreenChar(byte code) {
+
+	if (code < 0x20) {
+		code += 0x40;
+	}
+	return  code;
+}
+
+
+
 void refresh_display(UX * ux, CPU6502 * c) {
 
 	int i;
@@ -113,6 +127,7 @@ void refresh_display(UX * ux, CPU6502 * c) {
 	byte high;
 	byte low;
 	int address;
+	byte b;
 	byte ch;
 
 	werase(ux->display);
@@ -129,10 +144,8 @@ void refresh_display(UX * ux, CPU6502 * c) {
 			address = 0x0400 + i * 40 + j;
 			high = address >> 8;
 			low = address & 0xff;
-			ch = c->ram[high][low];
-			if (isprint(ch)) {
-				fprintf(ux->log,"%c ",ch);
-			}
+			b = c->ram[high][low];
+			ch = getScreenChar(b);
 			wprintw(ux->display,"%c",isprint(ch) ? ch : ' ');
 		}
 	}
@@ -166,20 +179,32 @@ void refresh_registers(UX * ux, CPU6502 * c) {
 
 void refresh_console(UX * ux, CPU6502 * c) {
 
+	int ch = getch();
 
 	wattron(ux->console,COLOR_PAIR(1));
 
-	char ch;
-	ch = toupper(getch());
-	if (ch != -1) {
-		if (ch == '\n') {
+	switch(ch) {
+		case 27:
+			handle_step(ux,c); 
+			//
+			// BUGBUG on my keyboard, key down returns three keys.
+			//
+			getch();getch();
+			
+		break;
+		case -1:
+		break;
+		case '\n':
 			handle_command(ux,c);
 			memset(ux->buf,0,256);
 			ux->bpos = 0;
-		}
-		else {
-			ux->buf[ux->bpos++] = ch;		
-		}
+		break;
+		default:
+			if (isprint(ch)) {
+				ch = toupper(ch);
+				ux->buf[ux->bpos++] = ch;
+			}
+		break;
 	}
 
 	werase(ux->console);

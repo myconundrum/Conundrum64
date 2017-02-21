@@ -36,6 +36,7 @@ void parseMem (UX * ux, CPU6502 *c, char * s) {
 	}
 }
 
+
 void parseDis (UX * ux, CPU6502 *c, char * s) {
 
 	byte dish;
@@ -322,6 +323,28 @@ PARSECMD g_commands[] = {
 	{";",parseComment},
 	{"*",parsePC}
 };
+
+
+
+void handle_step(UX * ux,CPU6502 *c) {
+
+	int i;
+	char *p = ux->disbuf;
+
+	runcpu(c);
+
+
+	byte dish = c->pc_high;
+	byte disl = c->pc_low;
+
+	for (int i = 0; i < 10; i++) {
+		disassembleLine(ux->assembler,p,&dish,&disl);
+		p += strlen(p);
+		*p++ = '\n';
+	}
+
+
+}
 
 
 void handle_command(UX * ux, CPU6502 *c) {

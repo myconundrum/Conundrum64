@@ -14,6 +14,7 @@
 
 
 void handle_command(UX * ux,CPU6502 *c);
+void handle_step(UX * ux,CPU6502 *c);
 int asmfile(char * path);
 
 
