@@ -37,13 +37,29 @@ void parseMem (UX * ux, CPU6502 *c, char * s) {
 }
 
 
+void fillDisassembly(UX *ux, CPU6502 *c, byte high, byte low) {
+
+	int i;
+
+
+	ux->disstart = 0;
+	ux->discur = 0;
+
+	for (i =0 ; i <  DISLINESCOUNT; i++) {
+		ux->dislines[i].high = high;
+		ux->dislines[i].low = low;
+		disassembleLine(ux->assembler,ux->dislines[i].buf,&high,&low);
+	}
+
+}
+
+
+
 void parseDis (UX * ux, CPU6502 *c, char * s) {
 
 	byte dish;
 	byte disl;
-	int i;
-	int len;
-	char * p;
+	int  i;
 
 	s = strtok(NULL," ");
 	if (s) {
@@ -56,14 +72,8 @@ void parseDis (UX * ux, CPU6502 *c, char * s) {
 		disl = c->pc_low;
 	}
 
-	p = ux->disbuf;
-	for (int i = 0; i < 10; i++) {
-		disassembleLine(ux->assembler,p,&dish,&disl);
-		fprintf(ux->log,"%s\n",p);
-		p += strlen(p);
-		*p++ = '\n';
-	}
-
+	fillDisassembly(ux,c,dish,disl);
+	
 }
 
 void parseSet (UX * ux, CPU6502 *c, char * s) {
@@ -89,7 +99,6 @@ void parseSet (UX * ux, CPU6502 *c, char * s) {
 		}
 	}
 }
-
 
 typedef struct {
 	byte hi;
@@ -129,8 +138,6 @@ int getBytesFromString(char *s, ADDRESSANDMODE * am) {
 
 	return count;
 }
-
-
 
 void getAddressAndMode (char *s, ADDRESSANDMODE * am) {
 
@@ -324,28 +331,19 @@ PARSECMD g_commands[] = {
 	{"*",parsePC}
 };
 
-
-
 void handle_step(UX * ux,CPU6502 *c) {
 
-	int i;
-	char *p = ux->disbuf;
+	
+	if (c->pc_high != ux->dislines[ux->discur].high || c->pc_low != ux->dislines[ux->discur].low
+		|| ux->discur == DISLINESCOUNT) {
 
-	runcpu(c);
-
-
-	byte dish = c->pc_high;
-	byte disl = c->pc_low;
-
-	for (int i = 0; i < 10; i++) {
-		disassembleLine(ux->assembler,p,&dish,&disl);
-		p += strlen(p);
-		*p++ = '\n';
+		fillDisassembly(ux,c,c->pc_high,c->pc_low);
 	}
 
+	runcpu(c);
+	ux->discur++;
 
 }
-
 
 void handle_command(UX * ux, CPU6502 *c) {
 

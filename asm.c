@@ -409,8 +409,6 @@ void disassembleLine(ASSEMBLER * a,char * buf,byte * dish,byte *disl) {
 	byte rellow;
 
 
-	sprintf(p,"$%02X%02X:\t",*dish,*disl);
-	p += strlen(p);
 	incLoc(dish,disl);
 
 	for (i = 0; i < 256; i++) {

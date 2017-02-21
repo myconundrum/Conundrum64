@@ -11,6 +11,16 @@
 #define DISPLAY_COLS 40
 
 typedef struct {
+	byte high;
+	byte low;
+	char buf[32];
+} DISLINE;
+
+
+#define DISLINESCOUNT 20
+
+
+typedef struct {
 
 	WINDOW * 	memory;
 	WINDOW * 	console;
@@ -18,6 +28,9 @@ typedef struct {
 	WINDOW * 	display;
 	WINDOW * 	disassembly;
 	byte 		curpage;
+	DISLINE		dislines[DISLINESCOUNT];
+	byte		disstart;
+	byte 		discur;
 	char 		buf[256];
 	char 		disbuf[1024];
 	bool 		done;

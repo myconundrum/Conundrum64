@@ -21,32 +21,27 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 	init_pair(2,COLOR_BLUE,COLOR_WHITE);
 	init_pair(3,COLOR_WHITE,COLOR_BLACK);
 	init_pair(4,COLOR_WHITE,COLOR_BLUE);
-	
+
+	init_pair(5,COLOR_WHITE,COLOR_GREEN); 
 
 	memset(ux,0,sizeof(UX));
 
 	ux->assembler = a;
 	ux->registers 	= newwin (1,COLS,0,0);
 	ux->display 	= newwin (29,44,1,61);
-	ux->memory 		= newwin (20,60,1,0);
-	ux->disassembly = newwin (18,60,21,0);
+	ux->memory 		= newwin (18,60,1,0);
+	ux->disassembly = newwin (20,60,19,0);
 	ux->console  	= newwin (1,30,41,0);
 
 	ux->log = fopen("log.txt","w+");
 	ux->running = false;
-
-
-
 }
 
 void destroy_ux(UX * ux) {
 
-	// curses destructor
 	endwin();
 	fclose(ux->log);
 }
-
-
 
 void refresh_memory(UX * ux, CPU6502 * c) {
 
@@ -97,13 +92,29 @@ void draw_border(UX *ux, CPU6502 *c) {
 	wattroff(ux->display,COLOR_PAIR(4));
 }
 
-
 void refresh_disassembly(UX * ux, CPU6502 * c) {
 
+	int i;
 	werase(ux->disassembly);
-	wprintw(ux->disassembly,"%s",ux->disbuf);
-	wrefresh(ux->disassembly);
-	
+
+	wattron(ux->disassembly,COLOR_PAIR(3));
+
+	for (i = 0;i<DISLINESCOUNT;i++) {
+		if (ux->discur == i) {
+			wattron(ux->disassembly,COLOR_PAIR(5));
+		}
+		wmove(ux->disassembly,i,0);
+		wprintw(ux->disassembly,"$%02X%02X:\t%s\n",
+			ux->dislines[i].high,ux->dislines[i].low,ux->dislines[i].buf);
+
+		if (ux->discur == i) {
+			wattroff(ux->disassembly,COLOR_PAIR(5));
+			wattron(ux->disassembly,COLOR_PAIR(3));
+		}
+	}
+
+	wrefresh(ux->disassembly);	
+	wattroff(ux->disassembly,COLOR_PAIR(3));
 }
 
 
@@ -190,7 +201,7 @@ void refresh_console(UX * ux, CPU6502 * c) {
 			// BUGBUG on my keyboard, key down returns three keys.
 			//
 			getch();getch();
-			
+
 		break;
 		case -1:
 		break;
