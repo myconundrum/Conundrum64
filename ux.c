@@ -117,7 +117,6 @@ void refresh_disassembly(UX * ux, CPU6502 * c) {
 	wattroff(ux->disassembly,COLOR_PAIR(3));
 }
 
-
 //
 // BUGBUG terribly incomplete.
 //
@@ -128,8 +127,6 @@ char getScreenChar(byte code) {
 	}
 	return  code;
 }
-
-
 
 void refresh_display(UX * ux, CPU6502 * c) {
 

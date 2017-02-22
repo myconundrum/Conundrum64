@@ -245,11 +245,17 @@ void parseAsm (UX* ux,CPU6502 *c, char * s) {
 
 void parseBrk (UX* ux,CPU6502 *c, char * s) {
 	s = strtok(NULL," ");
+	ux->brkh = 0;
+	ux->brkl = 0;
+
 	if (s) {
 		ux->brk = true;
 		ux->brkh = strtoul(s,NULL,16);
 		s = strtok(NULL," ");
-		ux->brkl = strtoul(s,NULL,16);
+
+		if (s) {
+			ux->brkl = strtoul(s,NULL,16);
+		}
 	}
 }
 
@@ -333,7 +339,6 @@ PARSECMD g_commands[] = {
 
 void handle_step(UX * ux,CPU6502 *c) {
 
-	
 	if (c->pc_high != ux->dislines[ux->discur].high || c->pc_low != ux->dislines[ux->discur].low
 		|| ux->discur == DISLINESCOUNT) {
 
@@ -342,7 +347,6 @@ void handle_step(UX * ux,CPU6502 *c) {
 
 	runcpu(c);
 	ux->discur++;
-
 }
 
 void handle_command(UX * ux, CPU6502 *c) {

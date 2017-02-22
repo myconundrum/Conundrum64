@@ -15,6 +15,7 @@
 
 void handle_command(UX * ux,CPU6502 *c);
 void handle_step(UX * ux,CPU6502 *c);
+void fillDisassembly(UX *ux, CPU6502 *c, byte high, byte low);
 int asmfile(char * path);
 
 
