@@ -19,46 +19,18 @@ const char * g_regNames[] = {
 
 OPCODE g_opcodes[256];
 
-
-
-
-
-
-
-
-void incLoc(byte *high, byte * low) {
-
-	*low = *low+1;
-	if (!*low) {
-		*high = *high + 1;
-	}
-} 
-
-byte getByte(CPU6502 *c,byte high, byte low) {
-	
-	word a = (high << 8) | low; 
-	return mem_peek(a);
-}
-
 byte getNextByte(CPU6502 *c) {
 
 	byte b;
 
-	b = getByte(c,c->pc_high,c->pc_low++);
-	if (!c->pc_low) {
-		c->pc_high++;
+	b = mem_peek(c->pc++);
+
+	if ((c->pc & 0xFF) == 0) {
 		c->cycles++;
 	}
 
 	return b;
 }
-
-void setByte(CPU6502 *c, byte high, byte low, byte val) {
-
-	word a = (high << 8) | low; 
-	mem_poke(a,val);
-}
-
 
 //
 // Sets n flag if N & val otherwise clear
@@ -98,35 +70,27 @@ void setOrClearCFlag(CPU6502 *c, byte val) {
 
 
 void setPCFromOffset(CPU6502 * c, byte val) {
-
 	
-	bool negative = val & N_FLAG;
-	byte oldl;
+	word old = c->pc;
 
-
-	if (negative) {
+	if (val & N_FLAG) {
 		val = ~val + 1;
+		c->pc -= val;
+	}
+	else {
+		c->pc += val;
 	}
 
 	//
 	// add a cycle on successful branch.
 	//
 	c->cycles++;
-	oldl = c->pc_low;
-	if (negative) {
-		c->pc_low -= val;
-		if (c->pc_low > oldl) {
-			c->pc_high--;
-			c->cycles++;
-		}
-		
-	}
-	else {
-		c->pc_low += val;
-		if (c->pc_low < oldl) {
-			c->pc_high++;
-			c->cycles++;
-		}
+
+	//
+	// add cycle on page boundary cross.
+	//
+	if ((c->pc & 0xFF) != (old & 0xFF)) {
+		c->cycles++;
 	}
 }
 
@@ -156,20 +120,22 @@ void getloc(CPU6502 *c, ENUM_AM m, byte * high, byte * low) {
 		break;
 		case AM_INDIRECT: // JMP ($1234)
 			*high = getNextByte(c);
-			indirectl = getByte(c,*high,*low);
-			indirecth = getByte(c,*high,*low+1);
+			indirectl = mem_peek((*high << 8) | *low);
+			indirecth = mem_peek((*high << 8) | *low + 1);
 			*low = indirectl;
 			*high = indirecth;
 		break;
 		case AM_INDEXEDINDIRECT: // LDA ($00,X)
-		 	indirectl = getByte(c,*high,*low + c->reg_x);
-			indirecth = getByte(c,*high,*low + c->reg_x + 1);
+
+			indirectl = mem_peek((*high << 8) | *low + c->reg_x);
+			indirecth = mem_peek((*high << 8) | *low + c->reg_x + 1);
+		
 			*low = indirectl;
 			*high = indirecth;
 		break;
 		case AM_INDIRECTINDEXED: // LDA ($00),Y
-			indirectl = getByte(c,*high,*low);
-			indirecth = getByte(c,*high,*low+1);
+			indirectl = mem_peek((*high << 8) | *low);
+			indirecth = mem_peek((*high << 8) | *low + 1);
 			*low = indirectl + c->reg_y;
 			*high = indirecth;
 		break;
@@ -189,7 +155,7 @@ unsigned char getval(CPU6502 *c,ENUM_AM m) {
 	}
 	else {
 		getloc(c,m,&high,&low);
-		val = getByte(c,high,low);
+		val = mem_peek((high<<8)|low);
 	}
 	return val;
 }
@@ -200,11 +166,9 @@ void handle_JMP(CPU6502 * c,ENUM_AM m) {
 	byte low;
 
 
-
 	getloc(c,m,&high,&low);
 
-	c->pc_high = high;
-	c->pc_low = low;
+	c->pc = (high << 8) | low;
 }
 
 void handle_JSR(CPU6502 * c,ENUM_AM m) {
@@ -214,17 +178,15 @@ void handle_JSR(CPU6502 * c,ENUM_AM m) {
 
 	getloc(c,m,&high,&low);
 
-	setByte(c,STACK_BASE,c->reg_stack--,c->pc_high);	
-	setByte(c,STACK_BASE,c->reg_stack--,c->pc_low-1);
-
-	c->pc_high = high;
-	c->pc_low = low;
+	mem_poke(STACK_BASE | c->reg_stack--,(byte) (c->pc >> 8));	
+	mem_poke(STACK_BASE | c->reg_stack--,(byte) (c->pc & 0xFF) - 1);
+	c->pc = (high << 8) | low;
 }
 
 void handle_RTS(CPU6502 * c,ENUM_AM m) {
 
-	c->pc_low = getByte(c,STACK_BASE,++c->reg_stack) + 1;
-	c->pc_high = getByte(c,STACK_BASE,++c->reg_stack);
+	c->pc = mem_peek(STACK_BASE | ++c->reg_stack) + 1;
+	c->pc |= ((word) mem_peek(STACK_BASE | ++c->reg_stack) << 8);
 }
 
 void handle_BIT(CPU6502 * c,ENUM_AM m) {
@@ -286,7 +248,7 @@ void handle_STA(CPU6502 * c,ENUM_AM m) {
 	byte high;
 	byte low;
 	getloc(c,m,&high,&low);
-	setByte(c,high,low,c->reg_a);
+	mem_poke((high << 8) | low , c->reg_a);
 }
 
 void handle_STX(CPU6502 * c,ENUM_AM m) {
@@ -294,7 +256,7 @@ void handle_STX(CPU6502 * c,ENUM_AM m) {
 	byte high;
 	byte low;
 	getloc(c,m,&high,&low);
-	setByte(c,high,low,c->reg_x);
+	mem_poke((high << 8) | low , c->reg_x);
 }
 
 void handle_STY(CPU6502 * c,ENUM_AM m) {
@@ -302,7 +264,7 @@ void handle_STY(CPU6502 * c,ENUM_AM m) {
 	byte high;
 	byte low;
 	getloc(c,m,&high,&low);
-	setByte(c,high,low,c->reg_y);
+	mem_poke((high << 8) | low , c->reg_y);
 }
 
 void handle_TAX(CPU6502 * c,ENUM_AM m) {
@@ -349,25 +311,25 @@ void handle_TSX(CPU6502 * c,ENUM_AM m) {
 }
 
 void handle_PHA(CPU6502 * c,ENUM_AM m) {
-
-	setByte(c,STACK_BASE,c->reg_stack--,c->reg_a);
+	mem_poke( STACK_BASE | c->reg_stack--,c->reg_a);
 }
 
 void handle_PLA(CPU6502 * c,ENUM_AM m) {
 
-	c->reg_a = getByte(c,STACK_BASE,++c->reg_stack);
+	c->reg_a = mem_peek(STACK_BASE | ++c->reg_stack);
 	setOrClearNFlag(c,c->reg_a);
 	setOrClearZFlag(c,c->reg_a);
 }
 
 void handle_PHP(CPU6502 * c,ENUM_AM m) {
 
-	setByte(c,STACK_BASE,c->reg_stack--,c->reg_status);
+	mem_poke( STACK_BASE | c->reg_stack--,c->reg_status);
+	
 }
 
 void handle_PLP(CPU6502 * c,ENUM_AM m) {
 
-	c->reg_status = getByte(c,STACK_BASE,++c->reg_stack);
+	c->reg_status = mem_peek(STACK_BASE | ++c->reg_stack);
 	
 }
 
@@ -378,8 +340,8 @@ void handle_INC(CPU6502 * c,ENUM_AM m) {
 	byte val;
 	
 	getloc(c,m,&high,&low);
-	val =  getByte(c,high,low) + 1;
-	setByte(c,high,low,val);
+	val =  mem_peek((high << 8) | low) + 1;
+	mem_poke((high << 8) | low, val);
 	setOrClearNFlag(c,val);
 	setOrClearZFlag(c,val);
 }
@@ -391,8 +353,8 @@ void handle_DEC(CPU6502 * c,ENUM_AM m) {
 	byte val;
 	
 	getloc(c,m,&high,&low);
-	val =  getByte(c,high,low) - 1;
-	setByte(c,high,low,val);
+	val =  mem_peek((high << 8) | low) - 1;
+	mem_poke((high << 8) | low, val);
 	setOrClearNFlag(c,val);
 	setOrClearZFlag(c,val);
 }
@@ -468,14 +430,14 @@ void handle_BRK (CPU6502 * c,ENUM_AM m) {
 	//
 	// push program counter onto the stack followed by processor status
 	//
-	setByte(c,STACK_BASE,c->reg_stack--,c->pc_high);	
-	setByte(c,STACK_BASE,c->reg_stack--,c->pc_low);
-	setByte(c,STACK_BASE,c->reg_stack--,c->reg_status);
+	mem_poke(STACK_BASE | c->reg_stack--,c->pc >> 8);
+	mem_poke(STACK_BASE | c->reg_stack--,c->pc &  0xFF);
+	mem_poke(STACK_BASE | c->reg_stack--,c->reg_status);
+	
 	//
 	// load interrupt vector
 	//
-	c->pc_low = getByte(c,VECTOR_BASE,BRK_LOW);
-	c->pc_high = getByte(c,VECTOR_BASE,BRK_HIGH);
+	c->pc = mem_peekword(VECTOR_BRK);
 
 	//
 	// set break flag
@@ -485,9 +447,9 @@ void handle_BRK (CPU6502 * c,ENUM_AM m) {
 
 void handle_RTI (CPU6502 * c,ENUM_AM m) {
 
-	c->reg_status = getByte(c,STACK_BASE,++c->reg_stack);
-	c->pc_low = getByte(c,STACK_BASE,++c->reg_stack);
-	c->pc_high = getByte(c,STACK_BASE,++c->reg_stack);
+	c->reg_status = mem_peek(STACK_BASE | ++c->reg_stack);
+	c->pc = mem_peekword(STACK_BASE | ++c->reg_stack);
+	c->reg_stack++;
 
 	c->reg_status &= ~B_FLAG;
 }
@@ -571,7 +533,7 @@ void handle_LSR (CPU6502 *c, ENUM_AM m) {
 	}
 	else {
 		getloc(c,m,&high,&low);
-		src = getByte(c,high,low);
+		src = mem_peek((high<<8)|low);
 	}
 
 	setOrClearCFlag(c,src & 0x01);
@@ -583,7 +545,7 @@ void handle_LSR (CPU6502 *c, ENUM_AM m) {
 		c->reg_a = src;
 	}
 	else {
-		setByte(c,high,low,src);
+		mem_poke((high << 8) | low , src);
 	}	
 
 }
@@ -599,7 +561,7 @@ void handle_ROL (CPU6502 *c, ENUM_AM m) {
 	}
 	else {
 		getloc(c,m,&high,&low);
-		src = getByte(c,high,low);
+		src = mem_peek((high <<8)|low);
 	}
 
 	src <<=1;
@@ -615,7 +577,7 @@ void handle_ROL (CPU6502 *c, ENUM_AM m) {
 		c->reg_a = src;
 	}
 	else {
-		setByte(c,high,low,src);
+		mem_poke((high << 8) | low , src);
 	}	
 
 }
@@ -631,7 +593,7 @@ void handle_ROR (CPU6502 *c, ENUM_AM m) {
 	}
 	else {
 		getloc(c,m,&high,&low);
-		src = getByte(c,high,low);
+		src = mem_peek((high <<8)|low);;
 	}
 
 	
@@ -648,7 +610,7 @@ void handle_ROR (CPU6502 *c, ENUM_AM m) {
 		c->reg_a = src;
 	}
 	else {
-		setByte(c,high,low,src);
+		mem_poke((high << 8) | low , src);
 	}	
 
 }
@@ -665,7 +627,7 @@ void handle_ASL (CPU6502 *c, ENUM_AM m) {
 	}
 	else {
 		getloc(c,m,&high,&low);
-		src = getByte(c,high,low);
+		src = mem_peek((high <<8)|low);
 	}
 
 	setOrClearCFlag(c,src & 0x80);
@@ -677,7 +639,7 @@ void handle_ASL (CPU6502 *c, ENUM_AM m) {
 		c->reg_a = src;
 	}
 	else {
-		setByte(c,high,low,src);
+		mem_poke((high << 8) | low , src);
 	}	
 
 }
@@ -818,9 +780,7 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 }
 
 void initPC(CPU6502 *c) {
-
-	c->pc_high = mem_peek(RESET_VECTOR_HIGH);
-	c->pc_low = mem_peek(RESET_VECTOR_LOW);
+	c->pc = mem_peekword(VECTOR_RESET);
 }
 
 void destroy_computer(CPU6502 *c) {
@@ -1034,8 +994,7 @@ void init_computer(CPU6502 *c) {
 	//
 	// 6502 reset vector
 	//
-	mem_poke(RESET_VECTOR_HIGH,0xFC);
-	mem_poke(RESET_VECTOR_LOW,0xE2);
+	mem_pokeword(VECTOR_RESET,0xFCE2);
 	initPC(c);
 }
 

@@ -14,17 +14,9 @@
 #define Z_FLAG 0b00000010 
 #define C_FLAG 0b00000001 
 
-#define STACK_BASE 	0x01 			// stack page 
-#define VECTOR_BASE 0xFF			// vector page
-#define BRK_LOW 	0xFE			// PC Low for BRK vector.
-#define BRK_HIGH 	0xFF			// PC High for BRK vector.
-#define RESET_HIGH  0xFD			// PC High for RESET vector.
-#define RESET_LOW	0xFC			// PC Low  for RESET vector
-
-
-#define RESET_VECTOR_HIGH	0xFFFD		// Reset vector addresses
-#define RESET_VECTOR_LOW	0xFFFC
-
+#define STACK_BASE 			0x0100 		// stack page 
+#define VECTOR_RESET 		0xFFFC		// reset vector 
+#define VECTOR_BRK	 		0xFFFE		// break vector  
 
 
 typedef unsigned char 		byte; 
@@ -32,14 +24,14 @@ typedef unsigned short 		word;
 
 typedef struct cpu6502 {
 
-	//byte ram[256][256];   		// 256 pages of 256 bytes of memory
-	byte pc_low; 				// low byte of program counter
-	byte pc_high;				// hi byte of program counter
+	//byte pc_low; 				// low byte of program counter
+	//byte pc_high;				// hi byte of program counter
 	byte reg_a;					// accumulator
 	byte reg_x;					// x register
 	byte reg_y;					// y register
 	byte reg_status;			// status byte
 	byte reg_stack;				// stack pointer
+	word pc;					// program counter;
 
 	unsigned int cycles; 		// tracks total cycles run. 
 	FILE * log;					// log file. 

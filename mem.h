@@ -9,6 +9,8 @@
 void mem_init();
 void mem_destroy();
 void mem_poke(word address,byte value);
+void mem_pokeword(word address,word value);
 byte mem_peek(word address);
+word mem_peekword(word address);
 
 #endif

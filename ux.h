@@ -11,8 +11,7 @@
 #define DISPLAY_COLS 40
 
 typedef struct {
-	byte high;
-	byte low;
+	word address;
 	char buf[32];
 } DISLINE;
 
@@ -35,10 +34,8 @@ typedef struct {
 	char 		disbuf[1024];
 	bool 		done;
 	int 		bpos;
-	byte 		asmh; // where to add asm instructions.
-	byte 		asml; // where to add asm instructions.
-	byte		brkh; // break instruction
-	byte 		brkl; // break instruction low
+	word 		asm_address;
+	word		brk_address;
 	bool		brk; 
 	FILE * 	    log;
 	bool 		running;

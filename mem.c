@@ -26,8 +26,18 @@ void mem_poke(word address,byte value) {
 	g_memory.ram[address] = value;
 }
 
+void mem_pokeword(word address,word value) {
+
+	g_memory.ram[address] = (byte) (value & 0xFF);
+	g_memory.ram[address+1] = (byte) (value >> 8);
+}
+
 byte mem_peek(word address) {
 	return g_memory.ram[address];
+}
+
+word mem_peekword(word address) {
+	return (g_memory.ram[address+1] << 8) | g_memory.ram[address];
 }
 
 

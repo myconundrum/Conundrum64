@@ -37,42 +37,35 @@ void parseMem (UX * ux, CPU6502 *c, char * s) {
 }
 
 
-void fillDisassembly(UX *ux, CPU6502 *c, byte high, byte low) {
+void fillDisassembly(UX *ux, CPU6502 *c, word address) {
 
 	int i;
-
 
 	ux->disstart = 0;
 	ux->discur = 0;
 
 	for (i =0 ; i <  DISLINESCOUNT; i++) {
-		ux->dislines[i].high = high;
-		ux->dislines[i].low = low;
-		disassembleLine(ux->assembler,ux->dislines[i].buf,&high,&low);
+		ux->dislines[i].address = address;
+		disassembleLine(ux->assembler,ux->dislines[i].buf,&address);
 	}
-
 }
 
 
 
 void parseDis (UX * ux, CPU6502 *c, char * s) {
 
-	byte dish;
-	byte disl;
+	word address;
 	int  i;
 
 	s = strtok(NULL," ");
 	if (s) {
-		dish = strtoul(s,NULL,16);
-		s = strtok(NULL," ");
-		disl = strtoul(s,NULL,16);
+		address = strtoul(s,NULL,16);
 	}
 	else {
-		dish = c->pc_high;
-		disl = c->pc_low;
+		address = c->pc;
 	}
 
-	fillDisassembly(ux,c,dish,disl);
+	fillDisassembly(ux,c,address);
 	
 }
 
@@ -224,12 +217,12 @@ void parseOp (UX *ux, CPU6502 *c, char *s) {
 		op = &g_opcodes[i];
 
 		if ((strcmp(buf,op->name)==0) && am.mode == op->am) {
-			mem_poke((ux->asmh << 8) | ux->asml++,op->op);
+			mem_poke(ux->asm_address++,op->op);
 			if (am.bytes) {
-				mem_poke((ux->asmh << 8) | ux->asml++,am.low);
+				mem_poke(ux->asm_address++,am.low);
 			}
 			if (am.bytes == 2) {
-				mem_poke((ux->asmh << 8) | ux->asml++,am.hi);
+				mem_poke(ux->asm_address++,am.hi);
 			}
 		}
 	}	
@@ -245,31 +238,19 @@ void parseAsm (UX* ux,CPU6502 *c, char * s) {
 
 void parseBrk (UX* ux,CPU6502 *c, char * s) {
 	s = strtok(NULL," ");
-	ux->brkh = 0;
-	ux->brkl = 0;
+	ux->brk_address = 0;
 
 	if (s) {
 		ux->brk = true;
-		ux->brkh = strtoul(s,NULL,16);
-		s = strtok(NULL," ");
-
-		if (s) {
-			ux->brkl = strtoul(s,NULL,16);
-		}
+		ux->brk_address = strtoul(s,NULL,16);
 	}
 }
 
 
 void parseAsmat (UX* ux,CPU6502 *c, char * s) {
-	char * h;
-	char * l;
-	h = strtok(NULL," ");
-	if (h) {
-		l = strtok(NULL," ");
-		if (l) {
-			ux->asmh = atoi(h);
-			ux->asml = atoi(l);
-		}
+	s = strtok(NULL," ");
+	if (s) {
+		ux->asm_address = strtoul(s,NULL,16);
 	}
 }
 
@@ -326,28 +307,6 @@ void parsePassThruMode (UX *ux, CPU6502 *c, char *s) {
 }
 
 void parseComment (UX *ux, CPU6502 *c, char *s) {}
-void parsePC (UX *ux, CPU6502 *c, char *s) {
-
-	ADDRESSANDMODE am;
-	char * p; 
-	
-	fprintf(ux->log,"parsepc...%s\n",s);
-	p = strtok(NULL," ");
-	if (p) {
-		p = strtok(NULL," ");
-	}
-	fprintf(ux->log,"next %s\n",p);
-
-	if (p) {
-		fprintf(ux->log,"starting parsepc\n");
-		*p++ = 0;
-		getAddressAndMode(p,&am);
-		ux->asmh = am.hi;
-		ux->asml = am.low;
-		fprintf(ux->log,"setting asmat to %x %x\n",ux->asmh,ux->asml);
-	}
-
-}
 
 void parseStep(UX *ux, CPU6502 *c, char *s) {
 	cia1_init(c);
@@ -369,7 +328,6 @@ PARSECMD g_commands[] = {
 	{";",parseComment},
 	{"\"",parsePassThru},
 	{"PTM",parsePassThruMode},
-	{"*",parsePC}
 };
 
 void handle_step(UX * ux,CPU6502 *c) {
@@ -378,10 +336,9 @@ void handle_step(UX * ux,CPU6502 *c) {
 	runcpu(c);
 	ux->discur++;
 
-	if (c->pc_high != ux->dislines[ux->discur].high || c->pc_low != ux->dislines[ux->discur].low
-		|| ux->discur == DISLINESCOUNT) {
+	if (c->pc != ux->dislines[ux->discur].address || ux->discur == DISLINESCOUNT) {
 
-		fillDisassembly(ux,c,c->pc_high,c->pc_low);
+		fillDisassembly(ux,c,c->pc);
 	}
 
 }

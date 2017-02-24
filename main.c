@@ -25,7 +25,7 @@ int main(int argc, char**argv) {
 	loadBinFile(&assembler,"asm/901226-01-basic.bin",0xA0,0x00);
 	//loadBinFile(&assembler,"asm/901225-01-char.bin",0xD0,0x00);
 
-	fillDisassembly(&ux,&cpu,cpu.pc_high,cpu.pc_low);
+	fillDisassembly(&ux,&cpu,cpu.pc);
 
 	do {
 
@@ -34,10 +34,10 @@ int main(int argc, char**argv) {
 			
 		}
 		if (ux.running) {
-			if (ux.brk && cpu.pc_high == ux.brkh && cpu.pc_low == ux.brkl) {
+			if (ux.brk && cpu.pc == ux.brk_address) {
 				ux.running = false;
 				ux.brk = false;
-				fillDisassembly(&ux,&cpu,cpu.pc_high,cpu.pc_low);
+				fillDisassembly(&ux,&cpu,cpu.pc);
 			}
 			else {
 				cia1_update(&cpu);

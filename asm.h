@@ -83,7 +83,7 @@ typedef struct {
 } ASSEMBLER;
 
 void assembleFile(ASSEMBLER *a, char * file);
-void disassembleLine(ASSEMBLER *a, char *buf, byte *high, byte *low);
+void disassembleLine(ASSEMBLER *a, char *buf, word *address);
 
 void init_assembler(ASSEMBLER * a, CPU6502 *c);
 void loadBinFile(ASSEMBLER *a, char * file, byte high, byte low); 

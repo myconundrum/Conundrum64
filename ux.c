@@ -105,8 +105,8 @@ void refresh_disassembly(UX * ux, CPU6502 * c) {
 			wattron(ux->disassembly,COLOR_PAIR(5));
 		}
 		wmove(ux->disassembly,i,0);
-		wprintw(ux->disassembly,"$%02X%02X:\t%s\n",
-			ux->dislines[i].high,ux->dislines[i].low,ux->dislines[i].buf);
+		wprintw(ux->disassembly,"$%04X:\t%s\n",
+			ux->dislines[i].address,ux->dislines[i].buf);
 
 		if (ux->discur == i) {
 			wattroff(ux->disassembly,COLOR_PAIR(5));
@@ -169,8 +169,8 @@ void refresh_registers(UX * ux, CPU6502 * c) {
 	werase(ux->registers);	
 	wmove(ux->registers,0,0);
 	wprintw(ux->registers,
-		"A: $%02X X: $%02X Y: $%02X STACK: $%02X PC: $%02X:%02X N:%dV%dX%dB%dD%dI%dZ%dC%d CYCLES: %010d",
-		c->reg_a,c->reg_x,c->reg_y,c->reg_stack,c->pc_high,c->pc_low,
+		"A: $%02X X: $%02X Y: $%02X STACK: $%02X PC: $%04X N:%dV%dX%dB%dD%dI%dZ%dC%d CYCLES: %010d",
+		c->reg_a,c->reg_x,c->reg_y,c->reg_stack,c->pc,
 		((c->reg_status & N_FLAG )!= 0),
 		((c->reg_status & V_FLAG )!= 0),
 		((c->reg_status & X_FLAG )!= 0),

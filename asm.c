@@ -401,17 +401,16 @@ byte getRelativeOffset(ASSEMBLER * a,byte high,byte low) {
 	return r;
 }
 
-void disassembleLine(ASSEMBLER * a,char * buf,byte * dish,byte *disl) {
+void disassembleLine(ASSEMBLER * a,char * buf,word * address) {
 	
 	int i = 0;
-	byte b = getByte(a->cpu,*dish,*disl);
+	byte b = mem_peek(*address);
 	byte h;
 	char * p = buf;
-	byte relhigh;
-	byte rellow;
+	word reladdress;
 
 
-	incLoc(dish,disl);
+	*address += 1;
 
 	for (i = 0; i < 256; i++) {
 		if (g_opcodes[i].op == b) {
@@ -426,75 +425,67 @@ void disassembleLine(ASSEMBLER * a,char * buf,byte * dish,byte *disl) {
 		p += strlen(p);
 		switch(g_opcodes[i].am) {
 			case AM_IMMEDIATE:
-				sprintf(p," #$%02X",getByte(a->cpu,*dish,*disl));
-				incLoc(dish,disl);
+				sprintf(p," #$%02X", mem_peek(*address));
+				*address += 1;
 			break;
 			case AM_ZEROPAGE:
-				sprintf(p," $%02X",getByte(a->cpu,*dish,*disl));
-				incLoc(dish,disl);
+				sprintf(p," $%02X",mem_peek(*address));
+				*address += 1;
 			break;
 			case AM_ZEROPAGEX:
-				sprintf(p," $%02X,X",getByte(a->cpu,*dish,*disl));
-				incLoc(dish,disl);
+				sprintf(p," $%02X,X",mem_peek(*address));
+				*address += 1;
 			break;
 			case AM_ZEROPAGEY:
-				sprintf(p," $%02X,Y",getByte(a->cpu,*dish,*disl));
-				incLoc(dish,disl);
+				sprintf(p," $%02X,Y",mem_peek(*address));
+				*address += 1;
 			case AM_ABSOLUTE:
-				b = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
-				h = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
 				sprintf(p," $%02X%02X",h,b);
 			break;
 			case AM_ABSOLUTEX:
-				b = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
-				h = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
 				sprintf(p," $%02X%02X,X",h,b);
 			break;
 			case AM_ABSOLUTEY:
-				b = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
-				h = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
 				sprintf(p," $%02X%02X,Y",h,b);
 			break;
 			case AM_INDIRECT:
-				b = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
-				h = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
 				sprintf(p," ($%02X%02X)",h,b);
 			break;
 			case AM_INDEXEDINDIRECT:
-				sprintf(p," ($%02X,X)",getByte(a->cpu,*dish,*disl));
-				incLoc(dish,disl);
+				sprintf(p," ($%02X,X)",mem_peek(*address));
+				*address += 1;
 			break;
 			case AM_INDIRECTINDEXED:
-				sprintf(p," ($%02X),Y",getByte(a->cpu,*dish,*disl));
-				incLoc(dish,disl);
+				sprintf(p," ($%02X),Y",mem_peek(*address));
+				*address += 1;
 			break;
 			case AM_RELATIVE:
-				b = getByte(a->cpu,*dish,*disl);
-				incLoc(dish,disl);
+				b = mem_peek(*address);
+				*address += 1;
 				if (b & N_FLAG) {
 					b = ~b + 1;
-					relhigh = *dish;
-					rellow = *disl - b;
-					if (rellow > *disl) {
-						relhigh--;
-					}
+					reladdress = *address - b;
 				}
 				else {
-					relhigh = *dish;
-					rellow = *disl + b;
-					if (rellow < *disl) {
-						relhigh++;
-					}
+					reladdress = *address + b;
 				}
-				sprintf(p," $%02X%02X",relhigh,rellow);
+				sprintf(p," $%04X",reladdress);
 			break;
 			default: 
 			break;
