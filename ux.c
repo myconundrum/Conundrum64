@@ -57,7 +57,8 @@ void refresh_memory(UX * ux, CPU6502 * c) {
 			ux->curpage,i*16);
 
 		for (j = 0; j < 16; j++) {
-			wprintw(ux->memory," %02X",c->ram[ux->curpage][i*16+j]);
+			wprintw(ux->memory," %02X",
+				mem_peek((ux->curpage << 8) | (i*16+j)));
 		}
 	}
 
@@ -152,7 +153,7 @@ void refresh_display(UX * ux, CPU6502 * c) {
 			address = 0x0400 + i * 40 + j;
 			high = address >> 8;
 			low = address & 0xff;
-			b = c->ram[high][low];
+			b = mem_peek((high << 8) | low);
 			ch = getScreenChar(b);
 			wprintw(ux->display,"%c",isprint(ch) ? ch : ' ');
 		}

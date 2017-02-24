@@ -36,7 +36,8 @@ void incLoc(byte *high, byte * low) {
 
 byte getByte(CPU6502 *c,byte high, byte low) {
 	
-	return c->ram[high][low];
+	word a = (high << 8) | low; 
+	return mem_peek(a);
 }
 
 byte getNextByte(CPU6502 *c) {
@@ -54,7 +55,8 @@ byte getNextByte(CPU6502 *c) {
 
 void setByte(CPU6502 *c, byte high, byte low, byte val) {
 
-	c->ram[high][low] = val;
+	word a = (high << 8) | low; 
+	mem_poke(a,val);
 }
 
 
@@ -781,9 +783,11 @@ void handle_ADC (CPU6502 *c, ENUM_AM m) {
     	setOrClearNFlag(c,temp);
     	setOrClearVFlag(c,!((c->reg_a ^ src) & 0x80) && ((c->reg_a ^ temp) & 0x80));
     	if (temp > 0x99) {
-    		temp += 96;
+    		temp += 0x60;
     	}
     	setOrClearCFlag(c,temp > 0x99);
+
+
     } else {
     	setOrClearNFlag(c,temp);
     	setOrClearVFlag(c,!((c->reg_a ^ src) & 0x80) && ((c->reg_a ^ temp) & 0x80));
@@ -815,9 +819,8 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 
 void initPC(CPU6502 *c) {
 
-
-	c->pc_low = c->ram[VECTOR_BASE][RESET_LOW];
-	c->pc_high = c->ram[VECTOR_BASE][RESET_HIGH];
+	c->pc_high = mem_peek(RESET_VECTOR_HIGH);
+	c->pc_low = mem_peek(RESET_VECTOR_LOW);
 }
 
 void destroy_computer(CPU6502 *c) {
@@ -1031,9 +1034,8 @@ void init_computer(CPU6502 *c) {
 	//
 	// 6502 reset vector
 	//
-	c->ram[VECTOR_BASE][RESET_LOW] = 0xE2;
-	c->ram[VECTOR_BASE][RESET_HIGH] = 0xFC;
-
+	mem_poke(RESET_VECTOR_HIGH,0xFC);
+	mem_poke(RESET_VECTOR_LOW,0xE2);
 	initPC(c);
 }
 

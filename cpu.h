@@ -22,11 +22,17 @@
 #define RESET_LOW	0xFC			// PC Low  for RESET vector
 
 
-typedef unsigned char byte; 
+#define RESET_VECTOR_HIGH	0xFFFD		// Reset vector addresses
+#define RESET_VECTOR_LOW	0xFFFC
+
+
+
+typedef unsigned char 		byte; 
+typedef unsigned short 		word; 
 
 typedef struct cpu6502 {
 
-	byte ram[256][256];   		// 256 pages of 256 bytes of memory
+	//byte ram[256][256];   		// 256 pages of 256 bytes of memory
 	byte pc_low; 				// low byte of program counter
 	byte pc_high;				// hi byte of program counter
 	byte reg_a;					// accumulator

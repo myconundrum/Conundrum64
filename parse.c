@@ -224,12 +224,12 @@ void parseOp (UX *ux, CPU6502 *c, char *s) {
 		op = &g_opcodes[i];
 
 		if ((strcmp(buf,op->name)==0) && am.mode == op->am) {
-			c->ram[ux->asmh][ux->asml++] = op->op;
+			mem_poke((ux->asmh << 8) | ux->asml++,op->op);
 			if (am.bytes) {
-				c->ram[ux->asmh][ux->asml++] = am.low;
+				mem_poke((ux->asmh << 8) | ux->asml++,am.low);
 			}
 			if (am.bytes == 2) {
-				c->ram[ux->asmh][ux->asml++] = am.hi;
+				mem_poke((ux->asmh << 8) | ux->asml++,am.hi);
 			}
 		}
 	}	
@@ -304,10 +304,9 @@ void parsePassThru (UX *ux, CPU6502 *c, char *s) {
 			default: ch = s[i]; break;
 		}
 
-		c->ram[0x02][0x77 + i] = ch;
+		mem_poke((0x02 << 8) | (0x77+i), ch);
 	}
-	c->ram[0x00][0xC6] = i;
-
+	mem_poke(0xC6,i);
 }
 
 

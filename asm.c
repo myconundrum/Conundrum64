@@ -369,7 +369,9 @@ void rulePCDirective(ASSEMBLER *a, LINE *line) {
 }
 
 void asmbyte(ASSEMBLER *a, byte b) {
-	a->cpu->ram[a->asmh][a->asml] = b;
+
+	word add = (a->asmh << 8) | a->asml;
+	mem_poke(add,b);
 	a->asml++;
 	if (a->asml == 0) {
 		a->asmh++;

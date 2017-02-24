@@ -37,12 +37,8 @@ typedef struct {
 KEYMAP g_ciaKeyboardTable[MAX_CHARS] = {0};
 
 
-byte g_ciapress1 = 0xFF;
-byte g_ciapress2 = 0xFF;
-byte g_ciapress3 = 0xFF;
-int g_ciaticks1 = 0x00;
-int g_ciaticks2 = 0x00;
-int g_ciaticks3 = 0x00;
+byte g_ciapress = 0xFF;
+int g_ciaticks = 0x00;
 
 void ciaInitChar(byte ch, byte col, byte row) {
 
@@ -134,54 +130,18 @@ void cia1_update(CPU6502 *c) {
 
 	KEYMAP km;
 
-	if (g_ciaticks1) {
-		g_ciaticks1--;
-		if (!g_ciaticks1) {
-			g_ciapress1 = g_ciapress2;
-			g_ciaticks1 = g_ciaticks2;
-			g_ciapress2 = g_ciapress3;
-			g_ciaticks2 = g_ciaticks3;
+	if (g_ciaticks) {
+		g_ciaticks--;
+		if (!g_ciaticks) {
+			g_ciapress = 0xff;
 		}
 	}
 
-	if (g_ciaticks2) {
-		g_ciaticks2--;
-		if (!g_ciaticks2) {
-			g_ciapress2 = g_ciapress3;
-			g_ciaticks2 = g_ciaticks3;
-		}
-	}
+	mem_poke(CIA1_PORTB_ADD,0);
+	if (g_ciaticks) {
 
-	if (g_ciaticks3) {
-		g_ciaticks3--;
-	}
-
-	c->ram[CIA1_PAGE][CIA1_PORTB] = 0;
-
-	if (g_ciaticks1) {
-		if (g_ciaticks1 == 1) {
-			fprintf(c->log,"CH TO SET: %c PORTA VAL: %02X TEST %d\n",
-				g_ciapress1,
-				c->ram[CIA1_PAGE][CIA1_PORTA],
-				g_ciaKeyboardTable[g_ciapress1].column & c->ram[CIA1_PAGE][CIA1_PORTA]
-				);
-		}
-		if (g_ciaKeyboardTable[g_ciapress1].column & c->ram[CIA1_PAGE][CIA1_PORTA]) {
-			c->ram[CIA1_PAGE][CIA1_PORTB] |= g_ciaKeyboardTable[g_ciapress1].row;
-		}
-
-
-	}
-
-	if (g_ciaticks2) {
-		if (g_ciaKeyboardTable[g_ciapress2].column & c->ram[CIA1_PAGE][CIA1_PORTA]) {
-			c->ram[CIA1_PAGE][CIA1_PORTB] |= g_ciaKeyboardTable[g_ciapress2].row;
-		}
-	}
-
-	if (g_ciaticks3) {
-		if (g_ciaKeyboardTable[g_ciapress3].column & c->ram[CIA1_PAGE][CIA1_PORTA]) {
-			c->ram[CIA1_PAGE][CIA1_PORTB] |= g_ciaKeyboardTable[g_ciapress3].row;
+		if (g_ciaKeyboardTable[g_ciapress].column & mem_peek(CIA1_PORTA_ADD)) {
+			mem_poke(CIA1_PORTB_ADD,mem_peek(CIA1_PORTB_ADD | g_ciaKeyboardTable[g_ciapress].row));
 		}
 	}
 }
@@ -190,19 +150,9 @@ void cia1_update(CPU6502 *c) {
 
 void cia1_keypress(byte ch) {
 
-	if (!g_ciaticks1) {
-		g_ciaticks1 = TICKCOUNT;
-		g_ciapress1 = ch;
-	}
-
-	if (!g_ciaticks2) {
-		g_ciaticks2 = TICKCOUNT;
-		g_ciapress2 = ch;
-	}
-
-	if (!g_ciaticks3) {
-		g_ciaticks3 = TICKCOUNT;
-		g_ciapress3 = ch;
+	if (!g_ciaticks) {
+		g_ciaticks = TICKCOUNT;
+		g_ciapress = ch;
 	}
 }
 
