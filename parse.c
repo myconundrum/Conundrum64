@@ -283,6 +283,33 @@ void parseStop (UX *ux, CPU6502 *c, char *s) {
 	ux->running = false;
 }
 
+void parsePassThru (UX *ux, CPU6502 *c, char *s) {
+
+
+	int i;
+	byte ch;
+
+	s = strtok(NULL," ");
+
+	if (!*s) {
+		return;
+	}
+
+	for (i = 0; i < strlen(s) && i <10; i++) {
+
+		switch(s[i]) {
+			case '*': ch = 0x0d; break;
+			case '_': ch = 0x20; break;
+			case '\"': ch = 0x22; break;
+			default: ch = s[i]; break;
+		}
+
+		c->ram[0x02][0x77 + i] = ch;
+	}
+	c->ram[0x00][0xC6] = i;
+
+}
+
 
 void parseAsmfile (UX *ux, CPU6502 *c, char *s) {
 	
@@ -290,6 +317,12 @@ void parseAsmfile (UX *ux, CPU6502 *c, char *s) {
 	if (p) {
 		assembleFile(ux->assembler,p);
 	}
+	
+}
+
+void parsePassThruMode (UX *ux, CPU6502 *c, char *s) {
+		
+	ux->passthru = true;
 	
 }
 
@@ -318,6 +351,7 @@ void parsePC (UX *ux, CPU6502 *c, char *s) {
 }
 
 void parseStep(UX *ux, CPU6502 *c, char *s) {
+	cia1_init(c);
 	runcpu(c);
 }
 
@@ -334,10 +368,16 @@ PARSECMD g_commands[] = {
 	{"@",parseAsmfile},
 	{"S",parseStep},
 	{";",parseComment},
+	{"\"",parsePassThru},
+	{"PTM",parsePassThruMode},
 	{"*",parsePC}
 };
 
 void handle_step(UX * ux,CPU6502 *c) {
+
+	cia1_init(c);
+	runcpu(c);
+	ux->discur++;
 
 	if (c->pc_high != ux->dislines[ux->discur].high || c->pc_low != ux->dislines[ux->discur].low
 		|| ux->discur == DISLINESCOUNT) {
@@ -345,8 +385,6 @@ void handle_step(UX * ux,CPU6502 *c) {
 		fillDisassembly(ux,c,c->pc_high,c->pc_low);
 	}
 
-	runcpu(c);
-	ux->discur++;
 }
 
 void handle_command(UX * ux, CPU6502 *c) {

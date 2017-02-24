@@ -9,6 +9,7 @@
 #include "cpu.h"
 #include "asm.h"
 #include "ux.h"
+#include "cia1.h"
 
 
 

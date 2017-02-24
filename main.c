@@ -12,7 +12,8 @@ int main(int argc, char**argv) {
 	ASSEMBLER assembler;
 	int cycles = 0;
 
-	init_computer(&cpu);
+	init_computer(&cpu);				// init 6502 CPU for C64 emulator.
+	cia1_init();						// init CIA1 chip for C64 emulator.
 	init_assembler(&assembler, &cpu);
 	init_ux(&ux, &assembler);
 	
@@ -26,7 +27,6 @@ int main(int argc, char**argv) {
 
 	fillDisassembly(&ux,&cpu,cpu.pc_high,cpu.pc_low);
 
-
 	do {
 
 		if (!(cycles % 100)) {
@@ -37,8 +37,10 @@ int main(int argc, char**argv) {
 			if (ux.brk && cpu.pc_high == ux.brkh && cpu.pc_low == ux.brkl) {
 				ux.running = false;
 				ux.brk = false;
+				fillDisassembly(&ux,&cpu,cpu.pc_high,cpu.pc_low);
 			}
 			else {
+				cia1_update(&cpu);
 				runcpu(&cpu);
 			}
 		}

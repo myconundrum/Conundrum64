@@ -42,6 +42,7 @@ typedef struct {
 	bool		brk; 
 	FILE * 	    log;
 	bool 		running;
+	bool		passthru;
 	ASSEMBLER  * assembler;
 
 } UX;

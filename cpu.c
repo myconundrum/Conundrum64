@@ -101,6 +101,7 @@ void setPCFromOffset(CPU6502 * c, byte val) {
 	bool negative = val & N_FLAG;
 	byte oldl;
 
+
 	if (negative) {
 		val = ~val + 1;
 	}
@@ -532,9 +533,12 @@ void handle_BPL (CPU6502 * c,ENUM_AM m) {
 
 void handle_BNE (CPU6502 * c,ENUM_AM m) {
 
+
 	byte val = getNextByte(c);
+
 	if ((c->reg_status & Z_FLAG) == 0) {
-		setPCFromOffset(c,val);
+	
+			setPCFromOffset(c,val);	
 	} 
 }
 
@@ -710,26 +714,43 @@ void handle_CPY (CPU6502 *c, ENUM_AM m) {
 void handle_SBC (CPU6502 *c, ENUM_AM m) {
 
 	unsigned int temp;
+	unsigned int temp2;
 	byte src = getval(c,m);
 
 	temp = 	 c->reg_a - src - ((c->reg_status & C_FLAG) ? 0 : 1);
-	fprintf(c->log,"%02X%02X: %02X - %02X = %02X \n ",c->pc_high, c->pc_low,c->reg_a, src, temp);
-
+	
 	setOrClearNFlag(c,temp);
 	setOrClearZFlag(c,temp & 0xff);
 	setOrClearVFlag(c,((c->reg_a ^ temp) &0x80) && ((c->reg_a ^ src) & 0x80));
-
 	if (c->reg_status & D_FLAG) {
 		if (((c->reg_a & 0xf) - ((c->reg_status & C_FLAG) ? 0 : 1)) < (src & 0xf)) {
 			temp -= 6;
 		}
 		if (temp > 0x99) {
-			temp -= 60; 
+			temp += 0x60; 
 		}
 	}
 
+
+
+/*
+	uint16_t diff = lhs - rhs - carry;
+	if((lhs & 0xf) - carry < (rhs & 0xf))
+	{
+		diff -= 0x6;
+	}
+	if(diff > 0x99)
+	{
+		diff += 0x60;
+	}
+	return diff;
+}
+*/
 	setOrClearCFlag(c,temp < 0x100);
 	c->reg_a = (temp & 0xff);
+
+
+
 
 }
 
@@ -777,10 +798,11 @@ void handle_ADC (CPU6502 *c, ENUM_AM m) {
 void runcpu(CPU6502 *c) {
 
 	byte op;
-	
+
 	op = getNextByte(c);
 	g_opcodes[op].fn(c,g_opcodes[op].am);
 	c->cycles += g_opcodes[op].cycles;
+
 }
 
 void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {

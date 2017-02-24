@@ -191,30 +191,40 @@ void refresh_console(UX * ux, CPU6502 * c) {
 
 	wattron(ux->console,COLOR_PAIR(1));
 
-	switch(ch) {
-		case 27:
-			handle_step(ux,c); 
-			//
-			// BUGBUG on my keyboard, key down returns three keys.
-			//
+	if (ch != -1 && ux->passthru) {
+		if (ch == 27) {
+			ux->passthru = false;
 			getch();getch();
-
-		break;
-		case -1:
-		break;
-		case '\n':
-			handle_command(ux,c);
-			memset(ux->buf,0,256);
-			ux->bpos = 0;
-		break;
-		default:
-			if (isprint(ch)) {
-				ch = toupper(ch);
-				ux->buf[ux->bpos++] = ch;
-			}
-		break;
+		}
+		else { 
+			cia1_keypress(toupper(ch));
+		}
 	}
+	else {
+		switch(ch) {
+			case 27:
+				handle_step(ux,c); 
+				//
+				// BUGBUG on my keyboard, key down returns three keys.
+				//
+				getch();getch();
 
+			break;
+			case -1:
+			break;
+			case '\n':
+				handle_command(ux,c);
+				memset(ux->buf,0,256);
+				ux->bpos = 0;
+			break;
+			default:
+				if (isprint(ch)) {
+					ch = toupper(ch);
+					ux->buf[ux->bpos++] = ch;
+				}
+			break;
+		}
+	}
 	werase(ux->console);
 	wmove(ux->console,0,0);
 	wprintw(ux->console,":> %s", ux->buf);
