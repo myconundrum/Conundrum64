@@ -6,9 +6,6 @@
 #include <ctype.h>
 #include "emu.h"
 
-
-
-
 typedef struct cpu6502 {
 
 	byte reg_a;					// accumulator
@@ -20,7 +17,6 @@ typedef struct cpu6502 {
 
 	unsigned int cycles; 		// tracks total cycles run. 
 	FILE * log;					// log file. 
-	
 
 } CPU6502;
 
@@ -35,6 +31,12 @@ byte fetch() {
 	}
 
 	return mem_peek(g_cpu.pc++);
+}
+
+word fetch_word() {
+
+	return fetch() | (fetch() << 8);
+
 }
 
 
@@ -73,8 +75,6 @@ void setOrClearCFlag(byte val) {
 }
 
 
-
-
 void setPCFromOffset(byte val) {
 	
 	word old = g_cpu.pc;
@@ -101,92 +101,61 @@ void setPCFromOffset(byte val) {
 }
 
 
-void getloc(ENUM_AM m, byte * high, byte * low) {
+word cpu_getloc(ENUM_AM mode) {
 
-	byte indirectl;
-	byte indirecth;
+	word address = 0x00; 
 
-	*low = fetch();
-	*high = 0;
-
-	switch(m) {
+	switch(mode) {
+		case AM_ZEROPAGE: 
+			address = fetch();
+		break;
 		case AM_ZEROPAGEX: // LDA $00,X
-			*low +=g_cpu.reg_x;
+			address = fetch() + g_cpu.reg_x;
 		break;
 		case AM_ABSOLUTE: // LDA $1234
-			*high = fetch();
+			address = fetch_word();
 		break;
 		case AM_ABSOLUTEX: // LDA $1234,X
-			*high = fetch();
-			*low +=g_cpu.reg_x;
+			address = fetch_word() + g_cpu.reg_x;
 		break;
 		case AM_ABSOLUTEY: // LDA $1234,Y
-			*high = fetch();
-			*low += g_cpu.reg_y;
+			address = fetch_word() + g_cpu.reg_y;
 		break;
 		case AM_INDIRECT: // JMP ($1234)
-			*high = fetch();
-			indirectl = mem_peek((*high << 8) | *low);
-			indirecth = mem_peek((*high << 8) | *low + 1);
-			*low = indirectl;
-			*high = indirecth;
+			address = fetch_word();
+			address = mem_peekword(address);
 		break;
 		case AM_INDEXEDINDIRECT: // LDA ($00,X)
-
-			indirectl = mem_peek((*high << 8) | *low + g_cpu.reg_x);
-			indirecth = mem_peek((*high << 8) | *low + g_cpu.reg_x + 1);
-		
-			*low = indirectl;
-			*high = indirecth;
+			address = mem_peekword(fetch() + g_cpu.reg_x);
 		break;
 		case AM_INDIRECTINDEXED: // LDA ($00),Y
-			indirectl = mem_peek((*high << 8) | *low);
-			indirecth = mem_peek((*high << 8) | *low + 1);
-			*low = indirectl + g_cpu.reg_y;
-			*high = indirecth;
+			address = fetch();
+			address = mem_peekword(address) + g_cpu.reg_y;
 		break;
 		default: break;
 	}
 
+	return address;
 }
 
 unsigned char getval(ENUM_AM m) {
 
-	byte high;
-	byte low;
-	byte val;
-
-	if (m == AM_IMMEDIATE) {
-		val = fetch();
-	}
-	else {
-		getloc(m,&high,&low);
-		val = mem_peek((high<<8)|low);
-	}
-	return val;
+	return m == AM_IMMEDIATE ? fetch() : mem_peek(cpu_getloc(m));
 }
 
 void handle_JMP(ENUM_AM m) {
 
-	byte high;
-	byte low;
-
-
-	getloc(m,&high,&low);
-
-	g_cpu.pc = (high << 8) | low;
+	g_cpu.pc = cpu_getloc(m);
 }
 
 void handle_JSR(ENUM_AM m) {
 
-	byte high;
-	byte low;
-
-	getloc(m,&high,&low);
+	word address = cpu_getloc(m);
 
 	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc >> 8));	
 	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc & 0xFF) - 1);
-	g_cpu.pc = (high << 8) | low;
+	
+	g_cpu.pc = address;
 }
 
 void handle_RTS(ENUM_AM m) {
@@ -220,6 +189,7 @@ void handle_EOR(ENUM_AM m) {
 	setOrClearZFlag(g_cpu.reg_a);
 }
 
+
 void handle_ORA(ENUM_AM m) {
 
 	g_cpu.reg_a |= getval(m);
@@ -250,27 +220,15 @@ void handle_LDX(ENUM_AM m) {
 
 
 void handle_STA(ENUM_AM m) {
-
-	byte high;
-	byte low;
-	getloc(m,&high,&low);
-	mem_poke((high << 8) | low , g_cpu.reg_a);
+	mem_poke(cpu_getloc(m), g_cpu.reg_a);
 }
 
 void handle_STX(ENUM_AM m) {
-
-	byte high;
-	byte low;
-	getloc(m,&high,&low);
-	mem_poke((high << 8) | low , g_cpu.reg_x);
+	mem_poke(cpu_getloc(m),g_cpu.reg_x);
 }
 
 void handle_STY(ENUM_AM m) {
-
-	byte high;
-	byte low;
-	getloc(m,&high,&low);
-	mem_poke((high << 8) | low , g_cpu.reg_y);
+	mem_poke(cpu_getloc(m),g_cpu.reg_y);
 }
 
 void handle_TAX(ENUM_AM m) {
@@ -305,12 +263,10 @@ void handle_TYA(ENUM_AM m) {
 }
 
 void handle_TXS(ENUM_AM m) {
-
 	g_cpu.reg_stack = g_cpu.reg_x;	
 }
 
 void handle_TSX(ENUM_AM m) {
-
 	g_cpu.reg_x = g_cpu.reg_stack;
 	setOrClearNFlag(g_cpu.reg_x);
 	setOrClearZFlag(g_cpu.reg_x);
@@ -341,26 +297,20 @@ void handle_PLP(ENUM_AM m) {
 
 void handle_INC(ENUM_AM m) {
 
-	byte high;
-	byte low;
-	byte val;
-	
-	getloc(m,&high,&low);
-	val =  mem_peek((high << 8) | low) + 1;
-	mem_poke((high << 8) | low, val);
+	byte val;	
+	word address = cpu_getloc(m);
+	val =  mem_peek(address) + 1;
+	mem_poke(address, val);
 	setOrClearNFlag(val);
 	setOrClearZFlag(val);
 }
 
 void handle_DEC(ENUM_AM m) {
 
-	byte high;
-	byte low;
-	byte val;
-	
-	getloc(m,&high,&low);
-	val =  mem_peek((high << 8) | low) - 1;
-	mem_poke((high << 8) | low, val);
+	byte val;	
+	word address = cpu_getloc(m);
+	val =  mem_peek(address) - 1;
+	mem_poke(address, val);
 	setOrClearNFlag(val);
 	setOrClearZFlag(val);
 }
@@ -503,9 +453,7 @@ void handle_BPL (ENUM_AM m) {
 
 void handle_BNE (ENUM_AM m) {
 
-
 	byte val = fetch();
-
 	if ((g_cpu.reg_status & Z_FLAG) == 0) {
 			setPCFromOffset(val);	
 	} 
@@ -530,15 +478,14 @@ void handle_BVS (ENUM_AM m) {
 void handle_LSR (ENUM_AM m) {
 
 	byte src; 
-	byte high;
-	byte low;
+	word address;
 
 	if (m == AM_IMPLICIT) {
 		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(m,&high,&low);
-		src = mem_peek((high<<8)|low);
+		address = cpu_getloc(m);
+		src = mem_peek(address);
 	}
 
 	setOrClearCFlag(src & 0x01);
@@ -550,7 +497,7 @@ void handle_LSR (ENUM_AM m) {
 		g_cpu.reg_a = src;
 	}
 	else {
-		mem_poke((high << 8) | low , src);
+		mem_poke(address, src);
 	}	
 
 }
@@ -558,15 +505,14 @@ void handle_LSR (ENUM_AM m) {
 void handle_ROL (ENUM_AM m) {
 
 	unsigned int src; 
-	byte high;
-	byte low;
+	word address;
 
 	if (m == AM_IMPLICIT) {
 		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(m,&high,&low);
-		src = mem_peek((high <<8)|low);
+		address = cpu_getloc(m);
+		src = mem_peek(address);
 	}
 
 	src <<=1;
@@ -582,7 +528,7 @@ void handle_ROL (ENUM_AM m) {
 		g_cpu.reg_a = src;
 	}
 	else {
-		mem_poke((high << 8) | low , src);
+		mem_poke(address, src);
 	}	
 
 }
@@ -590,15 +536,14 @@ void handle_ROL (ENUM_AM m) {
 void handle_ROR (ENUM_AM m) {
 
 	unsigned int src; 
-	byte high;
-	byte low;
+	word address;
 
 	if (m == AM_IMPLICIT) {
 		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(m,&high,&low);
-		src = mem_peek((high <<8)|low);;
+		address = cpu_getloc(m);
+		src = mem_peek(address);
 	}
 
 	
@@ -615,24 +560,22 @@ void handle_ROR (ENUM_AM m) {
 		g_cpu.reg_a = src;
 	}
 	else {
-		mem_poke((high << 8) | low , src);
+		mem_poke(address, src);
 	}	
-
 }
 
 
 void handle_ASL (ENUM_AM m) {
 
 	byte src; 
-	byte high;
-	byte low;
+	word address;
 
 	if (m == AM_IMPLICIT) {
 		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(m,&high,&low);
-		src = mem_peek((high <<8)|low);
+		address = cpu_getloc(m);
+		src = mem_peek(address);
 	}
 
 	setOrClearCFlag(src & 0x80);
@@ -644,11 +587,10 @@ void handle_ASL (ENUM_AM m) {
 		g_cpu.reg_a = src;
 	}
 	else {
-		mem_poke((high << 8) | low , src);
+		mem_poke(address, src);
 	}	
 
 }
-
 
 void handle_CMP (ENUM_AM m) {
 
@@ -699,7 +641,6 @@ void handle_SBC (ENUM_AM m) {
 			temp += 0x60; 
 		}
 	}
-
 
 	setOrClearCFlag(temp < 0x100);
 	g_cpu.reg_a = (temp & 0xff);

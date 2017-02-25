@@ -262,7 +262,7 @@ void parsePassThru (UX *ux, char *s) {
 			default: ch = s[i]; break;
 		}
 
-		mem_poke((0x02 << 8) | (0x77+i), ch);
+		mem_poke(0x0277 + i, ch);
 	}
 	mem_poke(0xC6,i);
 }

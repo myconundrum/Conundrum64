@@ -41,6 +41,7 @@ int main(int argc, char**argv) {
 			else {
 				cia1_update();
 				runcpu();
+				mem_poke(0xD012,0); //BUGBUG hack. 
 			}
 		}
 		cycles++;
