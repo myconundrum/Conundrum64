@@ -205,9 +205,8 @@ bool tr_number(LINE * line, TOKEN *tok, int val, TOKEN_TYPE type, char *name) {
 
 
 
-void init_assembler(ASSEMBLER *a, CPU6502 *c) {
+void init_assembler(ASSEMBLER *a) {
 
-	a->cpu = c;
 	a->rulecount = 0;
 
 	addTokenRule(a,tr_singlechrule,ASM_IMMEDIATESPECIFIER,'#',"IMMEDIATESPECIFIER");

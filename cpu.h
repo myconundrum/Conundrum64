@@ -22,22 +22,7 @@
 typedef unsigned char 		byte; 
 typedef unsigned short 		word; 
 
-typedef struct cpu6502 {
 
-	//byte pc_low; 				// low byte of program counter
-	//byte pc_high;				// hi byte of program counter
-	byte reg_a;					// accumulator
-	byte reg_x;					// x register
-	byte reg_y;					// y register
-	byte reg_status;			// status byte
-	byte reg_stack;				// stack pointer
-	word pc;					// program counter;
-
-	unsigned int cycles; 		// tracks total cycles run. 
-	FILE * log;					// log file. 
-	
-
-} CPU6502;
 
 
 //
@@ -62,10 +47,7 @@ typedef enum {
 
 } ENUM_AM;
 
-
-
-
-typedef void (*OPHANDLER)(CPU6502*,ENUM_AM);
+typedef void (*OPHANDLER)(ENUM_AM);
 
 typedef struct {
 
@@ -77,20 +59,21 @@ typedef struct {
 
 } OPCODE;
 
+
 extern OPCODE g_opcodes[256];
 
 
-extern void runcpu(CPU6502 *);
-extern void init_computer(CPU6502 *);
-extern void destroy_computer(CPU6502 *);
+extern void runcpu();
+extern void init_computer();
+extern void destroy_computer();
 
-
-void incLoc(byte *high, byte * low);
-byte getByte(CPU6502 *c,byte high, byte low);
-byte getNextByte(CPU6502 *c);
-void setByte(CPU6502 *c, byte high, byte low, byte val);
-
-
+byte cpu_geta();
+byte cpu_getx();
+byte cpu_gety();
+word cpu_getpc();
+byte cpu_getstatus();
+byte cpu_getstack();
+unsigned int cpu_getcycles();
 
 
 #endif

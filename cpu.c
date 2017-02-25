@@ -7,119 +7,125 @@
 #include "emu.h"
 
 
-const char * g_regNames[] = {
 
-	"A",
-	"X",
-	"Y",
-	"SP",
-	"PS",
-	"MAX_REGISTERS"
-};
+
+typedef struct cpu6502 {
+
+	byte reg_a;					// accumulator
+	byte reg_x;					// x register
+	byte reg_y;					// y register
+	byte reg_status;			// status byte
+	byte reg_stack;				// stack pointer
+	word pc;					// program counter;
+
+	unsigned int cycles; 		// tracks total cycles run. 
+	FILE * log;					// log file. 
+	
+
+} CPU6502;
+
 
 OPCODE g_opcodes[256];
+CPU6502 g_cpu;
 
-byte getNextByte(CPU6502 *c) {
+byte fetch() {
 
-	byte b;
-
-	b = mem_peek(c->pc++);
-
-	if ((c->pc & 0xFF) == 0) {
-		c->cycles++;
+	if (((g_cpu.pc + 1) & 0xFF) == 0) {
+		g_cpu.cycles++;
 	}
 
-	return b;
+	return mem_peek(g_cpu.pc++);
 }
+
 
 //
 // Sets n flag if N & val otherwise clear
 //
-void setOrClearNFlag(CPU6502 *c, byte val) {
+void setOrClearNFlag(byte val) {
 
-	c->reg_status = (val & N_FLAG) ? c->reg_status | N_FLAG : 
-	c->reg_status & ~N_FLAG;
+	g_cpu.reg_status = (val & N_FLAG) ? g_cpu.reg_status | N_FLAG : 
+	g_cpu.reg_status & ~N_FLAG;
 }
 //
 // Sets Z flag if val==0 otherwise clear
 //
-void setOrClearZFlag(CPU6502 *c, byte val) {
+void setOrClearZFlag(byte val) {
 	
-	c->reg_status = (val) ? (c->reg_status & (~Z_FLAG)) :
-	 	(c->reg_status | Z_FLAG);
+	g_cpu.reg_status = (val) ? (g_cpu.reg_status & (~Z_FLAG)) :
+	 	(g_cpu.reg_status | Z_FLAG);
 }
 //
 // Sets v flag if true otherwise clear
 //
-void setOrClearVFlag(CPU6502 *c, byte val) {
+void setOrClearVFlag(byte val) {
 
-	c->reg_status = (val) ? c->reg_status | V_FLAG : 
-	c->reg_status & ~V_FLAG;
+	g_cpu.reg_status = (val) ? g_cpu.reg_status | V_FLAG : 
+	g_cpu.reg_status & ~V_FLAG;
 }
 
 //
 // Sets v flag if true otherwise clear
 //
-void setOrClearCFlag(CPU6502 *c, byte val) {
+void setOrClearCFlag(byte val) {
 
-	c->reg_status = (val) ? c->reg_status | C_FLAG : 
-	c->reg_status & ~C_FLAG;
+	g_cpu.reg_status = (val) ? g_cpu.reg_status | C_FLAG : 
+	g_cpu.reg_status & ~C_FLAG;
 }
 
 
 
 
-void setPCFromOffset(CPU6502 * c, byte val) {
+void setPCFromOffset(byte val) {
 	
-	word old = c->pc;
+	word old = g_cpu.pc;
 
 	if (val & N_FLAG) {
 		val = ~val + 1;
-		c->pc -= val;
+		g_cpu.pc -= val;
 	}
 	else {
-		c->pc += val;
+		g_cpu.pc += val;
 	}
 
 	//
 	// add a cycle on successful branch.
 	//
-	c->cycles++;
+	g_cpu.cycles++;
 
 	//
 	// add cycle on page boundary cross.
 	//
-	if ((c->pc & 0xFF) != (old & 0xFF)) {
-		c->cycles++;
+	if ((g_cpu.pc & 0xFF) != (old & 0xFF)) {
+		g_cpu.cycles++;
 	}
 }
 
 
-void getloc(CPU6502 *c, ENUM_AM m, byte * high, byte * low) {
+void getloc(ENUM_AM m, byte * high, byte * low) {
 
 	byte indirectl;
 	byte indirecth;
 
-	*low = getNextByte(c);
+	*low = fetch();
 	*high = 0;
 
 	switch(m) {
 		case AM_ZEROPAGEX: // LDA $00,X
-			*low += c->reg_x;
+			*low +=g_cpu.reg_x;
 		break;
 		case AM_ABSOLUTE: // LDA $1234
-			*high = getNextByte(c);
+			*high = fetch();
 		break;
 		case AM_ABSOLUTEX: // LDA $1234,X
-			*high = getNextByte(c);
-			*low +=c->reg_x;
+			*high = fetch();
+			*low +=g_cpu.reg_x;
 		break;
 		case AM_ABSOLUTEY: // LDA $1234,Y
-			*high = getNextByte(c);
-			*low += c->reg_y;
+			*high = fetch();
+			*low += g_cpu.reg_y;
 		break;
 		case AM_INDIRECT: // JMP ($1234)
-			*high = getNextByte(c);
+			*high = fetch();
 			indirectl = mem_peek((*high << 8) | *low);
 			indirecth = mem_peek((*high << 8) | *low + 1);
 			*low = indirectl;
@@ -127,8 +133,8 @@ void getloc(CPU6502 *c, ENUM_AM m, byte * high, byte * low) {
 		break;
 		case AM_INDEXEDINDIRECT: // LDA ($00,X)
 
-			indirectl = mem_peek((*high << 8) | *low + c->reg_x);
-			indirecth = mem_peek((*high << 8) | *low + c->reg_x + 1);
+			indirectl = mem_peek((*high << 8) | *low + g_cpu.reg_x);
+			indirecth = mem_peek((*high << 8) | *low + g_cpu.reg_x + 1);
 		
 			*low = indirectl;
 			*high = indirecth;
@@ -136,7 +142,7 @@ void getloc(CPU6502 *c, ENUM_AM m, byte * high, byte * low) {
 		case AM_INDIRECTINDEXED: // LDA ($00),Y
 			indirectl = mem_peek((*high << 8) | *low);
 			indirecth = mem_peek((*high << 8) | *low + 1);
-			*low = indirectl + c->reg_y;
+			*low = indirectl + g_cpu.reg_y;
 			*high = indirecth;
 		break;
 		default: break;
@@ -144,405 +150,404 @@ void getloc(CPU6502 *c, ENUM_AM m, byte * high, byte * low) {
 
 }
 
-unsigned char getval(CPU6502 *c,ENUM_AM m) {
+unsigned char getval(ENUM_AM m) {
 
 	byte high;
 	byte low;
 	byte val;
 
 	if (m == AM_IMMEDIATE) {
-		val = getNextByte(c);
+		val = fetch();
 	}
 	else {
-		getloc(c,m,&high,&low);
+		getloc(m,&high,&low);
 		val = mem_peek((high<<8)|low);
 	}
 	return val;
 }
 
-void handle_JMP(CPU6502 * c,ENUM_AM m) {
+void handle_JMP(ENUM_AM m) {
 
 	byte high;
 	byte low;
 
 
-	getloc(c,m,&high,&low);
+	getloc(m,&high,&low);
 
-	c->pc = (high << 8) | low;
+	g_cpu.pc = (high << 8) | low;
 }
 
-void handle_JSR(CPU6502 * c,ENUM_AM m) {
+void handle_JSR(ENUM_AM m) {
 
 	byte high;
 	byte low;
 
-	getloc(c,m,&high,&low);
+	getloc(m,&high,&low);
 
-	mem_poke(STACK_BASE | c->reg_stack--,(byte) (c->pc >> 8));	
-	mem_poke(STACK_BASE | c->reg_stack--,(byte) (c->pc & 0xFF) - 1);
-	c->pc = (high << 8) | low;
+	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc >> 8));	
+	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc & 0xFF) - 1);
+	g_cpu.pc = (high << 8) | low;
 }
 
-void handle_RTS(CPU6502 * c,ENUM_AM m) {
+void handle_RTS(ENUM_AM m) {
 
-	c->pc = mem_peek(STACK_BASE | ++c->reg_stack) + 1;
-	c->pc |= ((word) mem_peek(STACK_BASE | ++c->reg_stack) << 8);
+	g_cpu.pc = mem_peek(STACK_BASE | ++g_cpu.reg_stack) + 1;
+	g_cpu.pc |= ((word) mem_peek(STACK_BASE | ++g_cpu.reg_stack) << 8);
 }
 
-void handle_BIT(CPU6502 * c,ENUM_AM m) {
+void handle_BIT(ENUM_AM m) {
 
-	byte val = c->reg_a & getval(c,m);
+	byte val = g_cpu.reg_a & getval(m);
 	
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
 	
-	c->reg_status = (val & V_FLAG) ? (c->reg_status | V_FLAG) :
-		(c->reg_status & (~V_FLAG));
+	g_cpu.reg_status = (val & V_FLAG) ? (g_cpu.reg_status | V_FLAG) :
+		(g_cpu.reg_status & (~V_FLAG));
 }
 
-void handle_AND(CPU6502 * c,ENUM_AM m) {
+void handle_AND(ENUM_AM m) {
 
-	c->reg_a &= getval(c,m);
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
+	g_cpu.reg_a &= getval(m);
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
 }
 
-void handle_EOR(CPU6502 * c,ENUM_AM m) {
+void handle_EOR(ENUM_AM m) {
 
-	c->reg_a ^= getval(c,m);
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
+	g_cpu.reg_a ^= getval(m);
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
 }
 
-void handle_ORA(CPU6502 * c,ENUM_AM m) {
+void handle_ORA(ENUM_AM m) {
 
-	c->reg_a |= getval(c,m);
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
+	g_cpu.reg_a |= getval(m);
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
 }
 
-void handle_LDA(CPU6502 * c,ENUM_AM m) {
+void handle_LDA(ENUM_AM m) {
 
-	c->reg_a = getval(c,m);
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
+	g_cpu.reg_a = getval(m);
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
 }
 
-void handle_LDY(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_y = getval(c,m);
-	setOrClearNFlag(c,c->reg_y);
-	setOrClearZFlag(c,c->reg_y);
-}
-
-void handle_LDX(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_x = getval(c,m);
-	setOrClearNFlag(c,c->reg_x);
-	setOrClearZFlag(c,c->reg_x);
-}
-
-
-void handle_STA(CPU6502 * c,ENUM_AM m) {
-
-	byte high;
-	byte low;
-	getloc(c,m,&high,&low);
-	mem_poke((high << 8) | low , c->reg_a);
-}
-
-void handle_STX(CPU6502 * c,ENUM_AM m) {
-
-	byte high;
-	byte low;
-	getloc(c,m,&high,&low);
-	mem_poke((high << 8) | low , c->reg_x);
-}
-
-void handle_STY(CPU6502 * c,ENUM_AM m) {
-
-	byte high;
-	byte low;
-	getloc(c,m,&high,&low);
-	mem_poke((high << 8) | low , c->reg_y);
-}
-
-void handle_TAX(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_x = c->reg_a;
-	setOrClearNFlag(c,c->reg_x);
-	setOrClearZFlag(c,c->reg_x);
-}
-
-
-void handle_TAY(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_y = c->reg_a;
-	setOrClearNFlag(c,c->reg_y);
-	setOrClearZFlag(c,c->reg_y);
-}
-
-
-void handle_TXA(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_a = c->reg_x;	
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
-}
-
-
-void handle_TYA(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_a = c->reg_y;
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
-}
-
-void handle_TXS(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_stack = c->reg_x;	
-}
-
-void handle_TSX(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_x = c->reg_stack;
-	setOrClearNFlag(c,c->reg_x);
-	setOrClearZFlag(c,c->reg_x);
-}
-
-void handle_PHA(CPU6502 * c,ENUM_AM m) {
-	mem_poke( STACK_BASE | c->reg_stack--,c->reg_a);
-}
-
-void handle_PLA(CPU6502 * c,ENUM_AM m) {
-
-	c->reg_a = mem_peek(STACK_BASE | ++c->reg_stack);
-	setOrClearNFlag(c,c->reg_a);
-	setOrClearZFlag(c,c->reg_a);
-}
-
-void handle_PHP(CPU6502 * c,ENUM_AM m) {
-
-	mem_poke( STACK_BASE | c->reg_stack--,c->reg_status);
+void handle_LDY(ENUM_AM m) {
 	
+	g_cpu.reg_y = getval(m);
+	setOrClearNFlag(g_cpu.reg_y);
+	setOrClearZFlag(g_cpu.reg_y);
 }
 
-void handle_PLP(CPU6502 * c,ENUM_AM m) {
+void handle_LDX(ENUM_AM m) {
 
-	c->reg_status = mem_peek(STACK_BASE | ++c->reg_stack);
+	g_cpu.reg_x = getval(m);
+	setOrClearNFlag(g_cpu.reg_x);
+	setOrClearZFlag(g_cpu.reg_x);
+}
+
+
+void handle_STA(ENUM_AM m) {
+
+	byte high;
+	byte low;
+	getloc(m,&high,&low);
+	mem_poke((high << 8) | low , g_cpu.reg_a);
+}
+
+void handle_STX(ENUM_AM m) {
+
+	byte high;
+	byte low;
+	getloc(m,&high,&low);
+	mem_poke((high << 8) | low , g_cpu.reg_x);
+}
+
+void handle_STY(ENUM_AM m) {
+
+	byte high;
+	byte low;
+	getloc(m,&high,&low);
+	mem_poke((high << 8) | low , g_cpu.reg_y);
+}
+
+void handle_TAX(ENUM_AM m) {
+
+	g_cpu.reg_x = g_cpu.reg_a;
+	setOrClearNFlag(g_cpu.reg_x);
+	setOrClearZFlag(g_cpu.reg_x);
+}
+
+
+void handle_TAY(ENUM_AM m) {
+
+	g_cpu.reg_y = g_cpu.reg_a;
+	setOrClearNFlag(g_cpu.reg_y);
+	setOrClearZFlag(g_cpu.reg_y);
+}
+
+
+void handle_TXA(ENUM_AM m) {
+
+	g_cpu.reg_a = g_cpu.reg_x;	
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
+}
+
+
+void handle_TYA(ENUM_AM m) {
+
+	g_cpu.reg_a = g_cpu.reg_y;
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
+}
+
+void handle_TXS(ENUM_AM m) {
+
+	g_cpu.reg_stack = g_cpu.reg_x;	
+}
+
+void handle_TSX(ENUM_AM m) {
+
+	g_cpu.reg_x = g_cpu.reg_stack;
+	setOrClearNFlag(g_cpu.reg_x);
+	setOrClearZFlag(g_cpu.reg_x);
+}
+
+void handle_PHA(ENUM_AM m) {
+	mem_poke( STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_a);
+}
+
+void handle_PLA(ENUM_AM m) {
+
+	g_cpu.reg_a = mem_peek(STACK_BASE | ++g_cpu.reg_stack);
+	setOrClearNFlag(g_cpu.reg_a);
+	setOrClearZFlag(g_cpu.reg_a);
+}
+
+void handle_PHP(ENUM_AM m) {
+
+	mem_poke( STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_status);
 	
 }
 
-void handle_INC(CPU6502 * c,ENUM_AM m) {
+void handle_PLP(ENUM_AM m) {
+
+	g_cpu.reg_status = mem_peek(STACK_BASE | ++g_cpu.reg_stack);
+	
+}
+
+void handle_INC(ENUM_AM m) {
 
 	byte high;
 	byte low;
 	byte val;
 	
-	getloc(c,m,&high,&low);
+	getloc(m,&high,&low);
 	val =  mem_peek((high << 8) | low) + 1;
 	mem_poke((high << 8) | low, val);
-	setOrClearNFlag(c,val);
-	setOrClearZFlag(c,val);
+	setOrClearNFlag(val);
+	setOrClearZFlag(val);
 }
 
-void handle_DEC(CPU6502 * c,ENUM_AM m) {
+void handle_DEC(ENUM_AM m) {
 
 	byte high;
 	byte low;
 	byte val;
 	
-	getloc(c,m,&high,&low);
+	getloc(m,&high,&low);
 	val =  mem_peek((high << 8) | low) - 1;
 	mem_poke((high << 8) | low, val);
-	setOrClearNFlag(c,val);
-	setOrClearZFlag(c,val);
+	setOrClearNFlag(val);
+	setOrClearZFlag(val);
 }
 
-void handle_INX(CPU6502 * c,ENUM_AM m) {
+void handle_INX(ENUM_AM m) {
 
-	c->reg_x++;
-	setOrClearNFlag(c,c->reg_x);
-	setOrClearZFlag(c,c->reg_x);
+	g_cpu.reg_x++;
+	setOrClearNFlag(g_cpu.reg_x);
+	setOrClearZFlag(g_cpu.reg_x);
 }
 
-void handle_INY(CPU6502 * c,ENUM_AM m) {
+void handle_INY(ENUM_AM m) {
 
-	c->reg_y++;
-	setOrClearNFlag(c,c->reg_y);
-	setOrClearZFlag(c,c->reg_y);
+	g_cpu.reg_y++;
+	setOrClearNFlag(g_cpu.reg_y);
+	setOrClearZFlag(g_cpu.reg_y);
 }
 
-void handle_DEX(CPU6502 * c,ENUM_AM m) {
+void handle_DEX(ENUM_AM m) {
 
-	c->reg_x--;
-	setOrClearNFlag(c,c->reg_x);
-	setOrClearZFlag(c,c->reg_x);
+	g_cpu.reg_x--;
+	setOrClearNFlag(g_cpu.reg_x);
+	setOrClearZFlag(g_cpu.reg_x);
 }
 
 
-void handle_DEY(CPU6502 * c,ENUM_AM m) {
+void handle_DEY(ENUM_AM m) {
 
-	c->reg_y--;
-	setOrClearNFlag(c,c->reg_y);
-	setOrClearZFlag(c,c->reg_y);
+	g_cpu.reg_y--;
+	setOrClearNFlag(g_cpu.reg_y);
+	setOrClearZFlag(g_cpu.reg_y);
 }
 
-void handle_NOP(CPU6502 *c, ENUM_AM m) {}
+void handle_NOP(ENUM_AM m) {}
 
-void handle_CLC (CPU6502 * c,ENUM_AM m) {
+void handle_CLC (ENUM_AM m) {
 
-	c->reg_status &= ~C_FLAG;
+	g_cpu.reg_status &= ~C_FLAG;
 }
 
-void handle_CLD (CPU6502 * c,ENUM_AM m) {
+void handle_CLD (ENUM_AM m) {
 
-	c->reg_status &= ~D_FLAG;
+	g_cpu.reg_status &= ~D_FLAG;
 }
 
-void handle_CLI (CPU6502 * c,ENUM_AM m) {
+void handle_CLI (ENUM_AM m) {
 
-	c->reg_status &= ~I_FLAG;
+	g_cpu.reg_status &= ~I_FLAG;
 }
 
-void handle_CLV (CPU6502 * c,ENUM_AM m) {
+void handle_CLV (ENUM_AM m) {
 
-	c->reg_status = ~V_FLAG;
+	g_cpu.reg_status = ~V_FLAG;
 }
 
-void handle_SEC (CPU6502 * c,ENUM_AM m) {
+void handle_SEC (ENUM_AM m) {
 
-	c->reg_status |= C_FLAG;
+	g_cpu.reg_status |= C_FLAG;
 }
 
-void handle_SED (CPU6502 * c,ENUM_AM m) {
+void handle_SED (ENUM_AM m) {
 
-	c->reg_status |= D_FLAG;
+	g_cpu.reg_status |= D_FLAG;
 }
 
-void handle_SEI (CPU6502 * c,ENUM_AM m) {
+void handle_SEI (ENUM_AM m) {
 
-	c->reg_status |= I_FLAG;
+	g_cpu.reg_status |= I_FLAG;
 }
 
-void handle_BRK (CPU6502 * c,ENUM_AM m) {
+void handle_BRK (ENUM_AM m) {
 
 	//
 	// push program counter onto the stack followed by processor status
 	//
-	mem_poke(STACK_BASE | c->reg_stack--,c->pc >> 8);
-	mem_poke(STACK_BASE | c->reg_stack--,c->pc &  0xFF);
-	mem_poke(STACK_BASE | c->reg_stack--,c->reg_status);
+	mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc >> 8);
+	mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc &  0xFF);
+	mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_status);
 	
 	//
 	// load interrupt vector
 	//
-	c->pc = mem_peekword(VECTOR_BRK);
+	g_cpu.pc = mem_peekword(VECTOR_BRK);
 
 	//
 	// set break flag
 	//
-	c->reg_status |= B_FLAG;
+	g_cpu.reg_status |= B_FLAG;
 }
 
-void handle_RTI (CPU6502 * c,ENUM_AM m) {
+void handle_RTI (ENUM_AM m) {
 
-	c->reg_status = mem_peek(STACK_BASE | ++c->reg_stack);
-	c->pc = mem_peekword(STACK_BASE | ++c->reg_stack);
-	c->reg_stack++;
+	g_cpu.reg_status = mem_peek(STACK_BASE | +g_cpu.reg_stack);
+	g_cpu.pc = mem_peekword(STACK_BASE | ++g_cpu.reg_stack);
+	g_cpu.reg_stack++;
 
-	c->reg_status &= ~B_FLAG;
+	g_cpu.reg_status &= ~B_FLAG;
 }
 
 
-void handle_BCC (CPU6502 * c,ENUM_AM m) {
+void handle_BCC (ENUM_AM m) {
 
-	byte val = getNextByte(c);
-	if ((c->reg_status & C_FLAG) == 0) {
-		setPCFromOffset(c,val);
+	byte val = fetch();
+	if ((g_cpu.reg_status & C_FLAG) == 0) {
+		setPCFromOffset(val);
 	} 
 }
 
-void handle_BCS (CPU6502 * c,ENUM_AM m) {
+void handle_BCS (ENUM_AM m) {
 
-	byte val = getNextByte(c);
-	if (c->reg_status & C_FLAG) {
-		setPCFromOffset(c,val);
+	byte val = fetch();
+	if (g_cpu.reg_status & C_FLAG) {
+		setPCFromOffset(val);
 	} 
 }
 
-void handle_BEQ (CPU6502 * c,ENUM_AM m) {
+void handle_BEQ (ENUM_AM m) {
 
-	byte val = getNextByte(c);
-	if (c->reg_status & Z_FLAG) {
-		setPCFromOffset(c,val);
+	byte val = fetch();
+	if (g_cpu.reg_status & Z_FLAG) {
+		setPCFromOffset(val);
 	} 
 }
 
-void handle_BMI (CPU6502 * c,ENUM_AM m) {
+void handle_BMI (ENUM_AM m) {
 
-	byte val = getNextByte(c);
-	if (c->reg_status & N_FLAG) {
-		setPCFromOffset(c,val);
+	byte val = fetch();
+	if (g_cpu.reg_status & N_FLAG) {
+		setPCFromOffset(val);
 	} 
 }
 
-void handle_BPL (CPU6502 * c,ENUM_AM m) {
+void handle_BPL (ENUM_AM m) {
 
-	byte val = getNextByte(c);
-	if ((c->reg_status & N_FLAG) == 0) {
-		setPCFromOffset(c,val);
+	byte val = fetch();
+	if ((g_cpu.reg_status & N_FLAG) == 0) {
+		setPCFromOffset(val);
 	} 
 }
 
-void handle_BNE (CPU6502 * c,ENUM_AM m) {
+void handle_BNE (ENUM_AM m) {
 
 
-	byte val = getNextByte(c);
+	byte val = fetch();
 
-	if ((c->reg_status & Z_FLAG) == 0) {
-	
-			setPCFromOffset(c,val);	
+	if ((g_cpu.reg_status & Z_FLAG) == 0) {
+			setPCFromOffset(val);	
 	} 
 }
 
-void handle_BVC (CPU6502 * c,ENUM_AM m) {
+void handle_BVC (ENUM_AM m) {
 
-	byte val = getNextByte(c);
-	if ((c->reg_status & V_FLAG) == 0) {
-		setPCFromOffset(c,val);
+	byte val = fetch();
+	if ((g_cpu.reg_status & V_FLAG) == 0) {
+		setPCFromOffset(val);
 	} 
 }
 
-void handle_BVS (CPU6502 * c,ENUM_AM m) {
+void handle_BVS (ENUM_AM m) {
 
-	byte val = getNextByte(c);
-	if (c->reg_status & V_FLAG) {
-		setPCFromOffset(c,val);
+	byte val = fetch();
+	if (g_cpu.reg_status & V_FLAG) {
+		setPCFromOffset(val);
 	} 
 }
 
-void handle_LSR (CPU6502 *c, ENUM_AM m) {
+void handle_LSR (ENUM_AM m) {
 
 	byte src; 
 	byte high;
 	byte low;
 
 	if (m == AM_IMPLICIT) {
-		src = c->reg_a;
+		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(c,m,&high,&low);
+		getloc(m,&high,&low);
 		src = mem_peek((high<<8)|low);
 	}
 
-	setOrClearCFlag(c,src & 0x01);
+	setOrClearCFlag(src & 0x01);
 	src >>= 1;
-	setOrClearNFlag(c,src);
-	setOrClearZFlag(c,src);
+	setOrClearNFlag(src);
+	setOrClearZFlag(src);
 
 	if (m == AM_IMPLICIT) {
-		c->reg_a = src;
+		g_cpu.reg_a = src;
 	}
 	else {
 		mem_poke((high << 8) | low , src);
@@ -550,31 +555,31 @@ void handle_LSR (CPU6502 *c, ENUM_AM m) {
 
 }
 
-void handle_ROL (CPU6502 *c, ENUM_AM m) {
+void handle_ROL (ENUM_AM m) {
 
 	unsigned int src; 
 	byte high;
 	byte low;
 
 	if (m == AM_IMPLICIT) {
-		src = c->reg_a;
+		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(c,m,&high,&low);
+		getloc(m,&high,&low);
 		src = mem_peek((high <<8)|low);
 	}
 
 	src <<=1;
-	if (c->reg_status & C_FLAG) {
+	if (g_cpu.reg_status & C_FLAG) {
 		src |= 0x1;
 	}
-	setOrClearCFlag(c,src > 0xff);
+	setOrClearCFlag(src > 0xff);
 	src &= 0xff;
-	setOrClearNFlag(c,src);
-	setOrClearZFlag(c,src);
+	setOrClearNFlag(src);
+	setOrClearZFlag(src);
 
 	if (m == AM_IMPLICIT) {
-		c->reg_a = src;
+		g_cpu.reg_a = src;
 	}
 	else {
 		mem_poke((high << 8) | low , src);
@@ -582,32 +587,32 @@ void handle_ROL (CPU6502 *c, ENUM_AM m) {
 
 }
 
-void handle_ROR (CPU6502 *c, ENUM_AM m) {
+void handle_ROR (ENUM_AM m) {
 
 	unsigned int src; 
 	byte high;
 	byte low;
 
 	if (m == AM_IMPLICIT) {
-		src = c->reg_a;
+		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(c,m,&high,&low);
+		getloc(m,&high,&low);
 		src = mem_peek((high <<8)|low);;
 	}
 
 	
-	if (c->reg_status & C_FLAG) {
+	if (g_cpu.reg_status & C_FLAG) {
 		src |= 0x100;
 	}
-	setOrClearCFlag(c,src & 0x01);
+	setOrClearCFlag(src & 0x01);
 	src >>= 1;
 	src &=0xff;
-	setOrClearNFlag(c,src);
-	setOrClearZFlag(c,src);
+	setOrClearNFlag(src);
+	setOrClearZFlag(src);
 
 	if (m == AM_IMPLICIT) {
-		c->reg_a = src;
+		g_cpu.reg_a = src;
 	}
 	else {
 		mem_poke((high << 8) | low , src);
@@ -616,27 +621,27 @@ void handle_ROR (CPU6502 *c, ENUM_AM m) {
 }
 
 
-void handle_ASL (CPU6502 *c, ENUM_AM m) {
+void handle_ASL (ENUM_AM m) {
 
 	byte src; 
 	byte high;
 	byte low;
 
 	if (m == AM_IMPLICIT) {
-		src = c->reg_a;
+		src = g_cpu.reg_a;
 	}
 	else {
-		getloc(c,m,&high,&low);
+		getloc(m,&high,&low);
 		src = mem_peek((high <<8)|low);
 	}
 
-	setOrClearCFlag(c,src & 0x80);
+	setOrClearCFlag(src & 0x80);
 	src <<= 1;
-	setOrClearNFlag(c,src);
-	setOrClearZFlag(c,src);
+	setOrClearNFlag(src);
+	setOrClearZFlag(src);
 
 	if (m == AM_IMPLICIT) {
-		c->reg_a = src;
+		g_cpu.reg_a = src;
 	}
 	else {
 		mem_poke((high << 8) | low , src);
@@ -645,49 +650,49 @@ void handle_ASL (CPU6502 *c, ENUM_AM m) {
 }
 
 
-void handle_CMP (CPU6502 *c, ENUM_AM m) {
+void handle_CMP (ENUM_AM m) {
 
-	byte src = getval(c,m);
-	byte res = c->reg_a - src;
+	byte src = getval(m);
+	byte res = g_cpu.reg_a - src;
 	
-	setOrClearCFlag(c,c->reg_a >= src);
-	setOrClearZFlag(c,res);
-	setOrClearNFlag(c,res);
+	setOrClearCFlag(g_cpu.reg_a >= src);
+	setOrClearZFlag(res);
+	setOrClearNFlag(res);
 }
 
-void handle_CPX (CPU6502 *c, ENUM_AM m) {
+void handle_CPX (ENUM_AM m) {
 
-	byte src = getval(c,m); 
-	byte res = c->reg_x - src;
+	byte src = getval(m); 
+	byte res = g_cpu.reg_x - src;
 
-	setOrClearCFlag(c,c->reg_x >= src);
-	setOrClearZFlag(c,res);
-	setOrClearNFlag(c,res);
+	setOrClearCFlag(g_cpu.reg_x >= src);
+	setOrClearZFlag(res);
+	setOrClearNFlag(res);
 }
 
-void handle_CPY (CPU6502 *c, ENUM_AM m) {
+void handle_CPY (ENUM_AM m) {
 
-	byte src = getval(c,m); 
-	byte res = c->reg_y - src;
+	byte src = getval(m); 
+	byte res = g_cpu.reg_y - src;
 
-	setOrClearCFlag(c,c->reg_y >= src);
-	setOrClearZFlag(c,res);
-	setOrClearNFlag(c,res);
+	setOrClearCFlag(g_cpu.reg_y >= src);
+	setOrClearZFlag(res);
+	setOrClearNFlag(res);
 }
 
-void handle_SBC (CPU6502 *c, ENUM_AM m) {
+void handle_SBC (ENUM_AM m) {
 
 	unsigned int temp;
 	unsigned int temp2;
-	byte src = getval(c,m);
+	byte src = getval(m);
 
-	temp = 	 c->reg_a - src - ((c->reg_status & C_FLAG) ? 0 : 1);
+	temp = 	 g_cpu.reg_a - src - ((g_cpu.reg_status & C_FLAG) ? 0 : 1);
 	
-	setOrClearNFlag(c,temp);
-	setOrClearZFlag(c,temp & 0xff);
-	setOrClearVFlag(c,((c->reg_a ^ temp) &0x80) && ((c->reg_a ^ src) & 0x80));
-	if (c->reg_status & D_FLAG) {
-		if (((c->reg_a & 0xf) - ((c->reg_status & C_FLAG) ? 0 : 1)) < (src & 0xf)) {
+	setOrClearNFlag(temp);
+	setOrClearZFlag(temp & 0xff);
+	setOrClearVFlag(((g_cpu.reg_a ^ temp) &0x80) && ((g_cpu.reg_a ^ src) & 0x80));
+	if (g_cpu.reg_status & D_FLAG) {
+		if (((g_cpu.reg_a & 0xf) - ((g_cpu.reg_status & C_FLAG) ? 0 : 1)) < (src & 0xf)) {
 			temp -= 6;
 		}
 		if (temp > 0x99) {
@@ -696,78 +701,61 @@ void handle_SBC (CPU6502 *c, ENUM_AM m) {
 	}
 
 
-
-/*
-	uint16_t diff = lhs - rhs - carry;
-	if((lhs & 0xf) - carry < (rhs & 0xf))
-	{
-		diff -= 0x6;
-	}
-	if(diff > 0x99)
-	{
-		diff += 0x60;
-	}
-	return diff;
-}
-*/
-	setOrClearCFlag(c,temp < 0x100);
-	c->reg_a = (temp & 0xff);
-
-
-
+	setOrClearCFlag(temp < 0x100);
+	g_cpu.reg_a = (temp & 0xff);
 
 }
 
 
 
-void handle_ADC (CPU6502 *c, ENUM_AM m) {
+void handle_ADC (ENUM_AM m) {
 
 	//
 	// start with the carry flag;
 	//
-	unsigned int temp = (c->reg_status & C_FLAG) ? 1 : 0;
-	byte src = getval(c,m);
+	unsigned int temp = (g_cpu.reg_status & C_FLAG) ? 1 : 0;
+	byte src = getval(m);
 
 	//
 	// add in the accumuator and location.
 	//
-	temp += c->reg_a;
+	temp += g_cpu.reg_a;
 	temp += src;
     
-	setOrClearZFlag(c,temp & 0xff);	// not valid in BCD;
-    if (c->reg_status & D_FLAG) {
+	setOrClearZFlag(temp & 0xff);	// not valid in BCD;
+    if (g_cpu.reg_status & D_FLAG) {
     	//
     	// BCD
     	//
-    	if (((c->reg_a & 0xf) + (src & 0xf) + (c->reg_status & C_FLAG) ? 1 : 0) > 9) {
+    	if (((g_cpu.reg_a & 0xf) + (src & 0xf) + (g_cpu.reg_status & C_FLAG) ? 1 : 0) > 9) {
     		temp += 6;
     	} 
-    	setOrClearNFlag(c,temp);
-    	setOrClearVFlag(c,!((c->reg_a ^ src) & 0x80) && ((c->reg_a ^ temp) & 0x80));
+    	setOrClearNFlag(temp);
+    	setOrClearVFlag(!((g_cpu.reg_a ^ src) & 0x80) && ((g_cpu.reg_a ^ temp) & 0x80));
     	if (temp > 0x99) {
     		temp += 0x60;
     	}
-    	setOrClearCFlag(c,temp > 0x99);
+    	setOrClearCFlag(temp > 0x99);
 
 
     } else {
-    	setOrClearNFlag(c,temp);
-    	setOrClearVFlag(c,!((c->reg_a ^ src) & 0x80) && ((c->reg_a ^ temp) & 0x80));
-    	setOrClearCFlag(c,temp > 0xff);
+    	setOrClearNFlag(temp);
+    	setOrClearVFlag(!((g_cpu.reg_a ^ src) & 0x80) && ((g_cpu.reg_a ^ temp) & 0x80));
+    	setOrClearCFlag(temp > 0xff);
 
     }
-    c->reg_a = (byte) temp;
+    g_cpu.reg_a = (byte) temp;
 }
 
 
 
-void runcpu(CPU6502 *c) {
+void runcpu() {
 
 	byte op;
 
-	op = getNextByte(c);
-	g_opcodes[op].fn(c,g_opcodes[op].am);
-	c->cycles += g_opcodes[op].cycles;
+	op = fetch();
+	g_opcodes[op].fn(g_opcodes[op].am);
+	g_cpu.cycles += g_opcodes[op].cycles;
 
 }
 
@@ -779,24 +767,24 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 	g_opcodes[op].cycles = c;
 }
 
-void initPC(CPU6502 *c) {
-	c->pc = mem_peekword(VECTOR_RESET);
+void initPC() {
+	g_cpu.pc = mem_peekword(VECTOR_RESET);
 }
 
-void destroy_computer(CPU6502 *c) {
-	fclose(c->log);
+void destroy_computer() {
+	fclose(g_cpu.log);
 }
 
-void init_computer(CPU6502 *c) {
+void init_computer() {
 
 	int i = 0;
 	//
 	// clear all memory
 	//
-	memset (c,0,sizeof(CPU6502));	
+	memset (&g_cpu,0,sizeof(CPU6502));	
 
-	c->log = fopen("cpu.log","w+");
-	fprintf(c->log,"starting cpu...\n");
+	g_cpu.log = fopen("cpu.log","w+");
+	fprintf(g_cpu.log,"starting cpu...\n");
 	
 
 
@@ -965,7 +953,6 @@ void init_computer(CPU6502 *c) {
 	setopcode(0xc4,"CPY",AM_ZEROPAGE,handle_CPY,3);
 	setopcode(0xcc,"CPY",AM_ABSOLUTE,handle_CPY,4);
 
-
 	setopcode(0x0a,"ASL",AM_IMPLICIT,handle_ASL,2);
 	setopcode(0x06,"ASL",AM_ZEROPAGE,handle_ASL,5);
 	setopcode(0x16,"ASL",AM_ZEROPAGEX,handle_ASL,6);
@@ -995,8 +982,17 @@ void init_computer(CPU6502 *c) {
 	// 6502 reset vector
 	//
 	mem_pokeword(VECTOR_RESET,0xFCE2);
-	initPC(c);
+	initPC();
 }
 
+
+
+byte cpu_geta() 				{return g_cpu.reg_a;}
+byte cpu_getx()					{return g_cpu.reg_x;}
+byte cpu_gety()					{return g_cpu.reg_y;}
+word cpu_getpc() 				{return g_cpu.pc;}
+byte cpu_getstatus()			{return g_cpu.reg_status;}	
+byte cpu_getstack()				{return g_cpu.reg_stack;}
+unsigned int cpu_getcycles()	{return g_cpu.cycles;}
 
 

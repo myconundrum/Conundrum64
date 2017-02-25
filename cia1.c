@@ -126,7 +126,7 @@ void cia1_init() {
 
 }
 
-void cia1_update(CPU6502 *c) {
+void cia1_update() {
 
 	KEYMAP km;
 

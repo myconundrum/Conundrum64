@@ -43,7 +43,7 @@ void destroy_ux(UX * ux) {
 	fclose(ux->log);
 }
 
-void refresh_memory(UX * ux, CPU6502 * c) {
+void refresh_memory(UX * ux) {
 
 	int i;
 	int j; 
@@ -66,7 +66,7 @@ void refresh_memory(UX * ux, CPU6502 * c) {
 	wattroff(ux->memory,COLOR_PAIR(2));
 }
 
-void draw_border(UX *ux, CPU6502 *c) {
+void draw_border(UX *ux) {
 	
 	int i;
 	wattron(ux->display,COLOR_PAIR(4));
@@ -93,7 +93,7 @@ void draw_border(UX *ux, CPU6502 *c) {
 	wattroff(ux->display,COLOR_PAIR(4));
 }
 
-void refresh_disassembly(UX * ux, CPU6502 * c) {
+void refresh_disassembly(UX * ux) {
 
 	int i;
 	werase(ux->disassembly);
@@ -129,7 +129,7 @@ char getScreenChar(byte code) {
 	return  code;
 }
 
-void refresh_display(UX * ux, CPU6502 * c) {
+void refresh_display(UX * ux) {
 
 	int i;
 	int j;
@@ -140,7 +140,7 @@ void refresh_display(UX * ux, CPU6502 * c) {
 	byte ch;
 
 	werase(ux->display);
-	draw_border(ux,c);
+	draw_border(ux);
 	
 	wattron(ux->display,COLOR_PAIR(2));
 
@@ -163,30 +163,32 @@ void refresh_display(UX * ux, CPU6502 * c) {
 	wattroff(ux->display,COLOR_PAIR(2));
 }
 
-void refresh_registers(UX * ux, CPU6502 * c) {
+void refresh_registers(UX * ux) {
+
+	byte status = cpu_getstatus();
 
 	wattron(ux->registers,COLOR_PAIR(1));
 	werase(ux->registers);	
 	wmove(ux->registers,0,0);
 	wprintw(ux->registers,
 		"A: $%02X X: $%02X Y: $%02X STACK: $%02X PC: $%04X N:%dV%dX%dB%dD%dI%dZ%dC%d CYCLES: %010d",
-		c->reg_a,c->reg_x,c->reg_y,c->reg_stack,c->pc,
-		((c->reg_status & N_FLAG )!= 0),
-		((c->reg_status & V_FLAG )!= 0),
-		((c->reg_status & X_FLAG )!= 0),
-		((c->reg_status & B_FLAG )!= 0),
-		((c->reg_status & D_FLAG )!= 0),
-		((c->reg_status & I_FLAG )!= 0),
-		((c->reg_status & Z_FLAG )!= 0),
-		((c->reg_status & C_FLAG )!= 0),
-		c->cycles);
+		cpu_geta(),cpu_getx(),cpu_gety(),cpu_getstack(),cpu_getpc(),
+		((status & N_FLAG )!= 0),
+		((status & V_FLAG )!= 0),
+		((status & X_FLAG )!= 0),
+		((status & B_FLAG )!= 0),
+		((status & D_FLAG )!= 0),
+		((status & I_FLAG )!= 0),
+		((status & Z_FLAG )!= 0),
+		((status & C_FLAG )!= 0),
+		cpu_getcycles());
 
 	wrefresh(ux->registers);
 	wattroff(ux->registers,COLOR_PAIR(1));
 }
 
 
-void refresh_console(UX * ux, CPU6502 * c) {
+void refresh_console(UX * ux) {
 
 	int ch = getch();
 
@@ -204,7 +206,7 @@ void refresh_console(UX * ux, CPU6502 * c) {
 	else {
 		switch(ch) {
 			case 27:
-				handle_step(ux,c); 
+				handle_step(ux); 
 				//
 				// BUGBUG on my keyboard, key down returns three keys.
 				//
@@ -214,7 +216,7 @@ void refresh_console(UX * ux, CPU6502 * c) {
 			case -1:
 			break;
 			case '\n':
-				handle_command(ux,c);
+				handle_command(ux);
 				memset(ux->buf,0,256);
 				ux->bpos = 0;
 			break;
@@ -235,11 +237,11 @@ void refresh_console(UX * ux, CPU6502 * c) {
 }
 
 
-void update_ux(UX *ux, CPU6502 *cpu) {
+void update_ux(UX *ux) {
 	refresh(); // curses refresh
-	refresh_memory(ux,cpu);
-	refresh_registers(ux,cpu);
-	refresh_console(ux,cpu);
-	refresh_display(ux,cpu);
-	refresh_disassembly(ux,cpu);
+	refresh_memory(ux);
+	refresh_registers(ux);
+	refresh_console(ux);
+	refresh_display(ux);
+	refresh_disassembly(ux);
 }

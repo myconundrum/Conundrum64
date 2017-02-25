@@ -71,7 +71,6 @@ typedef struct {
 	TOKEN_RECORD tokenrules[256];
 
 	FILE * log;
-	CPU6502 * cpu;
 	byte asmh;
 	byte asml;
 
@@ -85,7 +84,7 @@ typedef struct {
 void assembleFile(ASSEMBLER *a, char * file);
 void disassembleLine(ASSEMBLER *a, char *buf, word *address);
 
-void init_assembler(ASSEMBLER * a, CPU6502 *c);
+void init_assembler(ASSEMBLER * a);
 void loadBinFile(ASSEMBLER *a, char * file, byte high, byte low); 
 
 #endif 

@@ -46,7 +46,7 @@ typedef struct {
 
 extern void init_ux(UX * ux,ASSEMBLER *a);
 extern void destroy_ux(UX * ux);
-extern void update_ux(UX *ux, CPU6502 *cpu);
+extern void update_ux(UX *ux);
 
 
 #endif

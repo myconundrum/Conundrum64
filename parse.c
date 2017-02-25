@@ -13,7 +13,7 @@ Parse handles command line parsing and reading files from input.
 #include "emu.h"
 
 
-typedef void (*PARSEFN)(UX *,CPU6502 *,char *);
+typedef void (*PARSEFN)(UX *,char *);
 
 typedef struct {
 
@@ -23,12 +23,12 @@ typedef struct {
 } PARSECMD;
 
 
-void parseQuit(UX * ux, CPU6502 *c, char * s) {
+void parseQuit(UX * ux, char * s) {
 
 	ux->done = true;
 }
 
-void parseMem (UX * ux, CPU6502 *c, char * s) {
+void parseMem (UX * ux, char * s) {
 
 	s = strtok(NULL," ");
 	if (s) {
@@ -37,7 +37,7 @@ void parseMem (UX * ux, CPU6502 *c, char * s) {
 }
 
 
-void fillDisassembly(UX *ux, CPU6502 *c, word address) {
+void fillDisassembly(UX *ux, word address) {
 
 	int i;
 
@@ -52,7 +52,7 @@ void fillDisassembly(UX *ux, CPU6502 *c, word address) {
 
 
 
-void parseDis (UX * ux, CPU6502 *c, char * s) {
+void parseDis (UX * ux, char * s) {
 
 	word address;
 	int  i;
@@ -62,36 +62,13 @@ void parseDis (UX * ux, CPU6502 *c, char * s) {
 		address = strtoul(s,NULL,16);
 	}
 	else {
-		address = c->pc;
+		address = cpu_getpc();
 	}
 
-	fillDisassembly(ux,c,address);
+	fillDisassembly(ux,address);
 	
 }
 
-void parseSet (UX * ux, CPU6502 *c, char * s) {
-
-	int val = 0;
-	char * p; 
-	s = strtok(NULL," ");
-
-	if (s) {
-		p = strtok(NULL," ");
-		if (p) {
-			val = strtol(p,NULL,16);
-		}
-
-		if (strcmp(s,"A")==0) {
-			c->reg_a = val;
-		}
-		if (strcmp(s,"X")==0) {
-			c->reg_x = val;
-		}
-		if (strcmp(s,"Y")==0) {
-			c->reg_y = val;
-		}
-	}
-}
 
 typedef struct {
 	byte hi;
@@ -189,7 +166,7 @@ void getAddressAndMode (char *s, ADDRESSANDMODE * am) {
 	}
 }
 
-void parseOp (UX *ux, CPU6502 *c, char *s) {
+void parseOp (UX *ux,  char *s) {
 	
 	char buf[4];
 	ADDRESSANDMODE am;
@@ -229,14 +206,14 @@ void parseOp (UX *ux, CPU6502 *c, char *s) {
 }
 
 
-void parseAsm (UX* ux,CPU6502 *c, char * s) {
+void parseAsm (UX* ux,char * s) {
 	s = strtok(NULL," ");
 	if (s) {
-		parseOp (ux,c,s);
+		parseOp (ux,s);
 	}
 }
 
-void parseBrk (UX* ux,CPU6502 *c, char * s) {
+void parseBrk (UX* ux,char * s) {
 	s = strtok(NULL," ");
 	ux->brk_address = 0;
 
@@ -247,24 +224,24 @@ void parseBrk (UX* ux,CPU6502 *c, char * s) {
 }
 
 
-void parseAsmat (UX* ux,CPU6502 *c, char * s) {
+void parseAsmat (UX* ux,char * s) {
 	s = strtok(NULL," ");
 	if (s) {
 		ux->asm_address = strtoul(s,NULL,16);
 	}
 }
 
-void parseExec (UX *ux, CPU6502 *c, char *s) {
+void parseExec (UX *ux,  char *s) {
 
 	ux->running = true;
 }
 
-void parseStop (UX *ux, CPU6502 *c, char *s) {
+void parseStop (UX *ux, char *s) {
 
 	ux->running = false;
 }
 
-void parsePassThru (UX *ux, CPU6502 *c, char *s) {
+void parsePassThru (UX *ux, char *s) {
 
 
 	int i;
@@ -291,7 +268,7 @@ void parsePassThru (UX *ux, CPU6502 *c, char *s) {
 }
 
 
-void parseAsmfile (UX *ux, CPU6502 *c, char *s) {
+void parseAsmfile (UX *ux, char *s) {
 	
 	char * p = strtok(NULL," ");
 	if (p) {
@@ -300,24 +277,23 @@ void parseAsmfile (UX *ux, CPU6502 *c, char *s) {
 	
 }
 
-void parsePassThruMode (UX *ux, CPU6502 *c, char *s) {
+void parsePassThruMode (UX *ux, char *s) {
 		
 	ux->passthru = true;
 	
 }
 
-void parseComment (UX *ux, CPU6502 *c, char *s) {}
+void parseComment (UX *ux, char *s) {}
 
-void parseStep(UX *ux, CPU6502 *c, char *s) {
-	cia1_init(c);
-	runcpu(c);
+void parseStep(UX *ux, char *s) {
+	cia1_init();
+	runcpu();
 }
 
 PARSECMD g_commands[] = {
 	{"QUIT",parseQuit},
 	{"MEM",parseMem},
 	{"BRK",parseBrk},
-	{"SET",parseSet},
 	{"ASM",parseAsm},
 	{"ASMAT",parseAsmat},
 	{"EXEC",parseExec},
@@ -330,20 +306,20 @@ PARSECMD g_commands[] = {
 	{"PTM",parsePassThruMode},
 };
 
-void handle_step(UX * ux,CPU6502 *c) {
+void handle_step(UX * ux) {
 
-	cia1_init(c);
-	runcpu(c);
+	cia1_init();
+	runcpu();
 	ux->discur++;
 
-	if (c->pc != ux->dislines[ux->discur].address || ux->discur == DISLINESCOUNT) {
+	if (cpu_getpc() != ux->dislines[ux->discur].address || ux->discur == DISLINESCOUNT) {
 
-		fillDisassembly(ux,c,c->pc);
+		fillDisassembly(ux,cpu_getpc());
 	}
 
 }
 
-void handle_command(UX * ux, CPU6502 *c) {
+void handle_command(UX * ux) {
 
 	char * p = NULL;
 	int i;
@@ -358,7 +334,7 @@ void handle_command(UX * ux, CPU6502 *c) {
 	
 	for (i = 0; i < sizeof(g_commands)/sizeof(PARSECMD); i++) {
 		if (strcmp(g_commands[i].cmd,p)==0) {
-			g_commands[i].fn(ux,c,p);
+			g_commands[i].fn(ux,p);
 			break;
 		}
 	}

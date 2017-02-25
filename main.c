@@ -8,13 +8,12 @@
 int main(int argc, char**argv) {
 
 	UX ux;
-	CPU6502 cpu;
 	ASSEMBLER assembler;
 	int cycles = 0;
 
-	init_computer(&cpu);				// init 6502 CPU for C64 emulator.
+	init_computer();				// init 6502 CPU for C64 emulator.
 	cia1_init();						// init CIA1 chip for C64 emulator.
-	init_assembler(&assembler, &cpu);
+	init_assembler(&assembler);
 	init_ux(&ux, &assembler);
 	
 	//
@@ -25,23 +24,23 @@ int main(int argc, char**argv) {
 	loadBinFile(&assembler,"asm/901226-01-basic.bin",0xA0,0x00);
 	//loadBinFile(&assembler,"asm/901225-01-char.bin",0xD0,0x00);
 
-	fillDisassembly(&ux,&cpu,cpu.pc);
+	fillDisassembly(&ux,cpu_getpc());
 
 	do {
 
 		if (!(cycles % 100)) {
-			update_ux(&ux,&cpu);
+			update_ux(&ux);
 			
 		}
 		if (ux.running) {
-			if (ux.brk && cpu.pc == ux.brk_address) {
+			if (ux.brk && cpu_getpc() == ux.brk_address) {
 				ux.running = false;
 				ux.brk = false;
-				fillDisassembly(&ux,&cpu,cpu.pc);
+				fillDisassembly(&ux,cpu_getpc());
 			}
 			else {
-				cia1_update(&cpu);
-				runcpu(&cpu);
+				cia1_update();
+				runcpu();
 			}
 		}
 		cycles++;
@@ -49,6 +48,6 @@ int main(int argc, char**argv) {
 	} while (!ux.done);
 
 	destroy_ux(&ux);
-	destroy_computer(&cpu);
+	destroy_computer();
 	return 0;
 }
