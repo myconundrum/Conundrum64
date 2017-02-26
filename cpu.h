@@ -47,20 +47,7 @@ typedef enum {
 
 } ENUM_AM;
 
-typedef void (*OPHANDLER)(ENUM_AM);
 
-typedef struct {
-
-	const char * 		name;
-	unsigned char 		op;
-	ENUM_AM				am;
-	OPHANDLER			fn;
-	byte 				cycles;
-
-} OPCODE;
-
-
-extern OPCODE g_opcodes[256];
 
 
 extern void runcpu();
@@ -74,6 +61,11 @@ word cpu_getpc();
 byte cpu_getstatus();
 byte cpu_getstack();
 unsigned int cpu_getcycles();
+
+
+bool cpu_isopcode(char * name);
+bool cpu_getopcodeinfo(byte opcode, char *name, ENUM_AM *mode);
+
 
 
 #endif

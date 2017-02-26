@@ -171,7 +171,8 @@ void parseOp (UX *ux,  char *s) {
 	char buf[4];
 	ADDRESSANDMODE am;
 	int i = 0;
-	OPCODE *op;
+	ENUM_AM m;
+	char opbuf[10];
 
 	strncpy(buf,s,4);
 	s = strtok(NULL," ");
@@ -191,10 +192,10 @@ void parseOp (UX *ux,  char *s) {
 
 	for (int i = 0; i < 256; i++) {
 
-		op = &g_opcodes[i];
-
-		if ((strcmp(buf,op->name)==0) && am.mode == op->am) {
-			mem_poke(ux->asm_address++,op->op);
+		if (cpu_getopcodeinfo(i,opbuf,&m) &&
+			!strcmp(buf,opbuf) && am.mode == m) {
+		
+			mem_poke(ux->asm_address++,i);
 			if (am.bytes) {
 				mem_poke(ux->asm_address++,am.low);
 			}
@@ -257,7 +258,7 @@ void parsePassThru (UX *ux, char *s) {
 
 		switch(s[i]) {
 			case '*': ch = 0x0d; break;
-			case '_': ch = 0x20; break;
+			case '_': ch = 0xe0; break;
 			case '\"': ch = 0x22; break;
 			default: ch = s[i]; break;
 		}

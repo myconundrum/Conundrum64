@@ -21,6 +21,19 @@ typedef struct cpu6502 {
 } CPU6502;
 
 
+typedef void (*OPHANDLER)(ENUM_AM);
+
+typedef struct {
+
+	const char * 		name;
+	unsigned char 		op;
+	ENUM_AM				am;
+	OPHANDLER			fn;
+	byte 				cycles;
+
+} OPCODE;
+
+
 OPCODE g_opcodes[256];
 CPU6502 g_cpu;
 
@@ -37,6 +50,30 @@ word fetch_word() {
 
 	return fetch() | (fetch() << 8);
 
+}
+
+
+bool cpu_isopcode(char * name) {
+
+	int i;
+	for (i = 0;i < 0xFF; i++) {
+		if (!strcmp(g_opcodes[i].name,name)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
+bool cpu_getopcodeinfo(byte opcode, char *name, ENUM_AM * mode) {
+
+	if (g_opcodes[opcode].am == AM_MAX) {
+		return false;
+	}
+
+	strcpy(name, g_opcodes[opcode].name);
+	*mode = g_opcodes[opcode].am;
+	return true;
 }
 
 
@@ -736,7 +773,11 @@ void init_computer() {
 		g_opcodes[i].name = "NOP";
 		g_opcodes[i].fn = handle_NOP;
 		g_opcodes[i].op = i;
+		g_opcodes[i].am = AM_MAX;
 	}
+
+	
+	setopcode(0xea,"NOP",AM_IMPLICIT,handle_NOP,2);	
 
 	setopcode(0xa9,"LDA",AM_IMMEDIATE,handle_LDA,2);
 	setopcode(0xa5,"LDA",AM_ZEROPAGE,handle_LDA,3);

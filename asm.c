@@ -46,21 +46,6 @@ void setcur(LINE *line, char ch) {
 	line->string[line->pos] = ch;
 }
 
-bool isopcode(TOKEN * tok) {
-
-	int i;
-	OPCODE * op;
-	for (int i = 0; i < 256; i++) {
-
-		op = &g_opcodes[i];
-
-		if (strcmp(tok->string,op->name)==0) {
-			return true;
-		}
-	}	
-	return false;
-}
-
 void addTokenRule(ASSEMBLER * a, TOKENRULE fn,TOKEN_TYPE type, int val,char * name) {
 
 	a->tokenrules[a->rulecount].fn = fn;
@@ -407,22 +392,21 @@ void disassembleLine(ASSEMBLER * a,char * buf,word * address) {
 	byte h;
 	char * p = buf;
 	word reladdress;
+	char opbuf[10];
+	ENUM_AM mode;
 
 
 	*address += 1;
 
-	for (i = 0; i < 256; i++) {
-		if (g_opcodes[i].op == b) {
-			break;
-		}
-	}
-	if (i == 256) {
+	
+
+	if (!cpu_getopcodeinfo(b,opbuf,&mode)) {
 		sprintf(p,"$%02X",b);
 	}
 	else {
-		strcpy(p,g_opcodes[i].name);
+		strcpy(p,opbuf);
 		p += strlen(p);
-		switch(g_opcodes[i].am) {
+		switch(mode) {
 			case AM_IMMEDIATE:
 				sprintf(p," #$%02X", mem_peek(*address));
 				*address += 1;
@@ -498,16 +482,18 @@ void disassembleLine(ASSEMBLER * a,char * buf,word * address) {
 void assemble_instruction(ASSEMBLER *a, LINE * line, char * name, ENUM_AM mode, byte high, byte low, byte count) {
 
 	int i;
-	OPCODE *op;
+	ENUM_AM m;
+	char opbuf[10];
+
 	for (int i = 0; i < 256; i++) {
 
-		op = &g_opcodes[i];
-		if (strcmp(name,op->name) == 0 && (op->am == mode || op->am == AM_RELATIVE)) {
+		if (cpu_getopcodeinfo(i,opbuf,&m) &&
+			!strcmp(name,opbuf)&& (m == mode || m == AM_RELATIVE)) {
 			fprintf(a->log,"$%02X%02X:\t",a->asmh,a->asml);
-			asmbyte(a,op->op);
-			fprintf(a->log,"%02X",op->op);
+			asmbyte(a,i);
+			fprintf(a->log,"%02X",i);
 
-			if (op->am == AM_RELATIVE) {
+			if (m == AM_RELATIVE) {
 				low = getRelativeOffset(a,high,low);
 				asmbyte(a,low);
 				fprintf(a->log," %02X   ",low);
@@ -691,7 +677,7 @@ void ruleNewLine(ASSEMBLER * a, LINE * line) {
 			rulePCDirective(a,line);
 		break;
 		case ASM_IDENTIFIER:
-			if (isopcode(&tok)) {
+			if (cpu_isopcode(tok.string)) {
 				ruleOpCode(a,&tok,line);
 			}
 			else {
