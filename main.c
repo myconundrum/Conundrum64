@@ -14,6 +14,7 @@ int main(int argc, char**argv) {
 	ASSEMBLER assembler;
 	int cycles = 0;
 
+	mem_init();						// init ram
 	init_computer();				// init 6502 CPU for C64 emulator.
 	cia1_init();						// init CIA1 chip for C64 emulator.
 	init_assembler(&assembler);
@@ -23,8 +24,8 @@ int main(int argc, char**argv) {
 	// load kernal and etc.
 	//
 
-	loadBinFile(&assembler,"asm/901227-03-kernal.bin",0xE0,0x00);
-	loadBinFile(&assembler,"asm/901226-01-basic.bin",0xA0,0x00);
+	//loadBinFile(&assembler,"asm/901227-03-kernal.bin",0xE0,0x00);
+	//loadBinFile(&assembler,"asm/901226-01-basic.bin",0xA0,0x00);
 	//loadBinFile(&assembler,"asm/901225-01-char.bin",0xD0,0x00);
 
 	fillDisassembly(&ux,cpu_getpc());
@@ -53,5 +54,6 @@ int main(int argc, char**argv) {
 
 	destroy_ux(&ux);
 	destroy_computer();
+	mem_destroy();
 	return 0;
 }

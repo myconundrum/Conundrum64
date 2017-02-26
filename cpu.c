@@ -400,7 +400,7 @@ void handle_CLI (ENUM_AM m) {
 
 void handle_CLV (ENUM_AM m) {
 
-	g_cpu.reg_status = ~V_FLAG;
+	g_cpu.reg_status &= ~V_FLAG;
 }
 
 void handle_SEC (ENUM_AM m) {
@@ -746,6 +746,16 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 }
 
 void initPC() {
+
+	//
+	// reset vector.
+	//
+	//mem_pokeword(VECTOR_RESET,0xFCE2);
+
+	//
+	// initial bank configuration.
+	//
+	mem_poke(BANKSWITCH_ADDRESS,0xE7);
 	g_cpu.pc = mem_peekword(VECTOR_RESET);
 }
 
@@ -963,7 +973,7 @@ void init_computer() {
 	//
 	// 6502 reset vector
 	//
-	mem_pokeword(VECTOR_RESET,0xFCE2);
+
 	initPC();
 }
 

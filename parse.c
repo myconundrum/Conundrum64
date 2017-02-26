@@ -258,7 +258,7 @@ void parsePassThru (UX *ux, char *s) {
 
 		switch(s[i]) {
 			case '*': ch = 0x0d; break;
-			case '_': ch = 0xe0; break;
+			case '_': ch = 0x20; break;
 			case '\"': ch = 0x22; break;
 			default: ch = s[i]; break;
 		}
