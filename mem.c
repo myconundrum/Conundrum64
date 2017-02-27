@@ -27,9 +27,13 @@ typedef struct {
 MEMORY g_memory;
 
 
+
+//
+// BUGBUG: I don't handle extended ram and cartridge ram yet. 
+//
 void mem_config_change() {
 
-	byte val = mem_peek(0x01);
+	byte val = mem_peek(BANKSWITCH_ADDRESS);
 
 	g_memory.basicmapped 	= false;
 	g_memory.iomapped 		= false;
@@ -49,7 +53,6 @@ void mem_config_change() {
 
 	}
 	
-
     fprintf(g_memory.log,"MEM: bankswitch detected (%02X)\nkernal is %s mapped\nbasic is %s mapped\nIO is %s mapped\ncharrom is %s mapped\n",
     	mem_peek(0x01),g_memory.kernalmapped ? "" : "not",
     	g_memory.basicmapped ? "" : "not",g_memory.iomapped ? "" : "not",
@@ -65,8 +68,6 @@ byte * mem_init_rom(char * name) {
 	f = fopen(name,"rb");
 	
 	if (f) {
-
-
 
 		fseek(f, 0, SEEK_END);          
     	len = ftell(f);            

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "emu.h"
+#include <math.h>
 
 
 void init_ux(UX * ux, ASSEMBLER * a) {
@@ -27,11 +28,11 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 	memset(ux,0,sizeof(UX));
 
 	ux->assembler = a;
-	ux->registers 	= newwin (1,COLS,0,0);
-	ux->display 	= newwin (29,44,1,61);
-	ux->memory 		= newwin (18,60,1,0);
-	ux->disassembly = newwin (20,60,19,0);
-	ux->console  	= newwin (1,30,41,0);
+	ux->registers 	= newwin (3,COLS,0,0);
+	ux->display 	= newwin (29,44,3,61);
+	ux->memory 		= newwin (18,60,3,0);
+	ux->disassembly = newwin (20,60,21,0);
+	ux->console  	= newwin (1,30,43,0);
 
 	ux->log = fopen("log.txt","w+");
 	ux->running = false;
@@ -163,6 +164,22 @@ void refresh_display(UX * ux) {
 	wattroff(ux->display,COLOR_PAIR(2));
 }
 
+
+double ux_convertfac(byte exp, byte m1, byte m2, byte m3, byte m4) {
+
+	double rval;
+	double dm1,dm2,dm3,dm4;
+	exp = exp - 128;
+	dm1 = m1 * pow(2,-8);
+	dm2 = m2 * pow(2,-16);
+	dm3 = m3 * pow(2,-24);
+	dm4 = m4 * pow(2,-32);
+	rval = pow(2,exp) * (dm1 + dm2 + dm3 + dm4);
+
+	return rval;
+}
+
+
 void refresh_registers(UX * ux) {
 
 	byte status = cpu_getstatus();
@@ -182,6 +199,22 @@ void refresh_registers(UX * ux) {
 		((status & Z_FLAG )!= 0),
 		((status & C_FLAG )!= 0),
 		cpu_getcycles());
+
+
+
+	wmove(ux->registers,1,0);
+	wprintw(ux->registers,
+		"FAC E: %02X M1: %02X M2: %02X M3: %02X M4: %02X S: %02X / ARG E: %02X M1: %02X M2: %02X M3: %02X M4: %02X S: %02X ",
+		mem_peek(0x61),mem_peek(0x62),mem_peek(0x63),mem_peek(0x64),mem_peek(0x65),mem_peek(0x70),
+		mem_peek(0x69),mem_peek(0x6A),mem_peek(0x6B),mem_peek(0x6C),mem_peek(0x6D),mem_peek(0x6E));
+	
+	wmove(ux->registers,2,0);
+
+	wprintw(ux->registers,"converted fac: %f converted arg %f ",
+		ux_convertfac(mem_peek(0x61),mem_peek(0x62),mem_peek(0x63),mem_peek(0x64),mem_peek(0x65)),
+		ux_convertfac(mem_peek(0x69),mem_peek(0x6A),mem_peek(0x6B),mem_peek(0x6C),mem_peek(0x6D)));
+	
+
 
 	wrefresh(ux->registers);
 	wattroff(ux->registers,COLOR_PAIR(1));

@@ -203,13 +203,10 @@ void handle_RTS(ENUM_AM m) {
 
 void handle_BIT(ENUM_AM m) {
 
-	byte val = g_cpu.reg_a & getval(m);
-	
-	setOrClearNFlag(g_cpu.reg_a);
-	setOrClearZFlag(g_cpu.reg_a);
-	
-	g_cpu.reg_status = (val & V_FLAG) ? (g_cpu.reg_status | V_FLAG) :
-		(g_cpu.reg_status & (~V_FLAG));
+	byte val = getval(m);
+	setOrClearNFlag(val & N_FLAG);
+	setOrClearVFlag(val & V_FLAG);
+	setOrClearZFlag(!(val & g_cpu.reg_a));
 }
 
 void handle_AND(ENUM_AM m) {
@@ -659,73 +656,77 @@ void handle_CPY (ENUM_AM m) {
 	setOrClearNFlag(res);
 }
 
+
 void handle_SBC (ENUM_AM m) {
+ 		
+	word src, tmp;
+	unsigned int tmp_a;  
 
-	unsigned int temp;
-	unsigned int temp2;
-	byte src = getval(m);
+	src = getval(m);
 
-	temp = 	 g_cpu.reg_a - src - ((g_cpu.reg_status & C_FLAG) ? 0 : 1);
-	
-	setOrClearNFlag(temp);
-	setOrClearZFlag(temp & 0xff);
-	setOrClearVFlag(((g_cpu.reg_a ^ temp) &0x80) && ((g_cpu.reg_a ^ src) & 0x80));
-	if (g_cpu.reg_status & D_FLAG) {
-		if (((g_cpu.reg_a & 0xf) - ((g_cpu.reg_status & C_FLAG) ? 0 : 1)) < (src & 0xf)) {
-			temp -= 6;
-		}
-		if (temp > 0x99) {
-			temp += 0x60; 
-		}
-	}
+	tmp = g_cpu.reg_a - src - ((g_cpu.reg_status & C_FLAG) ? 0 : 1);
 
-	setOrClearCFlag(temp < 0x100);
-	g_cpu.reg_a = (temp & 0xff);
+	if (g_cpu.reg_status & D_FLAG) {                                                            
+	    
+	    tmp_a = (g_cpu.reg_a & 0xf) - (src & 0xf) - ((g_cpu.reg_status & C_FLAG) ? 0 : 1);         
+	    
+	    if (tmp_a & 0x10) {                                                             
+	        tmp_a = ((tmp_a - 6) & 0xf) | ((g_cpu.reg_a & 0xf0) - (src & 0xf0) - 0x10);  
+	    } else {                                                                        
+	        tmp_a = (tmp_a & 0xf) | ((g_cpu.reg_a& 0xf0) - (src & 0xf0));               
+	    }                                                                               
+	    if (tmp_a & 0x100) {                                                            
+	        tmp_a -= 0x60;                                                              
+	    }
+	    setOrClearCFlag(tmp < 0x100);
+	    setOrClearNFlag(tmp & 0xff);
+	    setOrClearZFlag(tmp & 0xff);
+	    setOrClearVFlag(((g_cpu.reg_a ^ tmp) & 0x80) && ((g_cpu.reg_a ^ src) & 0x80)); 
+	    g_cpu.reg_a = tmp_a & 0xff;
 
+	} else {   
+		setOrClearNFlag(tmp & 0xff);
+		setOrClearZFlag(tmp & 0xff);
+		setOrClearCFlag(tmp < 0x100);                                                   
+	    setOrClearVFlag(((g_cpu.reg_a ^ tmp) & 0x80) && ((g_cpu.reg_a ^ src) & 0x80)); 
+	    g_cpu.reg_a = tmp & 0xff;                                                      
+	}          
 }
-
 
 
 void handle_ADC (ENUM_AM m) {
-
-	//
-	// start with the carry flag;
-	//
-	unsigned int temp = (g_cpu.reg_status & C_FLAG) ? 1 : 0;
-	byte src = getval(m);
-
-	//
-	// add in the accumuator and location.
-	//
-	temp += g_cpu.reg_a;
-	temp += src;
-    
-	setOrClearZFlag(temp & 0xff);	// not valid in BCD;
+		
+	unsigned int src = getval(m);                                                                     
+   	unsigned int tmp;                                                                           
+              
     if (g_cpu.reg_status & D_FLAG) {
-    	//
-    	// BCD
-    	//
-    	if (((g_cpu.reg_a & 0xf) + (src & 0xf) + (g_cpu.reg_status & C_FLAG) ? 1 : 0) > 9) {
-    		temp += 6;
-    	} 
-    	setOrClearNFlag(temp);
-    	setOrClearVFlag(!((g_cpu.reg_a ^ src) & 0x80) && ((g_cpu.reg_a ^ temp) & 0x80));
-    	if (temp > 0x99) {
-    		temp += 0x60;
-    	}
-    	setOrClearCFlag(temp > 0x99);
 
+		tmp = (g_cpu.reg_a & 0xf) + (src & 0xf) + (g_cpu.reg_status & 0x1);                           
+	    if (tmp > 0x9) {                                                                        
+	        tmp += 0x6;                                                                         
+	    }                                                                                       
+	    if (tmp <= 0x0f) {                                                                      
+	        tmp = (tmp & 0xf) + (g_cpu.reg_a & 0xf0) + (src & 0xf0);                       
+	    } else {                                                                                
+	        tmp = (tmp & 0xf) + (g_cpu.reg_a & 0xf0) + (src & 0xf0) + 0x10;                
+	    }
+	    setOrClearZFlag(!((g_cpu.reg_a + src + (g_cpu.reg_status & 0x1)) & 0xff));                                                                                       
+	    setOrClearNFlag(tmp & 0x80);                                                             
+	    setOrClearVFlag(((g_cpu.reg_a ^ tmp) & 0x80)  && !((g_cpu.reg_a ^ src) & 0x80)); 
+	    if ((tmp & 0x1f0) > 0x90) {                                                             
+	        tmp += 0x60;                                                                        
+	    }                                                                                       
+	    setOrClearCFlag((tmp & 0xff0) > 0xf0); 
+	} else {                                                                                    
+	    tmp = src + g_cpu.reg_a + (g_cpu.reg_status & C_FLAG);     
+	    setOrClearZFlag(tmp&0xff);
+	    setOrClearNFlag(tmp&0xff);   
+	    setOrClearVFlag(!((g_cpu.reg_a ^ src) & 0x80)  && ((g_cpu.reg_a ^ tmp) & 0x80));                                                           
+	   	setOrClearCFlag(tmp > 0xff);                                                            
+	}                 
 
-    } else {
-    	setOrClearNFlag(temp);
-    	setOrClearVFlag(!((g_cpu.reg_a ^ src) & 0x80) && ((g_cpu.reg_a ^ temp) & 0x80));
-    	setOrClearCFlag(temp > 0xff);
-
-    }
-    g_cpu.reg_a = (byte) temp;
+	g_cpu.reg_a = tmp; 
 }
-
-
 
 void runcpu() {
 
@@ -745,19 +746,6 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 	g_opcodes[op].cycles = c;
 }
 
-void initPC() {
-
-	//
-	// reset vector.
-	//
-	//mem_pokeword(VECTOR_RESET,0xFCE2);
-
-	//
-	// initial bank configuration.
-	//
-	mem_poke(BANKSWITCH_ADDRESS,0xE7);
-	g_cpu.pc = mem_peekword(VECTOR_RESET);
-}
 
 void destroy_computer() {
 	fclose(g_cpu.log);
@@ -774,8 +762,6 @@ void init_computer() {
 	g_cpu.log = fopen("cpu.log","w+");
 	fprintf(g_cpu.log,"starting cpu...\n");
 	
-
-
 	//
 	// load all opcodes
 	//
@@ -971,10 +957,11 @@ void init_computer() {
 	
 
 	//
-	// 6502 reset vector
+	// Set initial bankswitch configuration (IO, Basic, Kernal mapped in)
 	//
+	mem_poke(BANKSWITCH_ADDRESS,0xE7);
+	g_cpu.pc = mem_peekword(VECTOR_RESET);
 
-	initPC();
 }
 
 
