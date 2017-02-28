@@ -686,23 +686,27 @@ communicate with the chip.
 
 */ 
 
-#define CIA1_PRA 					0x00  // data port a register
-#define CIA1_PRB 					0x01  // data port b register
-#define CIA1_DDRA 					0x02  // porta data direction register
-#define CIA1_DDRB 					0x03  // portb data direction register
-#define CIA1_TALO					0x04  // Timer A Low Byte 
-#define CIA1_TAHI					0x05  // Timer A High Byte 
-#define CIA1_TBLO					0x06  // Timer A Low Byte 
-#define CIA1_TBHI					0x07  // Timer A High Byte 
-#define CIA1_TODTENTHS				0x08  // BCD Time of Day Tenths of Second
-#define CIA1_TODSECS				0x09  // BCD TOD Seconds 
-#define CIA1_TODMINS				0x0A  // BCD TOD Minutes
-#define CIA1_TODHRS					0x0B  // BCD TOD Hours
-#define CIA1_SDR 					0x0C  // Serial Shift Register 
-#define CIA1_ICR					0x0D  // Interupt control and status 
-#define CIA1_CRA					0x0E  // Timer A control register 
-#define CIA1_CRB 					0x0F  // Timer B control register 
 
+typedef enum {
+
+CIA1_PRA 				=	0x00,  // data port a register
+CIA1_PRB 				=	0x01,  // data port b register
+CIA1_DDRA 				=	0x02,  // porta data direction register
+CIA1_DDRB 				=	0x03,  // portb data direction register
+CIA1_TALO				=	0x04,  // Timer A Low Byte 
+CIA1_TAHI				=	0x05,  // Timer A High Byte 
+CIA1_TBLO				=	0x06,  // Timer A Low Byte 
+CIA1_TBHI				=	0x07,  // Timer A High Byte 
+CIA1_TODTENTHS			=	0x08,  // BCD Time of Day Tenths of Second
+CIA1_TODSECS			=	0x09,  // BCD TOD Seconds 
+CIA1_TODMINS			=	0x0A,  // BCD TOD Minutes
+CIA1_TODHRS				=	0x0B,  // BCD TOD Hours
+CIA1_SDR 				=	0x0C,  // Serial Shift Register 
+CIA1_ICR				=	0x0D,  // Interupt control and status 
+CIA1_CRA				=	0x0E,  // Timer A control register 
+CIA1_CRB 				=	0x0F  // Timer B control register 
+
+} CIA1_REGISTERS;
 
 #define CIA_FLAG_TAUIRQ					0b00000001 		// Timer a irq 
 #define CIA_FLAG_TBUIRQ					0b00000010 		// Timer b irq 
@@ -723,6 +727,26 @@ communicate with the chip.
 #define CIA_CRA_TIMERINPUT				0b00100000 	 // 0 count microprocessor cycles, 1 count CNT press
 #define CIA_CRA_SERIALMODE				0b01000000	 // serial mode (1 output, 0 input)
 #define CIA_CRA_TODFREQUENCY			0b10000000   // 1 50hz TOD, 0 60hz TOD 
+
+
+#define COLUMN_0   0b00000001
+#define COLUMN_1   0b00000010
+#define COLUMN_2   0b00000100
+#define COLUMN_3   0b00001000
+#define COLUMN_4   0b00010000
+#define COLUMN_5   0b00100000
+#define COLUMN_6   0b01000000
+#define COLUMN_7   0b10000000
+
+#define ROW_0   0b00000001
+#define ROW_1   0b00000010
+#define ROW_2   0b00000100
+#define ROW_3   0b00001000
+#define ROW_4   0b00010000
+#define ROW_5   0b00100000
+#define ROW_6   0b01000000
+#define ROW_7   0b10000000
+
 
 
 void cia1_update();

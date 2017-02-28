@@ -4,30 +4,6 @@
 #include "emu.h"
 #include "cia1.h"
 
-//
-// using row/col info from https://www.c64-wiki.com/wiki/Keyboard
-//
-
-
-#define COLUMN_0   0b00000001
-#define COLUMN_1   0b00000010
-#define COLUMN_2   0b00000100
-#define COLUMN_3   0b00001000
-#define COLUMN_4   0b00010000
-#define COLUMN_5   0b00100000
-#define COLUMN_6   0b01000000
-#define COLUMN_7   0b10000000
-
-#define ROW_0   0b00000001
-#define ROW_1   0b00000010
-#define ROW_2   0b00000100
-#define ROW_3   0b00001000
-#define ROW_4   0b00010000
-#define ROW_5   0b00100000
-#define ROW_6   0b01000000
-#define ROW_7   0b10000000
-
-
 #define MAX_CHARS 256
 
 typedef struct {
@@ -35,40 +11,17 @@ typedef struct {
 	byte row;
 } KEYMAP;
 
-
 typedef struct {
 
-	byte r[0x10]; // 16 registers.
-	unsigned long lticks;
+	byte regs[0x10];			// CIA1 internal registers. use CIA1_REGS enum to address.
 
+	unsigned long lticks;		// stores the value of sysclock_getticks() on last cia1_update()
 
 	byte tahilatch;				// latched start value high byte for timer a
 	byte talolatch;				// latched start value lo byte for timer b
-	byte tahicur;				// current timer a start value
-	byte talocur;				// current timer b start value
 	byte tbhilatch;				// latched start value high byte for timer a
 	byte tblolatch;				// latched start value lo byte for timer b
-	byte tbhicur;				// current timer a start value
-	byte tblocur;				// current timer b start value
-	byte todtenths; 			// current time of day tenths (BCD)
-	byte todsecs;	 			// current time of day seconds (BCD)
-	byte todmins; 				// current time of day minutes (BCD)
-	byte todhrs;				// current time of day hours  (BCD)
-
-	byte cra;					// timer a control bits
-	byte crb; 					// timer b control bits
-
-
-
-
-
-
-	//
-	// various timer interrupts enabled or disabled. 
-	//
-	byte icr;		// write sets irq control 
-	byte isr;  		// read  pulls current irq status
-
+	byte isr;  					// read pulls current irq status
 	FILE * log;
 
 } CIA1;
@@ -77,68 +30,16 @@ CIA1 g_cia1;
 
 byte cia1_peek(byte address) {
 
-	byte val = 0;
+	if ((address % 0x10) == CIA1_ICR) {
+		return g_cia1.isr;
+	}
 
-	switch (address % 0x10) {
-
-		case CIA1_PRA: 			// data port a register
-		// not implemented yet
-		break;
-		case CIA1_PRB: 			// data port b register
-		// not implemented yet
-		break;
-		case CIA1_DDRA: 		// porta data direction register
-		// not implemented yet
-		break;
-		case CIA1_DDRB: 		// portb data direction register
-		// not implemented yet
-		break;
-		case CIA1_TALO:			// Timer A Low Byte 
-			val = g_cia1.talocur;				
-		break;
-		case CIA1_TAHI:			// Timer A High Byte 
-			val = g_cia1.tahicur;				
-		break;
-		case CIA1_TBLO:			// Timer A Low Byte 
-			val = g_cia1.tblocur;	
-		break;
-		case CIA1_TBHI:			// Timer A High Byte 
-			val = g_cia1.tbhicur;		
-		break;
-		case CIA1_TODTENTHS:	// BCD Time of Day Tenths of Second
-			val = g_cia1.todtenths;
-		break;
-		case CIA1_TODSECS:		// BCD TOD Seconds 
-			val = g_cia1.todsecs;
-		break;
-		case CIA1_TODMINS:		// BCD TOD Minutes
-			val = g_cia1.todmins; 				
-		break;
-		case CIA1_TODHRS:		// BCD TOD Hours
-			val = g_cia1.todhrs;
-		break;
-		case CIA1_SDR: 			// Serial Shift Register 
-		// not implemented yet
-		break;
-		case CIA1_ICR:			// Interupt control and status 
-			val = g_cia1.isr;
-		break;
-		case CIA1_CRA:			// Timer A control register 
-			val = g_cia1.cra;		
-		break;
-		case CIA1_CRB:			// Timer B control register 
-			val = g_cia1.crb;
-		break;
-	}	
-
-	return val;
+	return g_cia1.regs[address % 0x10];
 }
-
-
 
 void cia1_seticr(byte val) {
 
-	byte old = g_cia1.icr;
+	byte old = g_cia1.regs[CIA1_ICR];
 	byte fillbit = val & CIA_FLAG_FILIRQ ? 0xFF : 0;
 	byte new = 0;
 
@@ -159,82 +60,76 @@ void cia1_seticr(byte val) {
 	new |= (val & 0x20) ? (fillbit & 0x20) : (old & 0x20);
 	new |= (val & 0x40) ? (fillbit & 0x40) : (old & 0x40);  
 	
-	g_cia1.icr = new;
+	g_cia1.regs[CIA1_ICR] = new;
 }
 
+void cia_setport(CIA1_REGISTERS reg, CIA1_REGISTERS ddr, byte val) {
+
+	byte test = 0b10000000;
+	byte new = 0;
+	byte portval = g_cia1.regs[reg];
+	byte ddrval  = g_cia1.regs[ddr];
+
+	while (test) {
+		new |= (test & ddrval) ? (test & val) : (test & portval);
+		test >>= 1;
+	}
+
+	g_cia1.regs[reg] = new;
+}
 
 void cia1_poke(byte address,byte val) {
 
 	switch (address % 0x10) {
 
 		case CIA1_PRA: 			// data port a register
-		// not implemented yet
+			cia_setport(CIA1_PRA,CIA1_DDRA,val);
 		break;
 		case CIA1_PRB: 			// data port b register
-		// not implemented yet
-		break;
-		case CIA1_DDRA: 		// porta data direction register
-		// not implemented yet
-		break;
-		case CIA1_DDRB: 		// portb data direction register
-		// not implemented yet
+			cia_setport(CIA1_PRB,CIA1_DDRB,val);
 		break;
 		case CIA1_TALO:			// Timer A Low Byte 
 			g_cia1.talolatch = val;	
-			g_cia1.talocur = val;				
+			g_cia1.regs[CIA1_TALO] = val;				
 		break;
 		case CIA1_TAHI:			// Timer A High Byte 
 			g_cia1.tahilatch = val;	
-			g_cia1.tahicur = val;					
+			g_cia1.regs[CIA1_TAHI] = val;					
 		break;
 		case CIA1_TBLO:			// Timer A Low Byte 
 			g_cia1.tblolatch = val;	
-			g_cia1.tblocur = val;		
+			g_cia1.regs[CIA1_TBLO] = val;		
 		break;
 		case CIA1_TBHI:			// Timer A High Byte 
 			g_cia1.tbhilatch = val;	
-			g_cia1.tblocur = val;	
-		break;
-		case CIA1_TODTENTHS:	// BCD Time of Day Tenths of Second
-			g_cia1.todtenths = val;
-		break;
-		case CIA1_TODSECS:		// BCD TOD Seconds 
-			g_cia1.todsecs = val;
-		break;
-		case CIA1_TODMINS:		// BCD TOD Minutes
-			g_cia1.todmins = val; 				
-		break;
-		case CIA1_TODHRS:		// BCD TOD Hours
-			g_cia1.todhrs = val;
-		break;
-		case CIA1_SDR: 			// Serial Shift Register 
-		// not implemented yet
+			g_cia1.regs[CIA1_TBLO] = val;	
 		break;
 		case CIA1_ICR:			// Interupt control and status 
 			cia1_seticr(val);
 		break;
 		case CIA1_CRA:			// Timer A control register 
 
-			fprintf(g_cia1.log,"setting CRA to %02X near %04X\n",val,cpu_getpc());
-			g_cia1.cra = val;
+			g_cia1.regs[CIA1_CRA] = val;
 
-			if (g_cia1.cra & CIA_CRA_FORCELATCH) { 
+			if (val & CIA_CRA_FORCELATCH) { 
 				// force load startlatch into current 
-				g_cia1.talocur = g_cia1.talolatch;
-				g_cia1.tahicur = g_cia1.tahilatch;
+				g_cia1.regs[CIA1_TALO] = g_cia1.talolatch;
+				g_cia1.regs[CIA1_TAHI] = g_cia1.tahilatch;
 			}		
 		break;
 		case CIA1_CRB:			// Timer B control register 
-			g_cia1.crb = val;
-			if (g_cia1.cra & CIA_CRA_FORCELATCH) { 
+
+			g_cia1.regs[CIA1_CRB] = val;
+			if (val & CIA_CRA_FORCELATCH) { 
 				// force load startlatch into current 
-				g_cia1.tblocur = g_cia1.tblolatch;
-				g_cia1.tbhicur = g_cia1.tbhilatch;
+				g_cia1.regs[CIA1_TBLO] = g_cia1.tblolatch;
+				g_cia1.regs[CIA1_TBHI] = g_cia1.tbhilatch;
 			}		
+		break;
+		default: g_cia1.regs[address % 10] = val;
 		break;
 	}	
 }
-
 
 KEYMAP g_ciaKeyboardTable[MAX_CHARS] = {0};
 
@@ -246,7 +141,6 @@ void ciaInitChar(byte ch, byte col, byte row) {
 	g_ciaKeyboardTable[ch].column = col;
 	g_ciaKeyboardTable[ch].column = row;
 }
-
 
 void cia1_init() {
 
@@ -324,8 +218,12 @@ void cia1_init() {
 	ciaInitChar('3',COLUMN_1,ROW_0);
 	//ciaInitChar({DELETE},COLUMN_0,ROW_0);
 
-
 	ciaInitChar(0xFF,0,0);
+	//
+	// set default direction for ports. 
+	//
+	g_cia1.regs[CIA1_DDRA] = 0xff;
+	g_cia1.regs[CIA1_DDRB] = 0x0;
 
 	g_cia1.lticks = 0;
 	g_cia1.log = fopen("cia.log","w+");
@@ -334,8 +232,6 @@ void cia1_init() {
 void cia1_destroy() {
 	fclose(g_cia1.log);
 }
-
-
 
 void cia1_update_timera() {
 
@@ -346,7 +242,7 @@ void cia1_update_timera() {
 	//
 	// is timer a enabled?
 	//
-	if ((g_cia1.cra & CIA_CRA_TIMERSTART) == 0) {
+	if ((g_cia1.regs[CIA1_CRA] & CIA_CRA_TIMERSTART) == 0) {
 		//
 		// timer not running.
 		//
@@ -355,7 +251,7 @@ void cia1_update_timera() {
 	//
 	// count down ticks
 	//
-	if (g_cia1.cra & CIA_CRA_TIMERINPUT) {
+	if (g_cia1.regs[CIA1_CRA] & CIA_CRA_TIMERINPUT) {
 
 		//
 		// BUGBUG: Not implemented. Should count down on  CNT presses here. 
@@ -363,14 +259,13 @@ void cia1_update_timera() {
 
 	} else {
 		ticks = sysclock_getticks();
-		tval = ((word) g_cia1.tahicur << 8 ) | g_cia1.talocur;
+		tval = ((word) g_cia1.regs[CIA1_TAHI] << 8 ) | g_cia1.regs[CIA1_TALO];
 		updateval = tval - (ticks - g_cia1.lticks);
 		g_cia1.lticks = ticks;
-		g_cia1.tahicur = updateval >> 8;
-		g_cia1.talocur = updateval & 0xFF; 
+		g_cia1.regs[CIA1_TAHI] = updateval >> 8;
+		g_cia1.regs[CIA1_TALO] = updateval & 0xFF; 
 	
 	}
-
 	// 
 	// check for underflow condition.
 	//
@@ -383,9 +278,9 @@ void cia1_update_timera() {
 		//
 		// check to see if (and how) to signal underflow on port b bit six. 
 		//
-		if (g_cia1.cra & CIA_CRA_PORTBSELECT) {
+		if (g_cia1.regs[CIA1_CRA] & CIA_CRA_PORTBSELECT) {
 
-			if (g_cia1.cra & CIA_CRA_PORTBMODE) {
+			if (g_cia1.regs[CIA1_CRA] & CIA_CRA_PORTBMODE) {
 				//
 				// BUGBUG Not Implemented
 				//
@@ -399,13 +294,13 @@ void cia1_update_timera() {
 		//
 		// if runmode is one shot, turn timer off.  
 		// 
-		if (g_cia1.cra & CIA_CRA_TIMERRUNMODE) {
-			g_cia1.cra &= (~CIA_CRA_TIMERSTART);
+		if (g_cia1.regs[CIA1_CRA] & CIA_CRA_TIMERRUNMODE) {
+			g_cia1.regs[CIA1_CRA] &= (~CIA_CRA_TIMERSTART);
 		}
 		//
 		// should we trigger an interrupt? 
 		//
-		if (g_cia1.icr & CIA_FLAG_TAUIRQ) {
+		if (g_cia1.regs[CIA1_ICR] & CIA_FLAG_TAUIRQ) {
 			//
 			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
 			//
@@ -415,57 +310,19 @@ void cia1_update_timera() {
 		//
 		// reset to latch value. 
 		//
-		g_cia1.tahicur = g_cia1.tahilatch;
-		g_cia1.talocur = g_cia1.talolatch;
-	
+		g_cia1.regs[CIA1_TAHI] = g_cia1.tahilatch;
+		g_cia1.regs[CIA1_TALO] = g_cia1.talolatch;
 	}
 }
 
-void cia1_update_timerb() {
-	
-}
+void cia1_update_timerb() {}
 
-void cia1_update_timeofday() {
-	
-}
+void cia1_update_timeofday() {}
 
-
-
-void cia1_update() {
-
-	cia1_update_timera();
-	cia1_update_timerb();
-	cia1_update_timeofday();
-
-}
-
-
-void cia1_update_old() {
+void cia1_update_keyboard() {
 
 	KEYMAP km;
 
-	unsigned long ticks  = sysclock_getticks();
-
-	word tval = ((word)cia1_peek(CIA1_TAHI) << 8) | cia1_peek(CIA1_TALO);
-	word updateval = tval - (ticks - g_cia1.lticks);
-	g_cia1.lticks = ticks;
-
-	cia1_poke(CIA1_TAHI, updateval >> 8);
-	cia1_poke(CIA1_TALO, updateval & 0xFF);
-/*
-	//
-	// very simpliefied irq handling right now. just timera ...
-	//
-	if (updateval > tval && g_cia1.TAUirq) {
-		//
-		// Timer A underflow IRQ occurred.
-		//
-		fprintf(g_cia1.log,"IRQ signaled at clock ticks %010d (elapsed secs %d) curval %02X%02X\n",
-			(int) sysclock_getticks(),(int) sysclock_getticks() / NTSC_TICKS_PER_SECOND,
-			cia1_peek(CIA1_TAHI),cia1_peek(CIA1_TALO));
-		cpu_setirq();
-	}
-*/
 	if (g_ciaticks) {
 		g_ciaticks--;
 		if (!g_ciaticks) {
@@ -475,10 +332,19 @@ void cia1_update_old() {
 
 	if (g_ciaticks) {
 
-		if (g_ciaKeyboardTable[g_ciapress].column & g_cia1.r[CIA1_PRA]) {
-			g_cia1.r[CIA1_PRB] = g_ciaKeyboardTable[g_ciapress].row;		
+		if (g_ciaKeyboardTable[g_ciapress].column & g_cia1.regs[CIA1_PRA]) {
+			g_cia1.regs[CIA1_PRB] = g_ciaKeyboardTable[g_ciapress].row;		
 		}
 	}
+}
+
+void cia1_update() {
+
+	cia1_update_timera();
+	cia1_update_timerb();
+	cia1_update_timeofday();
+	cia1_update_keyboard();
+
 }
 
 #define TICKCOUNT 10000
