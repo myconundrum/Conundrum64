@@ -106,11 +106,15 @@ void mem_poke(word address,byte value) {
 		// do nothing
 		return;
 	}
-
-	g_memory.ram[address] = value;
-
-	if (address == BANKSWITCH_ADDRESS) {
-		mem_config_change();
+	
+	if (ISIOADDRESS(address)) {
+		cia1_poke(address,value);
+	}
+	else {
+		g_memory.ram[address] = value;
+		if (address == BANKSWITCH_ADDRESS) {
+			mem_config_change();
+		}
 	}
 }
 
@@ -140,6 +144,10 @@ byte mem_peek(word address) {
 	}
 	else if (ISBASICADDRESS(address)) {
 		val = g_memory.basicrom[address - BASIC_ROM_LOW_ADDRESS];
+	}
+	else if (ISIOADDRESS(address)) {
+
+		val = cia1_peek(address);
 	}
 	else {val = g_memory.ram[address];}
 

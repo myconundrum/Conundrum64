@@ -28,11 +28,11 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 	memset(ux,0,sizeof(UX));
 
 	ux->assembler = a;
-	ux->registers 	= newwin (3,COLS,0,0);
-	ux->display 	= newwin (29,44,3,61);
-	ux->memory 		= newwin (18,60,3,0);
-	ux->disassembly = newwin (20,60,21,0);
-	ux->console  	= newwin (1,30,43,0);
+	ux->registers 	= newwin (1,COLS,0,0);
+	ux->display 	= newwin (29,44,1,61);
+	ux->memory 		= newwin (18,60,1,0);
+	ux->disassembly = newwin (20,60,20,0);
+	ux->console  	= newwin (1,30,42,0);
 
 	ux->log = fopen("log.txt","w+");
 	ux->running = false;
@@ -164,7 +164,10 @@ void refresh_display(UX * ux) {
 	wattroff(ux->display,COLOR_PAIR(2));
 }
 
-
+//
+// used for some debugging. Probably not needed any more. 
+// converts a excess-128 value into a float.
+//
 double ux_convertfac(byte exp, byte m1, byte m2, byte m3, byte m4) {
 
 	double rval;
@@ -188,7 +191,7 @@ void refresh_registers(UX * ux) {
 	werase(ux->registers);	
 	wmove(ux->registers,0,0);
 	wprintw(ux->registers,
-		"A: $%02X X: $%02X Y: $%02X STACK: $%02X PC: $%04X N:%dV%dX%dB%dD%dI%dZ%dC%d CYCLES: %010d",
+		"A: $%02X X: $%02X Y: $%02X STACK: $%02X PC: $%04X N:%dV%dX%dB%dD%dI%dZ%dC%d ticks: %010d (%d c64 secs)",
 		cpu_geta(),cpu_getx(),cpu_gety(),cpu_getstack(),cpu_getpc(),
 		((status & N_FLAG )!= 0),
 		((status & V_FLAG )!= 0),
@@ -198,22 +201,9 @@ void refresh_registers(UX * ux) {
 		((status & I_FLAG )!= 0),
 		((status & Z_FLAG )!= 0),
 		((status & C_FLAG )!= 0),
-		cpu_getcycles());
+		sysclock_getticks(),
+		sysclock_getticks() / NTSC_TICKS_PER_SECOND );
 
-
-
-	wmove(ux->registers,1,0);
-	wprintw(ux->registers,
-		"FAC E: %02X M1: %02X M2: %02X M3: %02X M4: %02X S: %02X / ARG E: %02X M1: %02X M2: %02X M3: %02X M4: %02X S: %02X ",
-		mem_peek(0x61),mem_peek(0x62),mem_peek(0x63),mem_peek(0x64),mem_peek(0x65),mem_peek(0x70),
-		mem_peek(0x69),mem_peek(0x6A),mem_peek(0x6B),mem_peek(0x6C),mem_peek(0x6D),mem_peek(0x6E));
-	
-	wmove(ux->registers,2,0);
-
-	wprintw(ux->registers,"converted fac: %f converted arg %f ",
-		ux_convertfac(mem_peek(0x61),mem_peek(0x62),mem_peek(0x63),mem_peek(0x64),mem_peek(0x65)),
-		ux_convertfac(mem_peek(0x69),mem_peek(0x6A),mem_peek(0x6B),mem_peek(0x6C),mem_peek(0x6D)));
-	
 
 
 	wrefresh(ux->registers);

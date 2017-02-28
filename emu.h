@@ -7,11 +7,12 @@
 #include <stdio.h>
 #include <ncurses.h>
 #include "cpu.h"
+#include "cia1.h"
 #include "mem.h"
 #include "asm.h"
 #include "ux.h"
-#include "cia1.h"
 #include "stdint.h"
+#include "sysclock.h"
 
 
 

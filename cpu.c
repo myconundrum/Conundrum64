@@ -15,8 +15,9 @@ typedef struct cpu6502 {
 	byte reg_stack;				// stack pointer
 	word pc;					// program counter;
 
-	unsigned int cycles; 		// tracks total cycles run. 
 	FILE * log;					// log file. 
+
+	bool irq;					// irq signal.
 
 } CPU6502;
 
@@ -40,7 +41,7 @@ CPU6502 g_cpu;
 byte fetch() {
 
 	if (((g_cpu.pc + 1) & 0xFF) == 0) {
-		g_cpu.cycles++;
+		sysclock_addticks(1);
 	}
 
 	return mem_peek(g_cpu.pc++);
@@ -127,13 +128,13 @@ void setPCFromOffset(byte val) {
 	//
 	// add a cycle on successful branch.
 	//
-	g_cpu.cycles++;
+	sysclock_addticks(1);
 
 	//
 	// add cycle on page boundary cross.
 	//
 	if ((g_cpu.pc & 0xFF) != (old & 0xFF)) {
-		g_cpu.cycles++;
+		sysclock_addticks(1);
 	}
 }
 
@@ -442,6 +443,7 @@ void handle_RTI (ENUM_AM m) {
 	g_cpu.reg_stack++;
 
 	g_cpu.reg_status &= ~B_FLAG;
+
 }
 
 
@@ -732,9 +734,22 @@ void runcpu() {
 
 	byte op;
 
+	if (g_cpu.irq && !(g_cpu.reg_status & I_FLAG)) {
+		//
+		// save PC and status on IRQ
+		//
+		mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc >> 8);
+		mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc &  0xFF);
+		mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_status);
+
+		g_cpu.pc = mem_peekword(VECTOR_BRK);
+		g_cpu.irq = false;
+	
+	}
+
 	op = fetch();
 	g_opcodes[op].fn(g_opcodes[op].am);
-	g_cpu.cycles += g_opcodes[op].cycles;
+	sysclock_addticks(g_opcodes[op].cycles);
 
 }
 
@@ -748,6 +763,7 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 
 
 void destroy_computer() {
+
 	fclose(g_cpu.log);
 }
 
@@ -962,7 +978,12 @@ void init_computer() {
 	mem_poke(BANKSWITCH_ADDRESS,0xE7);
 	g_cpu.pc = mem_peekword(VECTOR_RESET);
 
+
+
 }
+
+void cpu_setirq() {g_cpu.irq = true;}
+
 
 
 
@@ -972,6 +993,5 @@ byte cpu_gety()					{return g_cpu.reg_y;}
 word cpu_getpc() 				{return g_cpu.pc;}
 byte cpu_getstatus()			{return g_cpu.reg_status;}	
 byte cpu_getstack()				{return g_cpu.reg_stack;}
-unsigned int cpu_getcycles()	{return g_cpu.cycles;}
 
 

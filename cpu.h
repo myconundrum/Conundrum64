@@ -2,6 +2,7 @@
 #define CPU_H 
 
 
+
 //
 // status flags
 //
@@ -17,12 +18,16 @@
 #define STACK_BASE 			0x0100 		// stack page 
 #define VECTOR_RESET 		0xFFFC		// reset vector 
 #define VECTOR_BRK	 		0xFFFE		// break vector  
+#define VECTOR_IRQ	 		0xFFFE		// break vector  
+
 
 
 typedef unsigned char 		byte; 
 typedef unsigned short 		word; 
 
 
+
+#define NTSC_CYCLES_PERSECOND 1022727 
 
 
 //
@@ -60,7 +65,8 @@ byte cpu_gety();
 word cpu_getpc();
 byte cpu_getstatus();
 byte cpu_getstack();
-unsigned int cpu_getcycles();
+
+void cpu_setirq();
 
 
 bool cpu_isopcode(char * name);

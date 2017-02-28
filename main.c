@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+
 #include "emu.h"
 
 
@@ -14,9 +15,10 @@ int main(int argc, char**argv) {
 	ASSEMBLER assembler;
 	int cycles = 0;
 
-	mem_init();						// init ram
-	init_computer();				// init 6502 CPU for C64 emulator.
-	cia1_init();						// init CIA1 chip for C64 emulator.
+	mem_init();								// init ram
+	sysclock_init();						// init clock
+	init_computer();						// init 6502 CPU for C64 emulator.
+	cia1_init();							// init CIA1 chip for C64 emulator.
 	init_assembler(&assembler);
 	init_ux(&ux, &assembler);
 
@@ -24,7 +26,7 @@ int main(int argc, char**argv) {
 
 	do {
 
-		if (!(cycles % 100)) {
+		if (!(cycles % 10000)) {
 			update_ux(&ux);
 			
 		}
@@ -35,9 +37,12 @@ int main(int argc, char**argv) {
 				fillDisassembly(&ux,cpu_getpc());
 			}
 			else {
+
 				cia1_update();
+
 				runcpu();
-				mem_poke(0xD012,0); //BUGBUG hack. 
+
+				mem_poke(0xD012,0); //BUGBUG hack. clear raster line interrupt. 
 			}
 		}
 		cycles++;
@@ -47,5 +52,6 @@ int main(int argc, char**argv) {
 	destroy_ux(&ux);
 	destroy_computer();
 	mem_destroy();
+	cia1_destroy(); 
 	return 0;
 }
