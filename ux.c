@@ -145,8 +145,6 @@ void refresh_display(UX * ux) {
 	
 	wattron(ux->display,COLOR_PAIR(2));
 
-
-
 	for (i = 0; i < 25; i++) {
 		for (j = 0; j < 40; j++) {
 
@@ -156,7 +154,22 @@ void refresh_display(UX * ux) {
 			low = address & 0xff;
 			b = mem_peek((high << 8) | low);
 			ch = getScreenChar(b);
-			wprintw(ux->display,"%c",isprint(ch) ? ch : ' ');
+			
+			//
+			// cursor blink hack
+			//
+			if (ch == 0xa0) {
+				ch = 0x20;
+
+				wattroff(ux->display,COLOR_PAIR(2));
+				wattron(ux->display,COLOR_PAIR(5));
+				wprintw(ux->display,"%c",isprint(ch) ? ch : ' ');
+				wattroff(ux->display,COLOR_PAIR(5));
+				wattron(ux->display,COLOR_PAIR(2));
+
+			} else {
+				wprintw(ux->display,"%c",isprint(ch) ? ch : ' ');
+			}
 		}
 	}
 
@@ -203,8 +216,6 @@ void refresh_registers(UX * ux) {
 		((status & C_FLAG )!= 0),
 		sysclock_getticks(),
 		sysclock_getticks() / NTSC_TICKS_PER_SECOND );
-
-
 
 	wrefresh(ux->registers);
 	wattroff(ux->registers,COLOR_PAIR(1));

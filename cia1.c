@@ -347,7 +347,7 @@ void cia1_update() {
 
 }
 
-#define TICKCOUNT 10000
+#define TICKCOUNT 30000
 
 void cia1_keypress(byte ch) {
 
