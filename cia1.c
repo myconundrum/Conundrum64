@@ -215,7 +215,7 @@ void cia1_poke(byte address,byte val) {
 		break;
 		case CIA1_CRA:			// Timer A control register 
 
-			fprintf(g_cia1.log,"setting CRA to %02X\n",val);
+			fprintf(g_cia1.log,"setting CRA to %02X near %04X\n",val,cpu_getpc());
 			g_cia1.cra = val;
 
 			if (g_cia1.cra & CIA_CRA_FORCELATCH) { 
@@ -352,25 +352,24 @@ void cia1_update_timera() {
 		//
 		return;
 	}
-
 	//
 	// count down ticks
 	//
 	if (g_cia1.cra & CIA_CRA_TIMERINPUT) {
 
+		//
+		// BUGBUG: Not implemented. Should count down on  CNT presses here. 
+		//
+
+	} else {
 		ticks = sysclock_getticks();
 		tval = ((word) g_cia1.tahicur << 8 ) | g_cia1.talocur;
 		updateval = tval - (ticks - g_cia1.lticks);
 		g_cia1.lticks = ticks;
 		g_cia1.tahicur = updateval >> 8;
 		g_cia1.talocur = updateval & 0xFF; 
-
-	} else {
-		//
-		// BUGBUG: Not implemented. Should count down on  CNT presses here. 
-		//
+	
 	}
-
 
 	// 
 	// check for underflow condition.
@@ -381,8 +380,6 @@ void cia1_update_timera() {
 		// set bit in ICS regiser. 
 		//
 		g_cia1.isr = CIA_FLAG_TAUIRQ; 
-		
-
 		//
 		// check to see if (and how) to signal underflow on port b bit six. 
 		//
@@ -399,31 +396,22 @@ void cia1_update_timera() {
 				//
 			}
 		}
-
-
 		//
 		// if runmode is one shot, turn timer off.  
 		// 
 		if (g_cia1.cra & CIA_CRA_TIMERRUNMODE) {
 			g_cia1.cra &= (~CIA_CRA_TIMERSTART);
 		}
-
 		//
 		// should we trigger an interrupt? 
 		//
 		if (g_cia1.icr & CIA_FLAG_TAUIRQ) {
-			fprintf(g_cia1.log,"IRQ signaled at clock ticks %010d (elapsed secs %d) curval %02X%02X\n",
-				(int) sysclock_getticks(),(int) sysclock_getticks() / NTSC_TICKS_PER_SECOND,
-				g_cia1.tahicur, g_cia1.talocur);
-				
-
 			//
 			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
 			//
 			g_cia1.isr |=  CIA_FLAG_CIAIRQ;	
 			cpu_setirq();
 		}
-
 		//
 		// reset to latch value. 
 		//
@@ -431,7 +419,6 @@ void cia1_update_timera() {
 		g_cia1.talocur = g_cia1.talolatch;
 	
 	}
-
 }
 
 void cia1_update_timerb() {

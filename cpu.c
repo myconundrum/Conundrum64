@@ -438,7 +438,7 @@ void handle_BRK (ENUM_AM m) {
 
 void handle_RTI (ENUM_AM m) {
 
-	g_cpu.reg_status = mem_peek(STACK_BASE | +g_cpu.reg_stack);
+	g_cpu.reg_status = mem_peek(STACK_BASE | ++g_cpu.reg_stack);
 	g_cpu.pc = mem_peekword(STACK_BASE | ++g_cpu.reg_stack);
 	g_cpu.reg_stack++;
 
@@ -733,6 +733,7 @@ void handle_ADC (ENUM_AM m) {
 void runcpu() {
 
 	byte op;
+
 
 	if (g_cpu.irq && !(g_cpu.reg_status & I_FLAG)) {
 		//

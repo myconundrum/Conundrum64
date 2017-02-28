@@ -21,6 +21,12 @@
 #define IO_AREA_LOW_ADDRESS				0xD000
 #define IO_AREA_HIGH_ADDRESS			0xDFFF
 
+#define CIA1_AREA_LOW_ADDRESS			0xDC00
+#define CIA1_AREA_HIGH_ADDRESS			0xDCFF
+
+
+
+
 
 
 void mem_init();

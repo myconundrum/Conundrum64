@@ -7,7 +7,8 @@
 #define ISKERNALADDRESS(x) (g_memory.kernalmapped && (x) >= KERNAL_ROM_LOW_ADDRESS && (x) <= KERNAL_ROM_HIGH_ADDRESS)
 #define ISBASICADDRESS(x) (g_memory.basicmapped && (x) >= BASIC_ROM_LOW_ADDRESS && (x) <= BASIC_ROM_HIGH_ADDRESS)
 #define ISCHARADDRESS(x) (g_memory.charmapped && (x) >= CHAR_ROM_LOW_ADDRESS && (x) <= CHAR_ROM_HIGH_ADDRESS)
-#define ISIOADDRESS(x) (g_memory.iomapped && (x) >= IO_AREA_LOW_ADDRESS && (x) <= IO_AREA_HIGH_ADDRESS)
+//#define ISIOADDRESS(x) (g_memory.iomapped && (x) >= IO_AREA_LOW_ADDRESS && (x) <= IO_AREA_HIGH_ADDRESS)
+#define ISCIA1ADDRESS(x) (g_memory.iomapped && (x) >= CIA1_AREA_LOW_ADDRESS && (x) <= CIA1_AREA_HIGH_ADDRESS)
 
 
 typedef struct {
@@ -107,7 +108,7 @@ void mem_poke(word address,byte value) {
 		return;
 	}
 	
-	if (ISIOADDRESS(address)) {
+	if (ISCIA1ADDRESS(address)) {
 		cia1_poke(address,value);
 	}
 	else {
@@ -145,7 +146,7 @@ byte mem_peek(word address) {
 	else if (ISBASICADDRESS(address)) {
 		val = g_memory.basicrom[address - BASIC_ROM_LOW_ADDRESS];
 	}
-	else if (ISIOADDRESS(address)) {
+	else if (ISCIA1ADDRESS(address)) {
 
 		val = cia1_peek(address);
 	}

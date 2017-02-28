@@ -720,7 +720,7 @@ communicate with the chip.
 #define CIA_CRA_PORTBMODE				0b00000100   // 1 toggle bit 6, 0 pule bit 6 1 cycle.
 #define CIA_CRA_TIMERRUNMODE			0b00001000 	 // 1 one shot timer, 0 continuous timer. 
 #define CIA_CRA_FORCELATCH				0b00010000 	 // force latch into current
-#define CIA_CRA_TIMERINPUT				0b00100000 	 // 1 count microprocessor cycles, count CNT press
+#define CIA_CRA_TIMERINPUT				0b00100000 	 // 0 count microprocessor cycles, 1 count CNT press
 #define CIA_CRA_SERIALMODE				0b01000000	 // serial mode (1 output, 0 input)
 #define CIA_CRA_TODFREQUENCY			0b10000000   // 1 50hz TOD, 0 60hz TOD 
 
