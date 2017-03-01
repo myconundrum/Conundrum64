@@ -66,7 +66,8 @@ word cpu_getpc();
 byte cpu_getstatus();
 byte cpu_getstack();
 
-void cpu_setirq();
+void cpu_irq();
+void cpu_nmi();
 
 
 bool cpu_isopcode(char * name);

@@ -8,17 +8,91 @@
 #include <math.h>
 #include <time.h>
 
-typedef struct {
-	byte ch;
-	clock_t t;
-} KEYUP;
 
-KEYUP g_keyqueue[10];
+#define KEYQUEUELENGTH 20
+
+
+typedef struct {
+
+	byte ch;
+	bool ctrl;
+	bool shift;
+
+} KEY;
+
+typedef struct {
+	KEY key;
+	byte clock; 
+	KEY q[KEYQUEUELENGTH];
+	byte front;
+	byte end; 
+
+} KEYQUEUE;
+
+KEYQUEUE g_keys;
+
+
+void kq_releasekey(KEY k) {
+		if (k.shift) {
+			cia1_keyup(C64KEY_RSHIFT);
+		}
+		if (k.ctrl) {
+			cia1_keyup(C64KEY_CTRL);
+		}
+		cia1_keyup(k.ch);
+}
+
+
+void kq_presskey(KEY k) {
+		if (k.shift) {
+			cia1_keydown(C64KEY_RSHIFT);
+		}
+		if (k.ctrl) {
+			cia1_keydown(C64KEY_CTRL);
+		}
+		cia1_keydown(k.ch);
+}
+
+void kq_init() {
+	memset(&g_keys,0,sizeof(g_keys));
+	g_keys.key.ch = 0xff;
+}
+
+void kq_add(byte ch,bool shift, bool ctrl) {
+
+	KEY k;
+	k.ch = ch;
+	k.shift = shift;
+	k.ctrl = ctrl;
+
+	if (g_keys.key.ch == 0xff) {
+		g_keys.key = k;
+		g_keys.clock = clock();
+		kq_presskey(k);
+	}
+	else {
+		g_keys.q[g_keys.end] = k;
+		g_keys.end = (g_keys.end + 1) % KEYQUEUELENGTH;
+	}
+}
+
+
+
+void kq_update() {
+
+	if (g_keys.key.ch != 0xff && (clock() - g_keys.clock)/CLOCKS_PER_SEC > .1) {
+		kq_releasekey(g_keys.key);
+		if (g_keys.front != g_keys.end) {
+			g_keys.key  = g_keys.q[g_keys.front];
+			g_keys.clock = clock();
+			g_keys.front = (g_keys.front +1) % KEYQUEUELENGTH;
+			kq_presskey(g_keys.key);
+		}
+	}
+}
 
 
 void init_ux(UX * ux, ASSEMBLER * a) {
-
-	int i;
 
 	// curses initialization 
 	initscr(); 
@@ -41,17 +115,12 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 	ux->display 	= newwin (29,44,1,61);
 	ux->memory 		= newwin (18,60,1,0);
 	ux->disassembly = newwin (20,60,20,0);
-	ux->console  	= newwin (1,30,42,0);
+	ux->console  	= newwin (2,30,42,0);
 
 	ux->log = fopen("log.txt","w+");
 	ux->running = false;
 
-
-	for (i = 0; i < 10; i++) {
-		g_keyqueue[i].t = -1;
-	}
-
-
+	kq_init();
 }
 
 void destroy_ux(UX * ux) {
@@ -236,33 +305,66 @@ void refresh_registers(UX * ux) {
 	wattroff(ux->registers,COLOR_PAIR(1));
 }
 
+//
+// BUGBUG just for debugging
+//
+char g_keybuf[50];
 
 
+void handle_specialkeys(UX * ux) {
+
+	int ch = 0xff;
+	int ch2;
+	bool ctrl;
+	bool shift;
+
+	//
+	// esc
+	//
+	if (getch() == -1) {
+		ux -> passthru = false;
+		return;
+	}
+
+	switch(getch()) {
+
+		case 0x42: ch = C64KEY_CURDOWN; break;
+		case 0x41: ch = C64KEY_CURDOWN;shift = true; break;
+		case 0x43: ch = C64KEY_CURRIGHT; break;
+		case 0x44: ch = C64KEY_CURRIGHT;shift = true;break;
+
+	}
+
+	kq_add(ch,shift,ctrl);
+
+}
 
 void refresh_console(UX * ux) {
 
 	int ch = getch();
+	int ch2;
+	bool shift = false;
+	bool ctrl = false;
 	int i;
 
 	wattron(ux->console,COLOR_PAIR(1));
+	werase(ux->console);
 
 	if (ch != -1 && ux->passthru) {
-		if (ch == 27) {
-			ux->passthru = false;
-			getch();getch();
-		}
-		else { 
-			for (i = 0; i < 10; i++) {
-				if (g_keyqueue[i].t == -1) {
-					cia1_keydown(toupper(ch));
-					g_keyqueue[i].t = clock();
-					g_keyqueue[i].ch =toupper(ch);
-					break;
-				}
-			}
-		}
+		switch(ch) {
+			case '"' : kq_add('2',true,false);break;
+			case 0x1B : handle_specialkeys(ux);break;
+			case 0x7F : kq_add(C64KEY_DELETE,false,false);break;
+			case '`'  : kq_add(C64KEY_RUNSTOP,false,false);break;
+			case '~'  : kq_add(C64KEY_RESTORE,false,false);break;
+			default: kq_add(toupper(ch),false,false); break;
+		}	
 	}
 	else {
+		if (ch != -1) {
+			sprintf(g_keybuf,"keys: %02X %02X %02X %02X\n",ch,getch(),getch(),getch());
+			
+		}
 		switch(ch) {
 			case 27:
 				handle_step(ux); 
@@ -287,23 +389,19 @@ void refresh_console(UX * ux) {
 			break;
 		}
 	}
-	werase(ux->console);
+	
 	wmove(ux->console,0,0);
 	wprintw(ux->console,":> %s", ux->buf);
+	wmove(ux->console,1,0);
+	wprintw(ux->console,g_keybuf);
 	wrefresh(ux->console);
 
 	wattroff(ux->console,COLOR_PAIR(1));
 
+	kq_update();
 
-	for (i = 0; i < 10; i++) {
-		if (g_keyqueue[i].t != -1 && (clock() - g_keyqueue[i].t)/CLOCKS_PER_SEC > .1) {
-			g_keyqueue[i].t = -1;
-			cia1_keyup(g_keyqueue[i].ch);
-		}
-	}
 
 }
-
 
 void update_ux(UX *ux) {
 	refresh(); // curses refresh

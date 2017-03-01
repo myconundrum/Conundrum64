@@ -184,14 +184,14 @@ void cia1_init() {
 	int i;
 	memset(&g_cia1,0,sizeof(CIA1));
 
-	//ciaInitChar({STOP},7,ROW_7); // STOP KEY NOT IMPL
+	ciaInitChar(C64KEY_RUNSTOP,7,ROW_7); // STOP KEY NOT IMPL
 	ciaInitChar('/',6,ROW_7);
 	ciaInitChar(',',5,ROW_7);
 	ciaInitChar('N',4,ROW_7);
 	ciaInitChar('V',3,ROW_7);
 	ciaInitChar('X',2,ROW_7);
-	//ciaInitChar({LSHIFT},1,ROW_7);
-	//ciaInitChar({CURSOR DN},0,ROW_7);
+	ciaInitChar(C64KEY_LSHIFT,1,ROW_7);
+	ciaInitChar(C64KEY_CURDOWN,0,ROW_7);
 
 	ciaInitChar('Q',7,ROW_6); 
 	ciaInitChar('^',6,ROW_6);
@@ -200,45 +200,45 @@ void cia1_init() {
 	ciaInitChar('U',3,ROW_6);
 	ciaInitChar('T',2,ROW_6);
 	ciaInitChar('E',1,ROW_6);
-	//ciaInitChar({F5},0,ROW_6);
+	ciaInitChar(C64KEY_F5,0,ROW_6);
 
-	//ciaInitChar({C64},7,ROW_5); 
+	ciaInitChar(C64KEY_C64,7,ROW_5); 
 	ciaInitChar('=',6,ROW_5);
 	ciaInitChar(':',5,ROW_5);
 	ciaInitChar('K',4,ROW_5);
 	ciaInitChar('H',3,ROW_5);
 	ciaInitChar('F',2,ROW_5);
 	ciaInitChar('S',1,ROW_5);
-	//ciaInitChar({F3},0,ROW_5);
+	ciaInitChar(C64KEY_F3,0,ROW_5);
 
 	ciaInitChar(' ',7,ROW_4); 
-	//ciaInitChar({RSHIFT},6,ROW_4);
+	ciaInitChar(C64KEY_RSHIFT,6,ROW_4);
 	ciaInitChar('.',5,ROW_4);
 	ciaInitChar('M',4,ROW_4);
 	ciaInitChar('B',3,ROW_4);
 	ciaInitChar('C',2,ROW_4);
 	ciaInitChar('Z',1,ROW_4);
-	//ciaInitChar({F1},0,ROW_4);
+	ciaInitChar(C64KEY_F1,0,ROW_4);
 
 	ciaInitChar('2',7,ROW_3); 
-	//ciaInitChar({HOME},6,ROW_3);
+	ciaInitChar(C64KEY_HOME,6,ROW_3);
 	ciaInitChar('-',5,ROW_3);
 	ciaInitChar('0',4,ROW_3);
 	ciaInitChar('8',3,ROW_3);
 	ciaInitChar('6',2,ROW_3);
 	ciaInitChar('4',1,ROW_3);
-	//ciaInitChar({F7},0,ROW_3);
+	ciaInitChar(C64KEY_F7,0,ROW_3);
 
-	//ciaInitChar({CTRL},7,ROW_2); 
+	ciaInitChar(C64KEY_CTRL,7,ROW_2); 
 	ciaInitChar(';',6,ROW_2);
 	ciaInitChar('L',5,ROW_2);
 	ciaInitChar('J',4,ROW_2);
 	ciaInitChar('G',3,ROW_2);
 	ciaInitChar('D',2,ROW_2);
 	ciaInitChar('A',1,ROW_2);
-	//ciaInitChar({CRSR RIGHT},0,ROW_2);
+	ciaInitChar(C64KEY_CURRIGHT,0,ROW_2);
 
-	//ciaInitChar({BACK},7,ROW_1); 
+	ciaInitChar(C64KEY_BACK,7,ROW_1); 
 	ciaInitChar('*',6,ROW_1);
 	ciaInitChar('P',5,ROW_1);
 	ciaInitChar('I',4,ROW_1);
@@ -248,19 +248,21 @@ void cia1_init() {
 	ciaInitChar('\n',0,ROW_1);
 
 	ciaInitChar('1',7,ROW_0); 
-	//ciaInitChar({LB},6,ROW_1);
+	ciaInitChar(C64KEY_POUND,6,ROW_1);
 	ciaInitChar('+',5,ROW_0);
 	ciaInitChar('9',4,ROW_0);
 	ciaInitChar('7',3,ROW_0);
 	ciaInitChar('5',2,ROW_0);
 	ciaInitChar('3',1,ROW_0);
-	//ciaInitChar({DELETE},0,ROW_0);
+	ciaInitChar(C64KEY_DELETE,0,ROW_0);
 
 	ciaInitChar(0xFF,0,0);
 
 	for (i = 0; i < 8; i++) {
 		g_cia1.kbd[i] = 0xff;
 	}
+
+
 	//
 	// set default direction for ports. 
 	//
@@ -348,7 +350,7 @@ void cia1_update_timera() {
 			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
 			//
 			g_cia1.isr |=  CIA_FLAG_CIAIRQ;	
-			cpu_setirq();
+			cpu_irq();
 		}
 		//
 		// reset to latch value. 
@@ -356,6 +358,11 @@ void cia1_update_timera() {
 		g_cia1.regs[CIA1_TAHI] = g_cia1.tahilatch;
 		g_cia1.regs[CIA1_TALO] = g_cia1.talolatch;
 	}
+}
+
+
+void cia_triggernmi() {
+
 }
 
 void cia1_update_timerb() {}
@@ -379,6 +386,14 @@ void cia1_keyup(byte ch) {
 	g_cia1.kbd[g_ciaKeyboardTable[ch].column] |= g_ciaKeyboardTable[ch].row;
 }
 void cia1_keydown(byte ch) {
+
+	if (ch == C64KEY_RESTORE) {
+		//
+		// bugbug cia2 should handle this.
+		//
+		cpu_nmi();
+	}
+
 	g_cia1.kbd[g_ciaKeyboardTable[ch].column] &= (~g_ciaKeyboardTable[ch].row);
 }
 

@@ -2,12 +2,12 @@
 
 #include <time.h>
 
-#define SYSCLOCK_CATCHUP 100
+#define SYSCLOCK_CATCHUP 20000
 
 typedef struct {
 
 	unsigned long total;		// total systicks
-	byte 		  clast;		// systicks since last catchup
+	word 		  clast;		// systicks since last catchup
 	clock_t		  clastreal;		// time at last refresh
 
 } SYSCLOCK;

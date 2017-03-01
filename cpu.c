@@ -18,6 +18,7 @@ typedef struct cpu6502 {
 	FILE * log;					// log file. 
 
 	bool irq;					// irq signal.
+	bool nmi;					// nmi signal.
 
 } CPU6502;
 
@@ -735,6 +736,16 @@ void runcpu() {
 	byte op;
 
 
+	if (g_cpu.nmi) {
+
+		//
+		// BUGBUG not implemented yet...
+		//
+
+
+	}
+
+
 	if (g_cpu.irq && !(g_cpu.reg_status & I_FLAG)) {
 		//
 		// save PC and status on IRQ
@@ -983,10 +994,8 @@ void init_computer() {
 
 }
 
-void cpu_setirq() {g_cpu.irq = true;}
-
-
-
+void cpu_irq() {g_cpu.irq = true;}
+void cpu_nmi() {g_cpu.nmi = true;}
 
 byte cpu_geta() 				{return g_cpu.reg_a;}
 byte cpu_getx()					{return g_cpu.reg_x;}

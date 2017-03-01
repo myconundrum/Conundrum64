@@ -738,6 +738,31 @@ CIA1_CRB 				=	0x0F  // Timer B control register
 #define ROW_7   0x80
 
 
+//
+// BUGBUG dummy values for c64 keys
+//
+#define C64KEY_LSHIFT 	0xD0
+#define C64KEY_CTRL  	0xD1
+#define C64KEY_RUNSTOP	0xD2
+#define C64KEY_CURDOWN	0xD3
+#define C64KEY_CURLEFT	0xD4
+#define C64KEY_CURRIGHT	0xD5
+#define C64KEY_CURUP	0xD6
+#define C64KEY_F1		0xD6
+#define C64KEY_F3		0xD7
+#define C64KEY_F5		0xD8
+#define C64KEY_F7		0xD9
+#define C64KEY_C64		0xDA
+#define C64KEY_RSHIFT	0xDB
+#define C64KEY_HOME		0xDC
+#define C64KEY_BACK		0xDD
+#define C64KEY_POUND	0xDD
+#define C64KEY_DELETE   0xDE
+#define C64KEY_RESTORE  0xDF
+
+
+
+
 
 void cia1_update();
 void cia1_keyup(byte ch);
