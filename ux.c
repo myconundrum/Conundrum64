@@ -373,12 +373,18 @@ void refresh_console(UX * ux) {
 			
 		}
 		switch(ch) {
-			case 27:
-				handle_step(ux); 
-				//
-				// BUGBUG on my keyboard, key down returns three keys.
-				//
-				getch();getch();
+			case 0x1B:
+				if (getch() == -1) {
+					ux->buf[ux->bpos++] = '"';
+					ux->buf[ux->bpos++] = ' ';
+					handle_command(ux);
+					memset(ux->buf,0,256);
+					ux->bpos = 0;
+				}
+				else if (getch() == 0x41) {
+
+					handle_step(ux); 
+				}
 
 			break;
 			case -1:
