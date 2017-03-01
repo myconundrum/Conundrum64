@@ -728,29 +728,21 @@ CIA1_CRB 				=	0x0F  // Timer B control register
 #define CIA_CRA_SERIALMODE				0b01000000	 // serial mode (1 output, 0 input)
 #define CIA_CRA_TODFREQUENCY			0b10000000   // 1 50hz TOD, 0 60hz TOD 
 
-
-#define COLUMN_0   0b00000001
-#define COLUMN_1   0b00000010
-#define COLUMN_2   0b00000100
-#define COLUMN_3   0b00001000
-#define COLUMN_4   0b00010000
-#define COLUMN_5   0b00100000
-#define COLUMN_6   0b01000000
-#define COLUMN_7   0b10000000
-
-#define ROW_0   0b00000001
-#define ROW_1   0b00000010
-#define ROW_2   0b00000100
-#define ROW_3   0b00001000
-#define ROW_4   0b00010000
-#define ROW_5   0b00100000
-#define ROW_6   0b01000000
-#define ROW_7   0b10000000
+#define ROW_0   0x01
+#define ROW_1   0x02
+#define ROW_2   0x04
+#define ROW_3   0x08
+#define ROW_4   0x10
+#define ROW_5   0x20
+#define ROW_6   0x40
+#define ROW_7   0x80
 
 
 
 void cia1_update();
-void cia1_keypress(byte ch);
+void cia1_keyup(byte ch);
+void cia1_keydown(byte ch);
+
 void cia1_init();
 void cia1_destroy(); 
 byte cia1_peek(byte register);

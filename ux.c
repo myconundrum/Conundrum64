@@ -6,10 +6,19 @@
 #include <ctype.h>
 #include "emu.h"
 #include <math.h>
+#include <time.h>
+
+typedef struct {
+	byte ch;
+	clock_t t;
+} KEYUP;
+
+KEYUP g_keyqueue[10];
 
 
 void init_ux(UX * ux, ASSEMBLER * a) {
 
+	int i;
 
 	// curses initialization 
 	initscr(); 
@@ -36,6 +45,13 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 
 	ux->log = fopen("log.txt","w+");
 	ux->running = false;
+
+
+	for (i = 0; i < 10; i++) {
+		g_keyqueue[i].t = -1;
+	}
+
+
 }
 
 void destroy_ux(UX * ux) {
@@ -162,9 +178,9 @@ void refresh_display(UX * ux) {
 				ch = 0x20;
 
 				wattroff(ux->display,COLOR_PAIR(2));
-				wattron(ux->display,COLOR_PAIR(5));
+				wattron(ux->display,COLOR_PAIR(4));
 				wprintw(ux->display,"%c",isprint(ch) ? ch : ' ');
-				wattroff(ux->display,COLOR_PAIR(5));
+				wattroff(ux->display,COLOR_PAIR(4));
 				wattron(ux->display,COLOR_PAIR(2));
 
 			} else {
@@ -195,7 +211,6 @@ double ux_convertfac(byte exp, byte m1, byte m2, byte m3, byte m4) {
 	return rval;
 }
 
-
 void refresh_registers(UX * ux) {
 
 	byte status = cpu_getstatus();
@@ -222,9 +237,12 @@ void refresh_registers(UX * ux) {
 }
 
 
+
+
 void refresh_console(UX * ux) {
 
 	int ch = getch();
+	int i;
 
 	wattron(ux->console,COLOR_PAIR(1));
 
@@ -234,7 +252,14 @@ void refresh_console(UX * ux) {
 			getch();getch();
 		}
 		else { 
-			cia1_keypress(toupper(ch));
+			for (i = 0; i < 10; i++) {
+				if (g_keyqueue[i].t == -1) {
+					cia1_keydown(toupper(ch));
+					g_keyqueue[i].t = clock();
+					g_keyqueue[i].ch =toupper(ch);
+					break;
+				}
+			}
 		}
 	}
 	else {
@@ -268,6 +293,15 @@ void refresh_console(UX * ux) {
 	wrefresh(ux->console);
 
 	wattroff(ux->console,COLOR_PAIR(1));
+
+
+	for (i = 0; i < 10; i++) {
+		if (g_keyqueue[i].t != -1 && (clock() - g_keyqueue[i].t)/CLOCKS_PER_SEC > .1) {
+			g_keyqueue[i].t = -1;
+			cia1_keyup(g_keyqueue[i].ch);
+		}
+	}
+
 }
 
 
