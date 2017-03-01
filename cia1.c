@@ -6,19 +6,12 @@
 
 #define MAX_CHARS 256
 
-
-
-
-
 typedef struct {
 	byte column;
 	byte row;
 } KEYMAP;
 
-
-
 KEYMAP g_ciaKeyboardTable[MAX_CHARS] = {0};
-
 
 typedef struct {
 
@@ -33,7 +26,6 @@ typedef struct {
 	byte tbhilatch;				// latched start value high byte for timer a
 	byte tblolatch;				// latched start value lo byte for timer b
 	byte isr;  					// read pulls current irq status
-	FILE * log;
 
 } CIA1;
 
@@ -55,7 +47,6 @@ byte cia1_getkbdprb() {
 	return val;
 
 }
-
 
 byte cia1_peek(byte address) {
 
@@ -128,7 +119,7 @@ void cia1_poke(byte address,byte val) {
 		break;
 		case CIA1_PRB: 			// data port b register
 			cia_setport(CIA1_PRB,CIA1_DDRB,val);
-			fprintf(g_cia1.log,"PRB set to %02X (%02X) near %04X\n",val,g_cia1.regs[CIA1_PRB],cpu_getpc());
+			DEBUG_PRINT("PRB set to %02X (%02X) near %04X\n",val,g_cia1.regs[CIA1_PRB],cpu_getpc());
 		break;
 		case CIA1_TALO:			// Timer A Low Byte 
 			g_cia1.talolatch = val;	
@@ -261,8 +252,6 @@ void cia1_init() {
 	for (i = 0; i < 8; i++) {
 		g_cia1.kbd[i] = 0xff;
 	}
-
-
 	//
 	// set default direction for ports. 
 	//
@@ -271,11 +260,10 @@ void cia1_init() {
 	g_cia1.regs[CIA1_PRB] = 0xff;
 
 	g_cia1.lticks = 0;
-	g_cia1.log = fopen("cia.log","w+");
 }
 
 void cia1_destroy() {
-	fclose(g_cia1.log);
+	
 }
 
 void cia1_update_timera() {

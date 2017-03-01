@@ -21,7 +21,7 @@ typedef struct {
 	bool charmapped;
 	bool basicmapped;
 	bool iomapped;
-	FILE * log;
+	
 
 } MEMORY;
 
@@ -53,11 +53,6 @@ void mem_config_change() {
 		g_memory.charmapped 	= !g_memory.iomapped;
 
 	}
-	
-    fprintf(g_memory.log,"MEM: bankswitch detected (%02X)\nkernal is %s mapped\nbasic is %s mapped\nIO is %s mapped\ncharrom is %s mapped\n",
-    	mem_peek(0x01),g_memory.kernalmapped ? "" : "not",
-    	g_memory.basicmapped ? "" : "not",g_memory.iomapped ? "" : "not",
-    	g_memory.charmapped ? "" : "not");
 }
 
 byte * mem_init_rom(char * name) {
@@ -73,7 +68,7 @@ byte * mem_init_rom(char * name) {
 		fseek(f, 0, SEEK_END);          
     	len = ftell(f);            
     	rewind(f);
-    	fprintf(g_memory.log,"MEM: loaded binary image %s size %d\n",name,len);
+    	DEBUG_PRINT("MEM: loaded binary image %s size %d\n",name,len);
 
     	where = (byte *) malloc(sizeof(byte) * len);   
 		fread(where,1,len,f);
@@ -86,7 +81,6 @@ byte * mem_init_rom(char * name) {
 
 void mem_init() {
 	memset(&g_memory,0,sizeof(MEMORY));
-	g_memory.log = fopen("mem.log","w+");
 	g_memory.kernalrom = mem_init_rom("asm/901227-03-kernal.bin");
 	g_memory.basicrom = mem_init_rom("asm/901226-01-basic.bin");
 	g_memory.charrom = mem_init_rom("asm/901225-01-char.bin");
@@ -94,8 +88,6 @@ void mem_init() {
 	
 }
 void mem_destroy() {
-
-	fclose(g_memory.log);
 	free(g_memory.kernalrom);
 	free(g_memory.basicrom);
 	free(g_memory.charrom);

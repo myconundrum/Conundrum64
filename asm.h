@@ -69,12 +69,8 @@ typedef struct {
 
 	int rulecount;
 	TOKEN_RECORD tokenrules[256];
-
-	FILE * log;
 	byte asmh;
 	byte asml;
-
-
 	KEYVALUE dict[MAX_LABELS];
 	int dlast; 
 

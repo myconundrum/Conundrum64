@@ -19,12 +19,12 @@ int dfind(ASSEMBLER *a, char *name) {
 void dadd(ASSEMBLER * a, char * name, byte high, byte low) {
 
 	if (a->dlast == MAX_LABELS) {
-		fprintf(a->log,"ASM: Error, too many labels. Ignoring.\n");
+		DEBUG_PRINT("ASM: Error, too many labels. Ignoring.\n");
 		return;
 	}
 
 	if (dfind(a,name) != -1) {
-		fprintf(a->log,"ASM: Error, attempt to redefine label. Ignoring.\n");
+		DEBUG_PRINT("ASM: Error, attempt to redefine label. Ignoring.\n");
 		return;
 	}
 
@@ -290,7 +290,7 @@ void getAddress(ASSEMBLER *a,LINE *line,byte *high, byte *low, byte *count) {
 		case ASM_IDENTIFIER:
 			i = dfind(a,tok.string); 
 			if (i == -1) {
-				fprintf(a->log,"[ASM] Error. label not found. \n");
+				DEBUG_PRINT("[ASM] Error. label not found. \n");
 			}
 			else {
 				*high = a->dict[i].high;
@@ -299,10 +299,10 @@ void getAddress(ASSEMBLER *a,LINE *line,byte *high, byte *low, byte *count) {
 			}
 		break;
 		default: 
-			fprintf(a->log,"[ASM] Error: number or label expected.\n %s\n",
+			DEBUG_PRINT("[ASM] Error: number or label expected.\n %s\n",
 			line->string);
 
-			fprintf(a->log,"[ASM] Token %s : %s.\n",
+			DEBUG_PRINT("[ASM] Token %s : %s.\n",
 			tok.name,tok.string);
 	}
 }
@@ -326,7 +326,7 @@ void ruleNewIdentifier(ASSEMBLER *a,TOKEN * last,LINE *line) {
 			dadd(a,last->string,high,low);
 		break;
 		default:
-			fprintf(a->log,"[ASM] invalid new label syntax. Expected ':' or '='.\n");
+			DEBUG_PRINT("[ASM] invalid new label syntax. Expected ':' or '='.\n");
 		break;
 	}
 }
@@ -341,14 +341,14 @@ void rulePCDirective(ASSEMBLER *a, LINE *line) {
 	byte count;
 
 	if (tok.type != ASM_EQUAL)  {
-		fprintf(a->log,"[ASM] Error: missing assignment operator after PC directive.\n %s\n",
+		DEBUG_PRINT("[ASM] Error: missing assignment operator after PC directive.\n %s\n",
 			line->string);
 	}
 	else {
 		getAddress(a,line,&high,&low,&count);
 		a->asmh = high;
 		a->asml = low;
-		fprintf(a->log,"$%02X%02X:\t        \t:%s\n",high,low,line->string);
+		DEBUG_PRINT("$%02X%02X:\t        \t:%s\n",high,low,line->string);
 	}
 }
 
@@ -370,7 +370,7 @@ byte getRelativeOffset(ASSEMBLER * a,byte high,byte low) {
 	byte r = 0;
 	
 	if (diff < -128 || diff > 127) {
-		fprintf(a->log,"[ASM] Relative address out of range.\n");
+		DEBUG_PRINT("[ASM] Relative address out of range.\n");
 	}
 	else {
 
@@ -489,14 +489,14 @@ void assemble_instruction(ASSEMBLER *a, LINE * line, char * name, ENUM_AM mode, 
 
 		if (cpu_getopcodeinfo(i,opbuf,&m) &&
 			!strcmp(name,opbuf)&& (m == mode || m == AM_RELATIVE)) {
-			fprintf(a->log,"$%02X%02X:\t",a->asmh,a->asml);
+			DEBUG_PRINT("$%02X%02X:\t",a->asmh,a->asml);
 			asmbyte(a,i);
-			fprintf(a->log,"%02X",i);
+			DEBUG_PRINT("%02X",i);
 
 			if (m == AM_RELATIVE) {
 				low = getRelativeOffset(a,high,low);
 				asmbyte(a,low);
-				fprintf(a->log," %02X   ",low);
+				DEBUG_PRINT(" %02X   ",low);
 			}
 			else {
 				switch(count) {
@@ -504,23 +504,23 @@ void assemble_instruction(ASSEMBLER *a, LINE * line, char * name, ENUM_AM mode, 
 					case 2: 
 						asmbyte(a,low);
 						asmbyte(a,high);
-						fprintf(a->log," %02X %02X",low,high);
+						DEBUG_PRINT(" %02X %02X",low,high);
 						break;
 					case 1:
 						asmbyte(a,low);
-						fprintf(a->log," %02X   ",low);
+						DEBUG_PRINT(" %02X   ",low);
 						break;
 					default:
-						fprintf(a->log,"       ");
+						DEBUG_PRINT("       ");
 					break; 
 
 				}
 			}
-			fprintf(a->log,"\t:%s\n",line->string);
+			DEBUG_PRINT("\t:%s\n",line->string);
 			return;
 		}
 	}
-	fprintf(a->log,"[ASM] Invalid instruction or mode.  %s %d\n",
+	DEBUG_PRINT("[ASM] Invalid instruction or mode.  %s %d\n",
 		name,mode);
 }
 
@@ -530,7 +530,7 @@ void ruleHandleDB(ASSEMBLER *a, LINE *line) {
 	TOKEN tok = {0};
 	byte high,low,count;
 
-	fprintf(a->log,"$%02X%02X:\t",a->asmh,a->asml);
+	DEBUG_PRINT("$%02X%02X:\t",a->asmh,a->asml);
 
 	getNextToken(a,line,&tok);
 
@@ -540,19 +540,19 @@ void ruleHandleDB(ASSEMBLER *a, LINE *line) {
 			case ASM_DECNUMBER: 
 				getBytesFromStr(tok.string,false,&high,&low,&count);
 				asmbyte(a,low);
-				fprintf(a->log,"%02X ",low);
+				DEBUG_PRINT("%02X ",low);
 			break;
 			case ASM_HEXNUMBER:
 				getBytesFromStr(tok.string,true,&high,&low,&count);
 				asmbyte(a,low);
-				fprintf(a->log,"%02X ",low);
+				DEBUG_PRINT("%02X ",low);
 			break;
 			default:
 			break;
 		}
 		getNextToken(a,line,&tok);
 	}
-	fprintf(a->log,"\t:%s\n",line->string);
+	DEBUG_PRINT("\t:%s\n",line->string);
 }
 
 void ruleHandleString(ASSEMBLER *a, LINE *line) {
@@ -560,16 +560,16 @@ void ruleHandleString(ASSEMBLER *a, LINE *line) {
 	int i;
 	getNextToken(a,line,&tok);
 	if (tok.type != ASM_STRING) {
-		fprintf(a->log,"[ASM] Expected string.\n");
+		DEBUG_PRINT("[ASM] Expected string.\n");
 	}
 
-	fprintf(a->log,"$%02X%02X:\t%02X ",a->asmh,a->asml,(byte) strlen(tok.string));
+	DEBUG_PRINT("$%02X%02X:\t%02X ",a->asmh,a->asml,(byte) strlen(tok.string));
 	asmbyte(a,strlen(tok.string));
 	for (i = 0; i < strlen(tok.string);i++) {
-		fprintf(a->log,"%02X ",tok.string[i]);
+		DEBUG_PRINT("%02X ",tok.string[i]);
 		asmbyte(a,tok.string[i]);
 	}
-	fprintf(a->log,"\t:.STRING \"%s\"\n",tok.string);
+	DEBUG_PRINT("\t:.STRING \"%s\"\n",tok.string);
 }
 
 void ruleHandlePragma(ASSEMBLER *a, TOKEN * last, LINE *line) {
@@ -577,7 +577,7 @@ void ruleHandlePragma(ASSEMBLER *a, TOKEN * last, LINE *line) {
 	TOKEN tok = {0};
 	getNextToken(a,line,&tok);
 	if (tok.type != ASM_IDENTIFIER) {
-		fprintf(a->log,"[ASM] Expected pragma directive.\n");
+		DEBUG_PRINT("[ASM] Expected pragma directive.\n");
 	}
 
 	if (!strcmp(tok.string,"STRING")) {
@@ -624,7 +624,7 @@ void ruleOpCode(ASSEMBLER *a, TOKEN * last, LINE *line) {
 					count = 1 + (high > 0);
 				}
 				else {
-					fprintf(a->log,"[ASM] unexpected identifier.\n");
+					DEBUG_PRINT("[ASM] unexpected identifier.\n");
 				}
 			break;
 
@@ -690,7 +690,7 @@ void ruleNewLine(ASSEMBLER * a, LINE * line) {
 		case ASM_NONE:
 		break;
 		default: 
-			fprintf(a->log,"[ASM] invalid syntax. %s\n",tok.name);
+			DEBUG_PRINT("[ASM] invalid syntax. %s\n",tok.name);
 		break;
 	}
 }
@@ -699,7 +699,6 @@ void ruleNewLine(ASSEMBLER * a, LINE * line) {
 void loadBinFile(ASSEMBLER *a, char * file, byte high, byte low) {
 
 	FILE * f;
-	char logbuf[256];
 	int len;
 	int i;
 	byte b; 
@@ -710,10 +709,7 @@ void loadBinFile(ASSEMBLER *a, char * file, byte high, byte low) {
 	a->asmh = high;
 	a->asml = low;
 
-	sprintf(logbuf,"%s.log",file);
-
-	a->log = fopen(logbuf,"w+");
-	fprintf(a->log,"[ASM] binary file %s\n",file);
+	DEBUG_PRINT("[ASM] binary file %s\n",file);
 
 	if (f) {
 
@@ -722,7 +718,7 @@ void loadBinFile(ASSEMBLER *a, char * file, byte high, byte low) {
     	len = ftell(f);            
     	rewind(f);   
 
-		fprintf(a->log,"[ASM] file is %d bytes long.\n",len);
+		DEBUG_PRINT("[ASM] file is %d bytes long.\n",len);
 		for (i = 0; i < len; i++) {
 			fread(&b,1,1,f);
 			asmbyte(a,b);
@@ -730,12 +726,9 @@ void loadBinFile(ASSEMBLER *a, char * file, byte high, byte low) {
 		}
 
 		fclose(f);
-		fprintf(a->log,"[ASM] added %d bytes at $%02X%02X\n",count,high,low);
+		DEBUG_PRINT("[ASM] added %d bytes at $%02X%02X\n",count,high,low);
 
 	}
-
-	fclose(a->log);
-
 }
 
 void assembleFile(ASSEMBLER *a,char * file) {
@@ -743,15 +736,12 @@ void assembleFile(ASSEMBLER *a,char * file) {
 	FILE * f;
 	char * p;
 	LINE line;
-	char logbuf[256];
-	sprintf(logbuf,"%s.log",file);
-
-	a->log = fopen(logbuf,"w+");
+	
 
 	f = fopen (file,"r");
 	if (f) {
 		a->dlast = 0;
-		fprintf(a->log,"Assembling %s...\n",file);
+		DEBUG_PRINT("Assembling %s...\n",file);
 		do {
 			memset(&line,0,sizeof(LINE));
 			p = fgets(line.string,256,f);
@@ -766,7 +756,6 @@ void assembleFile(ASSEMBLER *a,char * file) {
 
 		fclose(f);
 	}
-	fclose (a->log);
 }
 
 

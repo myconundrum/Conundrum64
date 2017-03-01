@@ -15,6 +15,9 @@ int main(int argc, char**argv) {
 	ASSEMBLER assembler;
 	int cycles = 0;
 
+
+	DEBUG_INIT("c64.log");
+
 	mem_init();								// init ram
 	sysclock_init();						// init clock
 	init_computer();						// init 6502 CPU for C64 emulator.
@@ -53,5 +56,6 @@ int main(int argc, char**argv) {
 	destroy_computer();
 	mem_destroy();
 	cia1_destroy(); 
+	DEBUG_DESTROY();
 	return 0;
 }

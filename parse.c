@@ -340,7 +340,7 @@ void handle_command(UX * ux) {
 		}
 	}
 	if (i==sizeof(g_commands)/sizeof(PARSECMD)) {
-		fprintf(ux->log,"Error. Could not parse %s\n ",ux->buf);
+		DEBUG_PRINT("Error. Could not parse %s\n ",ux->buf);
 	}
 }
 

@@ -117,7 +117,6 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 	ux->disassembly = newwin (20,60,20,0);
 	ux->console  	= newwin (2,30,42,0);
 
-	ux->log = fopen("log.txt","w+");
 	ux->running = false;
 
 	kq_init();
@@ -126,7 +125,6 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 void destroy_ux(UX * ux) {
 
 	endwin();
-	fclose(ux->log);
 }
 
 void refresh_memory(UX * ux) {

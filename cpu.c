@@ -15,8 +15,6 @@ typedef struct cpu6502 {
 	byte reg_stack;				// stack pointer
 	word pc;					// program counter;
 
-	FILE * log;					// log file. 
-
 	bool irq;					// irq signal.
 	bool nmi;					// nmi signal.
 
@@ -776,7 +774,6 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 
 void destroy_computer() {
 
-	fclose(g_cpu.log);
 }
 
 void init_computer() {
@@ -787,8 +784,8 @@ void init_computer() {
 	//
 	memset (&g_cpu,0,sizeof(CPU6502));	
 
-	g_cpu.log = fopen("cpu.log","w+");
-	fprintf(g_cpu.log,"starting cpu...\n");
+	
+	DEBUG_PRINT("starting cpu...\n");
 	
 	//
 	// load all opcodes
