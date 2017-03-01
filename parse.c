@@ -245,34 +245,19 @@ void parseStop (UX *ux, char *s) {
 void parsePassThru (UX *ux, char *s) {
 
 
-	int i;
-	byte ch;
-
-	s = strtok(NULL," ");
-
-	if (!*s) {
-		return;
-	}
-
-	for (i = 0; i < strlen(s) && i <10; i++) {
-
-		switch(s[i]) {
-			case '*': ch = 0x0d; break;
-			case '_': ch = 0x20; break;
-			case '\"': ch = 0x22; break;
-			default: ch = s[i]; break;
-		}
-
-		mem_poke(0x0277 + i, ch);
-	}
-	mem_poke(0xC6,i);
+	ux->passthru = true;
 }
 
 
 void parseAsmfile (UX *ux, char *s) {
 	
-	ux->passthru = true;
+	char * p = strtok(NULL," ");
+	if (p) {
+		assembleFile(ux->assembler,p);
+	}
+	
 }
+
 
 void parseComment (UX *ux, char *s) {}
 
