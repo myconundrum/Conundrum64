@@ -729,21 +729,18 @@ void handle_ADC (ENUM_AM m) {
 	g_cpu.reg_a = tmp; 
 }
 
-void runcpu() {
 
-	byte op;
-
+void cpu_checkinterrupts() {
 
 	if (g_cpu.nmi) {
 
 		//
 		// BUGBUG not implemented yet...
 		//
+		g_cpu.nmi = false;
 
 
 	}
-
-
 	if (g_cpu.irq && !(g_cpu.reg_status & I_FLAG)) {
 		//
 		// save PC and status on IRQ
@@ -756,6 +753,16 @@ void runcpu() {
 		g_cpu.irq = false;
 	
 	}
+
+}
+
+
+void cpu_run() {
+
+	byte op;
+
+
+	cpu_checkinterrupts();
 
 	op = fetch();
 	g_opcodes[op].fn(g_opcodes[op].am);
@@ -772,11 +779,11 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 }
 
 
-void destroy_computer() {
+void cpu_destroy() {
 
 }
 
-void init_computer() {
+void cpu_init() {
 
 	int i = 0;
 	//

@@ -54,11 +54,15 @@ typedef enum {
 
 
 
+//
+// initialization and cleanup routines
+//
+void cpu_init();
+void cpu_destroy();
 
-extern void runcpu();
-extern void init_computer();
-extern void destroy_computer();
-
+//
+// state accessors
+//
 byte cpu_geta();
 byte cpu_getx();
 byte cpu_gety();
@@ -66,13 +70,19 @@ word cpu_getpc();
 byte cpu_getstatus();
 byte cpu_getstack();
 
-void cpu_irq();
-void cpu_nmi();
+
+//
+// action signals
+//
+void cpu_run();  // run one instruction 
+void cpu_irq();  // signal irq line
+void cpu_nmi();  // signal nmi line
 
 
+//
+// 6502 helper routines
+//
 bool cpu_isopcode(char * name);
 bool cpu_getopcodeinfo(byte opcode, char *name, ENUM_AM *mode);
-
-
 
 #endif

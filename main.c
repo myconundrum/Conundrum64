@@ -20,7 +20,7 @@ int main(int argc, char**argv) {
 
 	mem_init();								// init ram
 	sysclock_init();						// init clock
-	init_computer();						// init 6502 CPU for C64 emulator.
+	cpu_init();								// init 6502 CPU for C64 emulator.
 	cia1_init();							// init CIA1 chip for C64 emulator.
 	init_assembler(&assembler);
 	init_ux(&ux, &assembler);
@@ -42,8 +42,7 @@ int main(int argc, char**argv) {
 			else {
 
 				cia1_update();
-
-				runcpu();
+				cpu_run();
 
 				mem_poke(0xD012,0); //BUGBUG hack. clear raster line interrupt. 
 			}
@@ -53,7 +52,8 @@ int main(int argc, char**argv) {
 	} while (!ux.done);
 
 	destroy_ux(&ux);
-	destroy_computer();
+
+	cpu_destroy();
 	mem_destroy();
 	cia1_destroy(); 
 	DEBUG_DESTROY();

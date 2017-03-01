@@ -350,11 +350,20 @@ void refresh_console(UX * ux) {
 
 	if (ch != -1 && ux->passthru) {
 		switch(ch) {
-			case '"' : kq_add('2',true,false);break;
+			
 			case 0x1B : handle_specialkeys(ux);break;
 			case 0x7F : kq_add(C64KEY_DELETE,false,false);break;
 			case '`'  : kq_add(C64KEY_RUNSTOP,false,false);break;
 			case '~'  : kq_add(C64KEY_RESTORE,false,false);break;
+			case '!'  : kq_add('1',true,false);break;
+			case '"'  : kq_add('2',true,false);break;
+			case '#'  : kq_add('3',true,false);break;
+			case '$'  : kq_add('4',true,false);break;
+			case '%'  : kq_add('5',true,false);break;
+			case '&'  : kq_add('6',true,false);break;
+			case '\''  : kq_add('7',true,false);break;
+			case '('  : kq_add('8',true,false);break;
+			case ')'  : kq_add('9',true,false);break;
 			default: kq_add(toupper(ch),false,false); break;
 		}	
 	}

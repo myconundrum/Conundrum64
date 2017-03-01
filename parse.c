@@ -271,24 +271,13 @@ void parsePassThru (UX *ux, char *s) {
 
 void parseAsmfile (UX *ux, char *s) {
 	
-	char * p = strtok(NULL," ");
-	if (p) {
-		assembleFile(ux->assembler,p);
-	}
-	
-}
-
-void parsePassThruMode (UX *ux, char *s) {
-		
 	ux->passthru = true;
-	
 }
 
 void parseComment (UX *ux, char *s) {}
 
 void parseStep(UX *ux, char *s) {
-	cia1_init();
-	runcpu();
+	cpu_run();
 }
 
 PARSECMD g_commands[] = {
@@ -304,13 +293,11 @@ PARSECMD g_commands[] = {
 	{"S",parseStep},
 	{";",parseComment},
 	{"\"",parsePassThru},
-	{"PTM",parsePassThruMode},
 };
 
 void handle_step(UX * ux) {
 
-	cia1_init();
-	runcpu();
+	cpu_run();
 	ux->discur++;
 
 	if (cpu_getpc() != ux->dislines[ux->discur].address || ux->discur == DISLINESCOUNT) {
