@@ -37,6 +37,7 @@ int main(int argc, char**argv) {
 			if (ux.brk && cpu_getpc() == ux.brk_address) {
 				ux.running = false;
 				ux.brk = false;
+				ux.passthru = false;
 				fillDisassembly(&ux,cpu_getpc());
 			}
 			else {

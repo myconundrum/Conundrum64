@@ -111,11 +111,11 @@ void init_ux(UX * ux, ASSEMBLER * a) {
 	memset(ux,0,sizeof(UX));
 
 	ux->assembler = a;
-	ux->registers 	= newwin (1,COLS,0,0);
-	ux->display 	= newwin (29,44,1,61);
-	ux->memory 		= newwin (18,60,1,0);
-	ux->disassembly = newwin (20,60,20,0);
-	ux->console  	= newwin (2,30,42,0);
+	ux->registers 	= newwin (3,COLS,0,0);
+	ux->display 	= newwin (29,44,3,61);
+	ux->memory 		= newwin (18,60,3,0);
+	ux->disassembly = newwin (20,60,23,0);
+	ux->console  	= newwin (2,30,45,0);
 
 	ux->running = false;
 
@@ -213,6 +213,30 @@ char getScreenChar(byte code) {
 	return  code;
 }
 
+/*
+
+
+RGB colors of C64 colors from 
+http://unusedino.de/ec64/technical/misc/vic656x/colors/
+
+00 00 00
+FF FF FF
+68 37 2B
+70 A4 B2
+6F 3D 86
+58 8D 43
+35 28 79
+B8 C7 6F
+6F 4F 25
+43 39 00
+9A 67 59
+44 44 44
+6C 6C 6C
+9A D2 84
+6C 5E B5
+95 95 95
+
+*/
 void refresh_display(UX * ux) {
 
 	int i;
@@ -299,6 +323,21 @@ void refresh_registers(UX * ux) {
 		sysclock_getticks(),
 		sysclock_getticks() / NTSC_TICKS_PER_SECOND );
 
+
+ 	wmove(ux->registers,1,0);
+ 	wprintw(ux->registers,
+ 		"FAC E: %02X M1: %02X M2: %02X M3: %02X M4: %02X S: %02X / ARG E: %02X M1: %02X M2: %02X M3: %02X M4: %02X S: %02X ",
+ 		mem_peek(0x61),mem_peek(0x62),mem_peek(0x63),mem_peek(0x64),mem_peek(0x65),mem_peek(0x70),
+ 		mem_peek(0x69),mem_peek(0x6A),mem_peek(0x6B),mem_peek(0x6C),mem_peek(0x6D),mem_peek(0x6E));
+ 	
+ 	wmove(ux->registers,2,0);
+ 
+ 	wprintw(ux->registers,"converted fac: %f converted arg %f ",
+ 		ux_convertfac(mem_peek(0x61),mem_peek(0x62),mem_peek(0x63),mem_peek(0x64),mem_peek(0x65)),
+ 		ux_convertfac(mem_peek(0x69),mem_peek(0x6A),mem_peek(0x6B),mem_peek(0x6C),mem_peek(0x6D)));
+ 	
+
+
 	wrefresh(ux->registers);
 	wattroff(ux->registers,COLOR_PAIR(1));
 }
@@ -361,17 +400,16 @@ void refresh_console(UX * ux) {
 			case '$'  : kq_add('4',true,false);break;
 			case '%'  : kq_add('5',true,false);break;
 			case '&'  : kq_add('6',true,false);break;
-			case '\''  : kq_add('7',true,false);break;
+			case '\'' : kq_add('7',true,false);break;
 			case '('  : kq_add('8',true,false);break;
 			case ')'  : kq_add('9',true,false);break;
 			default: kq_add(toupper(ch),false,false); break;
 		}	
 	}
 	else {
-		if (ch != -1) {
-			sprintf(g_keybuf,"keys: %02X %02X %02X %02X\n",ch,getch(),getch(),getch());
-			
-		}
+
+
+		
 		switch(ch) {
 			case 0x1B:
 				if (getch() == -1) {
@@ -381,13 +419,22 @@ void refresh_console(UX * ux) {
 					memset(ux->buf,0,256);
 					ux->bpos = 0;
 				}
-				else if (getch() == 0x41) {
+				else {
+					ch = getch();
+					if (ch == 0x42) {
+						handle_step(ux);
+					}
+					else if (ch == 0x43 && mem_peek(cpu_getpc()) == 0x20) {
+						//
+						// set break point after jsr and run.
+						//
+						ux->brk = true;
+						ux->brk_address = cpu_getpc() + 3;
+						ux->running = true;
+					}
 
-					handle_step(ux); 
 				}
-
-			break;
-			case -1:
+			case -1: break;
 			break;
 			case '\n':
 				handle_command(ux);

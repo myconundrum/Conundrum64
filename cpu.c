@@ -189,16 +189,19 @@ void handle_JSR(ENUM_AM m) {
 
 	word address = cpu_getloc(m);
 
+	g_cpu.pc--;
+
 	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc >> 8));	
-	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc & 0xFF) - 1);
+	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc & 0xFF));
 	
 	g_cpu.pc = address;
 }
 
 void handle_RTS(ENUM_AM m) {
 
-	g_cpu.pc = mem_peek(STACK_BASE | ++g_cpu.reg_stack) + 1;
+	g_cpu.pc = mem_peek(STACK_BASE | ++g_cpu.reg_stack) ;
 	g_cpu.pc |= ((word) mem_peek(STACK_BASE | ++g_cpu.reg_stack) << 8);
+	g_cpu.pc++;
 }
 
 void handle_BIT(ENUM_AM m) {
