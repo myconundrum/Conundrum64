@@ -37,6 +37,29 @@ typedef struct {
 OPCODE g_opcodes[256];
 CPU6502 g_cpu;
 
+void push(byte b) {
+	mem_poke(STACK_BASE | g_cpu.reg_stack--, b);
+}
+
+byte pull() {
+	return mem_peek(STACK_BASE | ++g_cpu.reg_stack);
+} 
+
+void push_word(word w) {
+	push ((byte) (w >> 8));
+	push ((byte) (w & 0xFF));
+}
+
+word pull_word() {
+
+	word w;
+	w = pull() ;
+	w |= ((word) pull() << 8);
+	return w;
+}
+
+
+
 byte fetch() {
 
 	if (((g_cpu.pc + 1) & 0xFF) == 0) {
@@ -191,16 +214,14 @@ void handle_JSR(ENUM_AM m) {
 
 	g_cpu.pc--;
 
-	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc >> 8));	
-	mem_poke(STACK_BASE | g_cpu.reg_stack--,(byte) (g_cpu.pc & 0xFF));
-	
+	push_word(g_cpu.pc);
+
 	g_cpu.pc = address;
 }
 
 void handle_RTS(ENUM_AM m) {
 
-	g_cpu.pc = mem_peek(STACK_BASE | ++g_cpu.reg_stack) ;
-	g_cpu.pc |= ((word) mem_peek(STACK_BASE | ++g_cpu.reg_stack) << 8);
+	g_cpu.pc = pull_word();
 	g_cpu.pc++;
 }
 
@@ -310,25 +331,26 @@ void handle_TSX(ENUM_AM m) {
 }
 
 void handle_PHA(ENUM_AM m) {
-	mem_poke( STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_a);
+	push(g_cpu.reg_a);
 }
 
 void handle_PLA(ENUM_AM m) {
 
-	g_cpu.reg_a = mem_peek(STACK_BASE | ++g_cpu.reg_stack);
+
+	g_cpu.reg_a = pull();
 	setOrClearNFlag(g_cpu.reg_a);
 	setOrClearZFlag(g_cpu.reg_a);
 }
 
 void handle_PHP(ENUM_AM m) {
 
-	mem_poke( STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_status);
+	push(g_cpu.reg_status);
 	
 }
 
 void handle_PLP(ENUM_AM m) {
 
-	g_cpu.reg_status = mem_peek(STACK_BASE | ++g_cpu.reg_stack);
+	g_cpu.reg_status = pull();
 	
 }
 
@@ -423,10 +445,8 @@ void handle_BRK (ENUM_AM m) {
 	//
 	// push program counter onto the stack followed by processor status
 	//
-	mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc >> 8);
-	mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc &  0xFF);
-	mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_status);
-	
+	push_word(g_cpu.pc);
+	push(g_cpu.reg_status);
 	//
 	// load interrupt vector
 	//
@@ -440,10 +460,9 @@ void handle_BRK (ENUM_AM m) {
 
 void handle_RTI (ENUM_AM m) {
 
-	g_cpu.reg_status = mem_peek(STACK_BASE | ++g_cpu.reg_stack);
-	g_cpu.pc = mem_peekword(STACK_BASE | ++g_cpu.reg_stack);
-	g_cpu.reg_stack++;
-
+	g_cpu.reg_status = pull();
+	g_cpu.pc = pull_word();
+	
 	g_cpu.reg_status &= ~B_FLAG;
 
 }
@@ -748,9 +767,8 @@ void cpu_checkinterrupts() {
 		//
 		// save PC and status on IRQ
 		//
-		mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc >> 8);
-		mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.pc &  0xFF);
-		mem_poke(STACK_BASE | g_cpu.reg_stack--,g_cpu.reg_status);
+		push_word(g_cpu.pc);
+		push(g_cpu.reg_status);
 
 		g_cpu.pc = mem_peekword(VECTOR_BRK);
 		g_cpu.irq = false;

@@ -381,7 +381,6 @@ void cia1_keydown(byte ch) {
 		//
 		cpu_nmi();
 	}
-
 	g_cia1.kbd[g_ciaKeyboardTable[ch].column] &= (~g_ciaKeyboardTable[ch].row);
 }
 

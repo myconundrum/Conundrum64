@@ -337,7 +337,6 @@ void refresh_registers(UX * ux) {
  		ux_convertfac(mem_peek(0x69),mem_peek(0x6A),mem_peek(0x6B),mem_peek(0x6C),mem_peek(0x6D)));
  	
 
-
 	wrefresh(ux->registers);
 	wattroff(ux->registers,COLOR_PAIR(1));
 }
@@ -407,9 +406,6 @@ void refresh_console(UX * ux) {
 		}	
 	}
 	else {
-
-
-		
 		switch(ch) {
 			case 0x1B:
 				if (getch() == -1) {
@@ -432,7 +428,6 @@ void refresh_console(UX * ux) {
 						ux->brk_address = cpu_getpc() + 3;
 						ux->running = true;
 					}
-
 				}
 			case -1: break;
 			break;
