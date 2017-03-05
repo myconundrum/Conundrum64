@@ -101,7 +101,7 @@ void mem_poke(word address,byte value) {
 	}
 	
 	if (ISCIA1ADDRESS(address)) {
-		cia1_poke(address,value);
+		cia_poke(address,value);
 	}
 	else {
 		g_memory.ram[address] = value;
@@ -140,7 +140,7 @@ byte mem_peek(word address) {
 	}
 	else if (ISCIA1ADDRESS(address)) {
 
-		val = cia1_peek(address);
+		val = cia_peek(address);
 	}
 	else {val = g_memory.ram[address];}
 

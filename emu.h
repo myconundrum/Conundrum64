@@ -7,7 +7,8 @@
 #include <stdio.h>
 #include <ncurses.h>
 #include "cpu.h"
-#include "cia1.h"
+#include "c64kbd.h"
+#include "cia.h"
 #include "mem.h"
 #include "asm.h"
 #include "ux.h"

@@ -34,23 +34,23 @@ KEYQUEUE g_keys;
 
 void kq_releasekey(KEY k) {
 		if (k.shift) {
-			cia1_keyup(C64KEY_RSHIFT);
+			c64kbd_keyup(C64KEY_RSHIFT);
 		}
 		if (k.ctrl) {
-			cia1_keyup(C64KEY_CTRL);
+			c64kbd_keyup(C64KEY_CTRL);
 		}
-		cia1_keyup(k.ch);
+		c64kbd_keyup(k.ch);
 }
 
 
 void kq_presskey(KEY k) {
 		if (k.shift) {
-			cia1_keydown(C64KEY_RSHIFT);
+			c64kbd_keydown(C64KEY_RSHIFT);
 		}
 		if (k.ctrl) {
-			cia1_keydown(C64KEY_CTRL);
+			c64kbd_keydown(C64KEY_CTRL);
 		}
-		cia1_keydown(k.ch);
+		c64kbd_keydown(k.ch);
 }
 
 void kq_init() {
