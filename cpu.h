@@ -6,6 +6,19 @@
 //
 // status flags
 //
+#define BIT_7 0b10000000
+#define BIT_6 0b01000000
+#define BIT_5 0b00100000 
+#define BIT_4 0b00010000
+#define BIT_3 0b00001000 
+#define BIT_2 0b00000100
+#define BIT_1 0b00000010 
+#define BIT_0 0b00000001 
+
+
+//
+// status flags
+//
 #define N_FLAG 0b10000000
 #define V_FLAG 0b01000000
 #define X_FLAG 0b00100000 

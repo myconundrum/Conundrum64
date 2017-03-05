@@ -16,18 +16,23 @@ typedef struct {
 
 KEYMAP g_ciaKeyboardTable[MAX_CHARS] = {0};
 
+#define CIA1_ALARM 0x02 // used for TOD registers only.
 #define CIA1_LATCH 0x01
 #define CIA1_REAL  0x00
+
 
 typedef struct {
 
 	byte kbd[0x08];				// keyboard column matrix.
-	byte regs[2][0x10];			// CIA1 internal registers. use CIA1_REGS enum to address.
+	byte regs[3][0x10];			// CIA1 internal registers. use CIA1_REGS enum to address.
 	byte isr;  					// read pulls current irq status
 
 	unsigned long lticks;		// stores the value of sysclock_getticks() on last cia1_update()
 	bool todlatched;			// if true, registers will not update on reads until
 								// the tenths register is read. 
+
+
+	unsigned long todstart;
 } CIA1;
 
 CIA1 g_cia1;
@@ -161,11 +166,24 @@ void cia_setport(CIA1_REGISTERS reg, CIA1_REGISTERS ddr, byte val) {
 	cia1_setreal(reg,new);
 }
 
+void cia1_settod_reg(reg,val) {
+
+
+	byte pm = val & BIT_7;
+	val &= (~BIT_7);
+
+	byte where = cia1_getreal(CIA1_CRB) & CIA_CRB_TODALARMORCLOCK ? CIA1_REAL : CIA1_ALARM;
+	byte hi = (val / 10) << 4;
+	byte low = (val % 10);
+
+	g_cia1.regs[where][reg] = pm | hi | low;
+}
+
 void cia1_poke(byte address,byte val) {
 
 	byte reg = address % 0x10;
 
-	switch (address % 0x10) {
+	switch (reg) {
 
 		case CIA1_PRA: 			// data port a register
 			cia_setport(CIA1_PRA,CIA1_DDRA,val);
@@ -179,6 +197,12 @@ void cia1_poke(byte address,byte val) {
 		case CIA1_TALO: case CIA1_TAHI: case CIA1_TBLO: case CIA1_TBHI:		 
 			cia1_setreal(reg,val);
 			cia1_setlatched(reg,val);			
+		break;
+		//
+		// tod sets.
+		//
+		case CIA1_TODTENTHS: case CIA1_TODSECS: case CIA1_TODMINS: case CIA1_TODHRS:
+			cia1_settod_reg(reg,val);
 		break;
 		case CIA1_ICR:			// Interupt control and status 
 			cia1_seticr(val);
@@ -299,6 +323,8 @@ void cia1_init() {
 	cia1_setreal(CIA1_DDRB,0x0);
 	cia1_setreal(CIA1_PRB,0xff);
 	g_cia1.lticks = 0;
+
+	g_cia1.todstart = sysclock_getticks();
 }
 
 void cia1_destroy() {
@@ -390,16 +416,7 @@ void cia1_update_timer(CLOCKHANDLER tickfn,byte controlreg,byte hi,byte low,byte
 		if (cr & CIA_CR_TIMERRUNMODE) {
 			cia1_setreal(controlreg,cr & (~CIA_CR_TIMERSTART));
 		}
-		//
-		// should we trigger an interrupt? 
-		//
-		if (cia1_getreal(CIA1_ICR) & underflowflag) {
-			//
-			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
-			//
-			g_cia1.isr |=  CIA_FLAG_CIAIRQ;	
-			cpu_irq();
-		}
+
 		//
 		// reset to latch value. 
 		//
@@ -408,9 +425,65 @@ void cia1_update_timer(CLOCKHANDLER tickfn,byte controlreg,byte hi,byte low,byte
 	}
 }
 
-void cia1_update_timeofday() {}
+void cia1_update_todreg(byte reg,double timeincrement,byte modval) {
+
+	unsigned long val;
+	byte high;
+	byte low;
+
+
+
+	val = (sysclock_getticks() - g_cia1.todstart) / (NTSC_TICKS_PER_SECOND * timeincrement); // total number of those increments
+	val %= modval; 	   // what flips back to zero.
+	high = (val / 10) << 4;
+	low =  val % 10; 
+
+	//
+	// BUGBUG am/pm!
+	//
+	cia1_setreal(reg,high|low);
+	
+}
+
+void cia1_update_timeofday() {
+
+
+	byte pm = g_cia1.regs[CIA1_REAL][CIA1_TODHRS] & BIT_7;
+	
+	unsigned long nclock = sysclock_getticks();
+
+	cia1_update_todreg(CIA1_TODTENTHS,.1,10);
+	cia1_update_todreg(CIA1_TODSECS,1,60);
+	cia1_update_todreg(CIA1_TODMINS,60,60);
+	cia1_update_todreg(CIA1_TODHRS,3600,12);
+
+	if (g_cia1.regs[CIA1_REAL][CIA1_TODHRS] == 0) {
+		pm = pm ? 0 : BIT_7;	
+	}
+	g_cia1.regs[CIA1_REAL][CIA1_TODHRS] |= pm;
+
+	if (g_cia1.regs[CIA1_REAL][CIA1_TODHRS] == g_cia1.regs[CIA1_ALARM][CIA1_TODHRS] && 
+		g_cia1.regs[CIA1_REAL][CIA1_TODMINS] == g_cia1.regs[CIA1_ALARM][CIA1_TODMINS] &&
+		g_cia1.regs[CIA1_REAL][CIA1_TODSECS] == g_cia1.regs[CIA1_ALARM][CIA1_TODSECS] &&
+		g_cia1.regs[CIA1_REAL][CIA1_TODTENTHS] >= g_cia1.regs[CIA1_ALARM][CIA1_TODTENTHS]) {
+
+		//
+		// hit alarm
+		//
+		g_cia1.isr |= CIA_FLAG_TODIRQ; 
+	}
+}
 
 void cia1_update_keyboard() {}
+
+void cia1_check_interrupts() {
+
+	byte icr = cia1_getreal(CIA1_ICR);
+
+	if (g_cia1.isr & icr & (CIA_FLAG_TODIRQ | CIA_FLAG_TAUIRQ | CIA_FLAG_TBUIRQ)) {
+		cpu_irq();
+	}
+}
 
 void cia1_update() {
 
@@ -421,9 +494,9 @@ void cia1_update() {
 	g_cia1.isr = 0;
 	cia1_update_timer(cia1_timera_clicks,CIA1_CRA,CIA1_TAHI,CIA1_TALO,CIA_FLAG_TAUIRQ);
 	cia1_update_timer(cia1_timerb_clicks,CIA1_CRB,CIA1_TBHI,CIA1_TBLO,CIA_FLAG_TBUIRQ);
-	
 	cia1_update_timeofday();
 	cia1_update_keyboard();
+	cia1_check_interrupts();
 
 	g_cia1.lticks = sysclock_getticks ();
 }
