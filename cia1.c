@@ -4,6 +4,9 @@
 #include "emu.h"
 #include "cia1.h"
 
+
+typedef word (*CLOCKHANDLER)(byte mode);
+
 #define MAX_CHARS 256
 
 typedef struct {
@@ -27,10 +30,7 @@ typedef struct {
 								// the tenths register is read. 
 } CIA1;
 
-
 CIA1 g_cia1;
-
-
 
 byte cia1_getreal(byte reg) {
 	return g_cia1.regs[CIA1_REAL][reg];
@@ -305,145 +305,75 @@ void cia1_destroy() {
 	
 }
 
-void cia1_update_timera() {
+word cia1_timera_clicks(byte mode) {
 
-	unsigned long ticks;
-	word tval = 0;
-	word updateval= 0;
-	byte cra = cia1_getreal(CIA1_CRA);
-
-	//
-	// is timer a enabled?
-	//
-	if ((cra & CIA_CR_TIMERSTART) == 0) {
-		//
-		// timer not running.
-		//
-		return;
-	}
-	//
-	// count down ticks
-	//
-	if (cra & CIA_CRA_TIMERINPUT) {
-
-		//
+	if (mode & CIA_CRA_TIMERINPUT) {
 		// BUGBUG: Not implemented. Should count down on  CNT presses here. 
-		//
-
 	} else {
-		ticks = sysclock_getticks();
-		tval = ((word) cia1_getreal(CIA1_TAHI) << 8 ) | cia1_getreal(CIA1_TALO);
-		updateval = tval - (ticks - g_cia1.lticks);
-		cia1_setreal(CIA1_TAHI,updateval >> 8);
-		cia1_setreal(CIA1_TALO,updateval & 0xFF); 
+		return sysclock_getticks() - g_cia1.lticks;
 	}
-	// 
-	// check for underflow condition.
-	//
-	if (updateval > tval) { 
-		//
-		// set bit in ICS regiser. 
-		//
-		g_cia1.isr = CIA_FLAG_TAUIRQ; 
-		//
-		// check to see if (and how) to signal underflow on port b bit six. 
-		//
-		if (cra & CIA_CR_PORTBSELECT) {
-
-			if (cra & CIA_CR_PORTBMODE) {
-				//
-				// BUGBUG Not Implemented
-				//
-			}
-			else {
-				//
-				// BUGBUG Not Implemented
-				//
-			}
-		}
-		//
-		// if runmode is one shot, turn timer off.  
-		// 
-		if (cra & CIA_CR_TIMERRUNMODE) {
-			cia1_setreal(CIA1_CRA,cra & (~CIA_CR_TIMERSTART));
-		}
-		//
-		// should we trigger an interrupt? 
-		//
-		if (cia1_getreal(CIA1_ICR) & CIA_FLAG_TAUIRQ) {
-			//
-			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
-			//
-			g_cia1.isr |=  CIA_FLAG_CIAIRQ;	
-			cpu_irq();
-		}
-		//
-		// reset to latch value. 
-		//
-		cia1_latchtoreal(CIA1_TAHI);
-		cia1_latchtoreal(CIA1_TALO);
-	}
+	return 0;
 }
 
-void cia1_update_timerb() {
+word cia1_timerb_clicks(byte mode) {
 
-	unsigned long ticks = 0;
-	word tval = 0;
-	word updateval= 0;
-	byte crb = cia1_getreal(CIA1_CRB);
-	
-	//
-	// is timer a enabled?
-	//
-	if ((crb & CIA_CR_TIMERSTART) == 0) {
-		//
-		// timer not running.
-		//
-		return;
-	}
-
-	//
-	// get timer ticks.
-	//
-	switch(crb & (CIA_CRB_TIMERINPUT1 | CIA_CRB_TIMERINPUT2)) {
+	switch(mode & (CIA_CRB_TIMERINPUT1 | CIA_CRB_TIMERINPUT2)) {
 
 		case 0b00000000: // sysclock ticks
-			ticks = sysclock_getticks() - g_cia1.lticks;
+			return sysclock_getticks() - g_cia1.lticks;
 		break;
 		case 0b00100000: // CNT pin
 			// BUGBUG: Not implemented
 		break;
 		case 0b01000000: // TAU undeflow
-			ticks = (g_cia1.isr & CIA_FLAG_TAUIRQ) ? 1 : 0;
+			return (g_cia1.isr & CIA_FLAG_TAUIRQ) ? 1 : 0;
 		break;
 		case 0b01100000: // TAU underflow + CNT pin
 			// BUGBUG: Not implemented
 		break;
 		default: break;
 	}
+	return 0;
+}
 
-	tval = ((word) cia1_getreal(CIA1_TBHI) << 8 ) | cia1_getreal(CIA1_TBLO);
-	updateval = tval - ticks;
+void cia1_update_timer(CLOCKHANDLER tickfn,byte controlreg,byte hi,byte low,byte underflowflag) {
 
-	cia1_setreal(CIA1_TBHI,updateval >> 8);
-	cia1_setreal(CIA1_TBLO,updateval & 0xFF);
+	word ticks;
+	word tval = 0;
+	word updateval= 0;
+	byte cr = cia1_getreal(controlreg);
 
+	//
+	// is timer a enabled?
+	//
+	if ((cr & CIA_CR_TIMERSTART) == 0) {
+		//
+		// timer not running.
+		//
+		return;
+	}
+	
+	ticks = tickfn(cr);
+
+	tval = ((word) cia1_getreal(hi) << 8 ) | cia1_getreal(low);
+	updateval = tval - (ticks);
+	cia1_setreal(hi,updateval >> 8);
+	cia1_setreal(low,updateval & 0xFF); 
+	
 	// 
 	// check for underflow condition.
 	//
 	if (updateval > tval) { 
-
 		//
 		// set bit in ICS regiser. 
 		//
-		g_cia1.isr |= CIA_FLAG_TBUIRQ; 
-		
+		g_cia1.isr |= underflowflag; 
 		//
 		// check to see if (and how) to signal underflow on port b bit six. 
 		//
-		if (crb & CIA_CR_PORTBSELECT) {
+		if (cr & CIA_CR_PORTBSELECT) {
 
-			if (crb & CIA_CR_PORTBMODE) {
+			if (cr & CIA_CR_PORTBMODE) {
 				//
 				// BUGBUG Not Implemented
 				//
@@ -457,13 +387,13 @@ void cia1_update_timerb() {
 		//
 		// if runmode is one shot, turn timer off.  
 		// 
-		if (crb & CIA_CR_TIMERRUNMODE) {
-			cia1_setreal(CIA1_CRB,crb & (~CIA_CR_TIMERSTART));
+		if (cr & CIA_CR_TIMERRUNMODE) {
+			cia1_setreal(controlreg,cr & (~CIA_CR_TIMERSTART));
 		}
 		//
 		// should we trigger an interrupt? 
 		//
-		if (cia1_getreal(CIA1_ICR) & CIA_FLAG_TBUIRQ) {
+		if (cia1_getreal(CIA1_ICR) & underflowflag) {
 			//
 			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
 			//
@@ -473,8 +403,8 @@ void cia1_update_timerb() {
 		//
 		// reset to latch value. 
 		//
-		cia1_latchtoreal(CIA1_TBHI);
-		cia1_latchtoreal(CIA1_TBLO);
+		cia1_latchtoreal(hi);
+		cia1_latchtoreal(low);
 	}
 }
 
@@ -488,8 +418,10 @@ void cia1_update() {
 	// order here is important. Timerb can count timera underflows so needs to come 
 	// second.
 	//
-	cia1_update_timera();
-	cia1_update_timerb();
+	g_cia1.isr = 0;
+	cia1_update_timer(cia1_timera_clicks,CIA1_CRA,CIA1_TAHI,CIA1_TALO,CIA_FLAG_TAUIRQ);
+	cia1_update_timer(cia1_timerb_clicks,CIA1_CRB,CIA1_TBHI,CIA1_TBLO,CIA_FLAG_TBUIRQ);
+	
 	cia1_update_timeofday();
 	cia1_update_keyboard();
 
