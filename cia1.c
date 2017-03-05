@@ -13,19 +13,30 @@ typedef struct {
 
 KEYMAP g_ciaKeyboardTable[MAX_CHARS] = {0};
 
+#define CIA1_LATCH 0x01;
+#define CIA1_REAL  0x00;
+
 typedef struct {
 
 
 	byte kbd[0x08];				// keyboard column matrix.
-	byte regs[0x10];			// CIA1 internal registers. use CIA1_REGS enum to address.
-
-	unsigned long lticks;		// stores the value of sysclock_getticks() on last cia1_update()
+	byte regs[2][0x10];			// CIA1 internal registers. use CIA1_REGS enum to address.
 
 	byte tahilatch;				// latched start value high byte for timer a
 	byte talolatch;				// latched start value lo byte for timer b
 	byte tbhilatch;				// latched start value high byte for timer a
 	byte tblolatch;				// latched start value lo byte for timer b
 	byte isr;  					// read pulls current irq status
+
+	unsigned long lticks;		// stores the value of sysclock_getticks() on last cia1_update()
+
+	bool todlatched;			// if true, registers will not update on reads until
+								// the tenths register is read. 
+
+	byte todtenthslatch;
+	byte todminslatch;
+	byte todsecslatch;
+	byte todhrslatch;	
 
 } CIA1;
 
@@ -48,6 +59,16 @@ byte cia1_getkbdprb() {
 
 }
 
+void cia1_latchtod() {
+	g_cia1.todlatched 		= true;
+	g_cia1.todhrslatch 		= g_cia1.regs[CIA1_TODHRS];
+	g_cia1.todminslatch 	= g_cia1.regs[CIA1_TODMINS];
+	g_cia1.todsecslatch 	= g_cia1.regs[CIA1_TODSECS];
+	g_cia1.todtenthslatch 	= g_cia1.regs[CIA1_TODTENTHS];
+}
+
+
+
 byte cia1_peek(byte address) {
 
 	byte val;
@@ -58,6 +79,21 @@ byte cia1_peek(byte address) {
 		break;
 		case CIA1_PRB:
 			val = cia1_getkbdprb();
+		break;
+		case CIA1_TODHRS: 
+			cia1_latchtod();
+			val = g_cia1.todhrslatch;
+		break;
+		case CIA1_TODMINS: 
+			val = g_cia1.todlatched ? g_cia1.todminslatch : g_cia1.regs[CIA1_TODMINS];
+		break;
+
+		case CIA1_TODSECS: 
+			val = g_cia1.todlatched ? g_cia1.todsecslatch : g_cia1.regs[CIA1_TODSECS];
+		break;		
+		case CIA1_TODTENTHS: 
+			val = g_cia1.todlatched ? g_cia1.todtenthslatch : g_cia1.regs[CIA1_TODTENTHS];
+			g_cia1.todlatched = false;
 		break;
 		default: 
 			val = g_cia1.regs[address % 0x10];
@@ -144,7 +180,7 @@ void cia1_poke(byte address,byte val) {
 
 			g_cia1.regs[CIA1_CRA] = val;
 
-			if (val & CIA_CRA_FORCELATCH) { 
+			if (val & CIA_CR_FORCELATCH) { 
 				// force load startlatch into current 
 				g_cia1.regs[CIA1_TALO] = g_cia1.talolatch;
 				g_cia1.regs[CIA1_TAHI] = g_cia1.tahilatch;
@@ -153,7 +189,7 @@ void cia1_poke(byte address,byte val) {
 		case CIA1_CRB:			// Timer B control register 
 
 			g_cia1.regs[CIA1_CRB] = val;
-			if (val & CIA_CRA_FORCELATCH) { 
+			if (val & CIA_CR_FORCELATCH) { 
 				// force load startlatch into current 
 				g_cia1.regs[CIA1_TBLO] = g_cia1.tblolatch;
 				g_cia1.regs[CIA1_TBHI] = g_cia1.tbhilatch;
@@ -275,7 +311,7 @@ void cia1_update_timera() {
 	//
 	// is timer a enabled?
 	//
-	if ((g_cia1.regs[CIA1_CRA] & CIA_CRA_TIMERSTART) == 0) {
+	if ((g_cia1.regs[CIA1_CRA] & CIA_CR_TIMERSTART) == 0) {
 		//
 		// timer not running.
 		//
@@ -294,7 +330,6 @@ void cia1_update_timera() {
 		ticks = sysclock_getticks();
 		tval = ((word) g_cia1.regs[CIA1_TAHI] << 8 ) | g_cia1.regs[CIA1_TALO];
 		updateval = tval - (ticks - g_cia1.lticks);
-		g_cia1.lticks = ticks;
 		g_cia1.regs[CIA1_TAHI] = updateval >> 8;
 		g_cia1.regs[CIA1_TALO] = updateval & 0xFF; 
 	
@@ -311,9 +346,9 @@ void cia1_update_timera() {
 		//
 		// check to see if (and how) to signal underflow on port b bit six. 
 		//
-		if (g_cia1.regs[CIA1_CRA] & CIA_CRA_PORTBSELECT) {
+		if (g_cia1.regs[CIA1_CRA] & CIA_CR_PORTBSELECT) {
 
-			if (g_cia1.regs[CIA1_CRA] & CIA_CRA_PORTBMODE) {
+			if (g_cia1.regs[CIA1_CRA] & CIA_CR_PORTBMODE) {
 				//
 				// BUGBUG Not Implemented
 				//
@@ -327,8 +362,8 @@ void cia1_update_timera() {
 		//
 		// if runmode is one shot, turn timer off.  
 		// 
-		if (g_cia1.regs[CIA1_CRA] & CIA_CRA_TIMERRUNMODE) {
-			g_cia1.regs[CIA1_CRA] &= (~CIA_CRA_TIMERSTART);
+		if (g_cia1.regs[CIA1_CRA] & CIA_CR_TIMERRUNMODE) {
+			g_cia1.regs[CIA1_CRA] &= (~CIA_CR_TIMERSTART);
 		}
 		//
 		// should we trigger an interrupt? 
@@ -348,12 +383,96 @@ void cia1_update_timera() {
 	}
 }
 
+void cia1_update_timerb() {
 
-void cia_triggernmi() {
+	unsigned long ticks = 0;
+	word tval = 0;
+	word updateval= 0;
+	
+	//
+	// is timer a enabled?
+	//
+	if ((g_cia1.regs[CIA1_CRB] & CIA_CR_TIMERSTART) == 0) {
+		//
+		// timer not running.
+		//
+		return;
+	}
 
+	//
+	// get timer ticks.
+	//
+	switch(g_cia1.regs[CIA1_CRB] & (CIA_CRB_TIMERINPUT1 | CIA_CRB_TIMERINPUT2)) {
+
+		case 0b00000000: // sysclock ticks
+			ticks = sysclock_getticks() - g_cia1.lticks;
+		break;
+		case 0b00100000: // CNT pin
+			// BUGBUG: Not implemented
+		break;
+		case 0b01000000: // TAU undeflow
+			ticks = (g_cia1.isr & CIA_FLAG_TAUIRQ) ? 1 : 0;
+		break;
+		case 0b01100000: // TAU underflow + CNT pin
+			// BUGBUG: Not implemented
+		break;
+		default: break;
+	}
+
+	tval = ((word) g_cia1.regs[CIA1_TBHI] << 8 ) | g_cia1.regs[CIA1_TBLO];
+	updateval = tval - ticks;
+	g_cia1.regs[CIA1_TBHI] = updateval >> 8;
+	g_cia1.regs[CIA1_TBLO] = updateval & 0xFF; 
+
+	// 
+	// check for underflow condition.
+	//
+	if (updateval > tval) { 
+
+		//
+		// set bit in ICS regiser. 
+		//
+		g_cia1.isr |= CIA_FLAG_TBUIRQ; 
+		
+		//
+		// check to see if (and how) to signal underflow on port b bit six. 
+		//
+		if (g_cia1.regs[CIA1_CRB] & CIA_CR_PORTBSELECT) {
+
+			if (g_cia1.regs[CIA1_CRB] & CIA_CR_PORTBMODE) {
+				//
+				// BUGBUG Not Implemented
+				//
+			}
+			else {
+				//
+				// BUGBUG Not Implemented
+				//
+			}
+		}
+		//
+		// if runmode is one shot, turn timer off.  
+		// 
+		if (g_cia1.regs[CIA1_CRB] & CIA_CR_TIMERRUNMODE) {
+			g_cia1.regs[CIA1_CRB] &= (~CIA_CR_TIMERSTART);
+		}
+		//
+		// should we trigger an interrupt? 
+		//
+		if (g_cia1.regs[CIA1_ICR] & CIA_FLAG_TBUIRQ) {
+			//
+			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
+			//
+			g_cia1.isr |=  CIA_FLAG_CIAIRQ;	
+			cpu_irq();
+		}
+		//
+		// reset to latch value. 
+		//
+		g_cia1.regs[CIA1_TBHI] = g_cia1.tbhilatch;
+		g_cia1.regs[CIA1_TBLO] = g_cia1.tblolatch;
+	}
 }
-
-void cia1_update_timerb() {}
 
 void cia1_update_timeofday() {}
 
@@ -361,14 +480,17 @@ void cia1_update_keyboard() {}
 
 void cia1_update() {
 
+	//
+	// order here is important. Timerb can count timera underflows so needs to come 
+	// second.
+	//
 	cia1_update_timera();
 	cia1_update_timerb();
 	cia1_update_timeofday();
 	cia1_update_keyboard();
+
+	g_cia1.lticks = sysclock_getticks ();
 }
-
-#define TICKCOUNT 2000
-
 
 void cia1_keyup(byte ch) {
 	g_cia1.kbd[g_ciaKeyboardTable[ch].column] |= g_ciaKeyboardTable[ch].row;

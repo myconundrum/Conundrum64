@@ -33,13 +33,6 @@ FILE * g_debug;
 #endif
 
 
-
-
-
-
-
-
-
 void handle_command(UX * ux);
 void handle_step(UX * ux);
 void fillDisassembly(UX *ux, word address);

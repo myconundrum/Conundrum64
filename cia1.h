@@ -719,14 +719,18 @@ CIA1_CRB 				=	0x0F  // Timer B control register
 #define CIA_FLAG_CIAIRQ					0b10000000    	// set when any cia irq is fired.
 
 
-#define CIA_CRA_TIMERSTART  			0b00000001   // 1 running, 0 stopped.
-#define CIA_CRA_PORTBSELECT				0b00000010   // 1 send to bit 6 of port b 
-#define CIA_CRA_PORTBMODE				0b00000100   // 1 toggle bit 6, 0 pule bit 6 1 cycle.
-#define CIA_CRA_TIMERRUNMODE			0b00001000 	 // 1 one shot timer, 0 continuous timer. 
-#define CIA_CRA_FORCELATCH				0b00010000 	 // force latch into current
+#define CIA_CR_TIMERSTART  				0b00000001   // 1 running, 0 stopped.
+#define CIA_CR_PORTBSELECT				0b00000010   // 1 send to bit 6 of port b 
+#define CIA_CR_PORTBMODE				0b00000100   // 1 toggle bit 6, 0 pule bit 6 1 cycle.
+#define CIA_CR_TIMERRUNMODE				0b00001000 	 // 1 one shot timer, 0 continuous timer. 
+#define CIA_CR_FORCELATCH				0b00010000 	 // force latch into current
 #define CIA_CRA_TIMERINPUT				0b00100000 	 // 0 count microprocessor cycles, 1 count CNT press
 #define CIA_CRA_SERIALMODE				0b01000000	 // serial mode (1 output, 0 input)
 #define CIA_CRA_TODFREQUENCY			0b10000000   // 1 50hz TOD, 0 60hz TOD 
+#define CIA_CRB_TIMERINPUT1				0b00100000 	 // 00 - clock cycles 01 CNT pin 
+#define CIA_CRB_TIMERINPUT2				0b01000000	 // 10 - TA underflow 11 TA underflow + CNT pin
+#define CIA_CRB_TODALARMORCLOCK			0b10000000   // 0 write to TOD registers is alarm, 1 is clock set
+
 
 #define ROW_0   0x01
 #define ROW_1   0x02

@@ -2,7 +2,6 @@
 #define MEMH
 #include "emu.h"
 
-
 #define MEM_PAGE_SIZE 	0xFF
 #define MEM_PAGE_COUNT 	0xFF
 
@@ -23,11 +22,6 @@
 
 #define CIA1_AREA_LOW_ADDRESS			0xDC00
 #define CIA1_AREA_HIGH_ADDRESS			0xDCFF
-
-
-
-
-
 
 void mem_init();
 void mem_destroy();

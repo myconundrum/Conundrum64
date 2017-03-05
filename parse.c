@@ -303,7 +303,6 @@ void handle_command(UX * ux) {
 		}
 	}
 
-	
 	for (i = 0; i < sizeof(g_commands)/sizeof(PARSECMD); i++) {
 		if (strcmp(g_commands[i].cmd,p)==0) {
 			g_commands[i].fn(ux,p);
