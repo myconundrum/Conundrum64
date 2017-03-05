@@ -37,12 +37,14 @@ typedef struct {
 OPCODE g_opcodes[256];
 CPU6502 g_cpu;
 
+
 void push(byte b) {
 	mem_poke(STACK_BASE | g_cpu.reg_stack--, b);
 }
 
 byte pull() {
-	return mem_peek(STACK_BASE | ++g_cpu.reg_stack);
+
+	return mem_peek(STACK_BASE | ++g_cpu.reg_stack);	
 } 
 
 void push_word(word w) {
@@ -58,8 +60,6 @@ word pull_word() {
 	return w;
 }
 
-
-
 byte fetch() {
 
 	if (((g_cpu.pc + 1) & 0xFF) == 0) {
@@ -70,11 +70,8 @@ byte fetch() {
 }
 
 word fetch_word() {
-
 	return fetch() | (fetch() << 8);
-
 }
-
 
 bool cpu_isopcode(char * name) {
 
@@ -86,7 +83,6 @@ bool cpu_isopcode(char * name) {
 	}
 	return false;
 }
-
 
 bool cpu_getopcodeinfo(byte opcode, char *name, ENUM_AM * mode) {
 
@@ -210,7 +206,9 @@ void handle_JMP(ENUM_AM m) {
 
 void handle_JSR(ENUM_AM m) {
 
+
 	word address = cpu_getloc(m);
+
 
 	g_cpu.pc--;
 
@@ -230,7 +228,7 @@ void handle_BIT(ENUM_AM m) {
 	byte val = getval(m);
 	setOrClearNFlag(val & N_FLAG);
 	setOrClearVFlag(val & V_FLAG);
-	setOrClearZFlag(!(val & g_cpu.reg_a));
+	setOrClearZFlag((val & g_cpu.reg_a));
 }
 
 void handle_AND(ENUM_AM m) {
@@ -462,7 +460,7 @@ void handle_RTI (ENUM_AM m) {
 
 	g_cpu.reg_status = pull();
 	g_cpu.pc = pull_word();
-	
+
 	g_cpu.reg_status &= ~B_FLAG;
 
 }

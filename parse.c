@@ -258,7 +258,6 @@ void parseAsmfile (UX *ux, char *s) {
 	
 }
 
-
 void parseComment (UX *ux, char *s) {}
 
 void parseStep(UX *ux, char *s) {
