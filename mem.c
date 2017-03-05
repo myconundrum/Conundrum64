@@ -9,6 +9,7 @@
 #define ISCHARADDRESS(x) (g_memory.charmapped && (x) >= CHAR_ROM_LOW_ADDRESS && (x) <= CHAR_ROM_HIGH_ADDRESS)
 //#define ISIOADDRESS(x) (g_memory.iomapped && (x) >= IO_AREA_LOW_ADDRESS && (x) <= IO_AREA_HIGH_ADDRESS)
 #define ISCIA1ADDRESS(x) (g_memory.iomapped && (x) >= CIA1_AREA_LOW_ADDRESS && (x) <= CIA1_AREA_HIGH_ADDRESS)
+#define ISCIA2ADDRESS(x) (g_memory.iomapped && (x) >= CIA2_AREA_LOW_ADDRESS && (x) <= CIA2_AREA_HIGH_ADDRESS)
 
 
 typedef struct {
@@ -101,7 +102,9 @@ void mem_poke(word address,byte value) {
 	}
 	
 	if (ISCIA1ADDRESS(address)) {
-		cia_poke(address,value);
+		cia1_poke(address,value);
+	} else if (ISCIA2ADDRESS(address)) {
+		cia2_poke(address,value);
 	}
 	else {
 		g_memory.ram[address] = value;
@@ -140,7 +143,11 @@ byte mem_peek(word address) {
 	}
 	else if (ISCIA1ADDRESS(address)) {
 
-		val = cia_peek(address);
+		val = cia1_peek(address);
+	}
+	else if (ISCIA2ADDRESS(address)) {
+
+		val = cia2_peek(address);
 	}
 	else {val = g_memory.ram[address];}
 

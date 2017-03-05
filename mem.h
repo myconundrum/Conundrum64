@@ -23,6 +23,9 @@
 #define CIA1_AREA_LOW_ADDRESS			0xDC00
 #define CIA1_AREA_HIGH_ADDRESS			0xDCFF
 
+#define CIA2_AREA_LOW_ADDRESS			0xDD00
+#define CIA2_AREA_HIGH_ADDRESS			0xDDFF
+
 void mem_init();
 void mem_destroy();
 void mem_poke(word address,byte value);
