@@ -13,36 +13,48 @@ typedef struct {
 
 KEYMAP g_ciaKeyboardTable[MAX_CHARS] = {0};
 
-#define CIA1_LATCH 0x01;
-#define CIA1_REAL  0x00;
+#define CIA1_LATCH 0x01
+#define CIA1_REAL  0x00
 
 typedef struct {
 
-
 	byte kbd[0x08];				// keyboard column matrix.
 	byte regs[2][0x10];			// CIA1 internal registers. use CIA1_REGS enum to address.
-
-	byte tahilatch;				// latched start value high byte for timer a
-	byte talolatch;				// latched start value lo byte for timer b
-	byte tbhilatch;				// latched start value high byte for timer a
-	byte tblolatch;				// latched start value lo byte for timer b
 	byte isr;  					// read pulls current irq status
 
 	unsigned long lticks;		// stores the value of sysclock_getticks() on last cia1_update()
-
 	bool todlatched;			// if true, registers will not update on reads until
 								// the tenths register is read. 
-
-	byte todtenthslatch;
-	byte todminslatch;
-	byte todsecslatch;
-	byte todhrslatch;	
-
 } CIA1;
 
 
 CIA1 g_cia1;
 
+
+
+byte cia1_getreal(byte reg) {
+	return g_cia1.regs[CIA1_REAL][reg];
+}
+
+void cia1_setreal(byte reg,byte val) {
+	g_cia1.regs[CIA1_REAL][reg] = val;
+}
+
+byte cia1_getlatched(byte reg) {
+	return g_cia1.regs[CIA1_LATCH][reg];
+}
+
+void cia1_setlatched(byte reg,byte val) {
+	g_cia1.regs[CIA1_LATCH][reg] = val;
+}
+
+void cia1_latchtoreal(byte reg) {
+	g_cia1.regs[CIA1_REAL][reg] = g_cia1.regs[CIA1_LATCH][reg];
+}
+
+void cia1_realtolatch(byte reg) {
+	g_cia1.regs[CIA1_LATCH][reg] = g_cia1.regs[CIA1_REAL][reg];
+}
 
 byte cia1_getkbdprb() {
 
@@ -50,21 +62,27 @@ byte cia1_getkbdprb() {
 	byte val = 0xff;
 
 	for (i = 0; i < 8; i++) {
-		if (~g_cia1.regs[CIA1_PRA] & (0x01 << i)) {
+
+		if (~cia1_getreal(CIA1_PRA) & (0x01 << i)) {
 			val &= g_cia1.kbd[i];
 		}
 	}
-
 	return val;
 
 }
 
+
 void cia1_latchtod() {
+
 	g_cia1.todlatched 		= true;
-	g_cia1.todhrslatch 		= g_cia1.regs[CIA1_TODHRS];
-	g_cia1.todminslatch 	= g_cia1.regs[CIA1_TODMINS];
-	g_cia1.todsecslatch 	= g_cia1.regs[CIA1_TODSECS];
-	g_cia1.todtenthslatch 	= g_cia1.regs[CIA1_TODTENTHS];
+	cia1_realtolatch(CIA1_TODHRS);
+	cia1_realtolatch(CIA1_TODMINS);
+	cia1_realtolatch(CIA1_TODSECS);
+	cia1_realtolatch(CIA1_TODTENTHS);
+}
+
+byte cia1_readtod(byte reg) {
+   return g_cia1.todlatched ? cia1_getlatched(reg) : cia1_getreal(reg);
 }
 
 
@@ -82,30 +100,28 @@ byte cia1_peek(byte address) {
 		break;
 		case CIA1_TODHRS: 
 			cia1_latchtod();
-			val = g_cia1.todhrslatch;
+			val = cia1_readtod(CIA1_TODHRS);
 		break;
 		case CIA1_TODMINS: 
-			val = g_cia1.todlatched ? g_cia1.todminslatch : g_cia1.regs[CIA1_TODMINS];
+			val = cia1_readtod(CIA1_TODMINS);
 		break;
-
 		case CIA1_TODSECS: 
-			val = g_cia1.todlatched ? g_cia1.todsecslatch : g_cia1.regs[CIA1_TODSECS];
+			val = cia1_readtod(CIA1_TODSECS);
 		break;		
 		case CIA1_TODTENTHS: 
-			val = g_cia1.todlatched ? g_cia1.todtenthslatch : g_cia1.regs[CIA1_TODTENTHS];
+			val = cia1_readtod(CIA1_TODTENTHS);
 			g_cia1.todlatched = false;
 		break;
 		default: 
-			val = g_cia1.regs[address % 0x10];
+			val = cia1_getreal(address % 0x10);
 		break;
 	}
-
 	return val;
 }
 
 void cia1_seticr(byte val) {
 
-	byte old = g_cia1.regs[CIA1_ICR];
+	byte old = cia1_getreal(CIA1_ICR);
 	byte fillbit = val & CIA_FLAG_FILIRQ ? 0xFF : 0;
 	byte new = 0;
 
@@ -128,25 +144,26 @@ void cia1_seticr(byte val) {
 	new |= (val & 0x20) ? (fillbit & 0x20) : (old & 0x20);
 	new |= (val & 0x40) ? (fillbit & 0x40) : (old & 0x40);  
 	
-	g_cia1.regs[CIA1_ICR] = new;
+	cia1_setreal(CIA1_ICR,new);
 }
 
 void cia_setport(CIA1_REGISTERS reg, CIA1_REGISTERS ddr, byte val) {
 
 	byte test = 0b10000000;
 	byte new = 0;
-	byte portval = g_cia1.regs[reg];
-	byte ddrval  = g_cia1.regs[ddr];
+	byte portval = cia1_getreal(reg);
+	byte ddrval  = cia1_getreal(ddr);
 
 	while (test) {
 		new |= (test & ddrval) ? (test & val) : (test & portval);
 		test >>= 1;
 	}
-
-	g_cia1.regs[reg] = new;
+	cia1_setreal(reg,new);
 }
 
 void cia1_poke(byte address,byte val) {
+
+	byte reg = address % 0x10;
 
 	switch (address % 0x10) {
 
@@ -155,47 +172,34 @@ void cia1_poke(byte address,byte val) {
 		break;
 		case CIA1_PRB: 			// data port b register
 			cia_setport(CIA1_PRB,CIA1_DDRB,val);
-			DEBUG_PRINT("PRB set to %02X (%02X) near %04X\n",val,g_cia1.regs[CIA1_PRB],cpu_getpc());
 		break;
-		case CIA1_TALO:			// Timer A Low Byte 
-			g_cia1.talolatch = val;	
-			g_cia1.regs[CIA1_TALO] = val;				
-		break;
-		case CIA1_TAHI:			// Timer A High Byte 
-			g_cia1.tahilatch = val;	
-			g_cia1.regs[CIA1_TAHI] = val;					
-		break;
-		case CIA1_TBLO:			// Timer A Low Byte 
-			g_cia1.tblolatch = val;	
-			g_cia1.regs[CIA1_TBLO] = val;		
-		break;
-		case CIA1_TBHI:			// Timer A High Byte 
-			g_cia1.tbhilatch = val;	
-			g_cia1.regs[CIA1_TBLO] = val;	
+		//
+		// timers sets. 
+		//
+		case CIA1_TALO: case CIA1_TAHI: case CIA1_TBLO: case CIA1_TBHI:		 
+			cia1_setreal(reg,val);
+			cia1_setlatched(reg,val);			
 		break;
 		case CIA1_ICR:			// Interupt control and status 
 			cia1_seticr(val);
 		break;
 		case CIA1_CRA:			// Timer A control register 
-
-			g_cia1.regs[CIA1_CRA] = val;
-
+			cia1_setreal(reg,val);
+			// force load startlatch into current 
 			if (val & CIA_CR_FORCELATCH) { 
-				// force load startlatch into current 
-				g_cia1.regs[CIA1_TALO] = g_cia1.talolatch;
-				g_cia1.regs[CIA1_TAHI] = g_cia1.tahilatch;
+				cia1_latchtoreal(CIA1_TALO);
+				cia1_latchtoreal(CIA1_TAHI);
 			}		
 		break;
 		case CIA1_CRB:			// Timer B control register 
-
-			g_cia1.regs[CIA1_CRB] = val;
+			cia1_setreal(reg,val);
+			// force load startlatch into current 
 			if (val & CIA_CR_FORCELATCH) { 
-				// force load startlatch into current 
-				g_cia1.regs[CIA1_TBLO] = g_cia1.tblolatch;
-				g_cia1.regs[CIA1_TBHI] = g_cia1.tbhilatch;
-			}		
+				cia1_latchtoreal(CIA1_TBLO);
+				cia1_latchtoreal(CIA1_TBHI);
+			}	
 		break;
-		default: g_cia1.regs[address % 10] = val;
+		default: cia1_setreal(reg,val);
 		break;
 	}	
 }
@@ -291,10 +295,9 @@ void cia1_init() {
 	//
 	// set default direction for ports. 
 	//
-	g_cia1.regs[CIA1_DDRA] = 0xff;
-	g_cia1.regs[CIA1_DDRB] = 0x0;
-	g_cia1.regs[CIA1_PRB] = 0xff;
-
+	cia1_setreal(CIA1_DDRA,0xff);
+	cia1_setreal(CIA1_DDRB,0x0);
+	cia1_setreal(CIA1_PRB,0xff);
 	g_cia1.lticks = 0;
 }
 
@@ -307,11 +310,12 @@ void cia1_update_timera() {
 	unsigned long ticks;
 	word tval = 0;
 	word updateval= 0;
+	byte cra = cia1_getreal(CIA1_CRA);
 
 	//
 	// is timer a enabled?
 	//
-	if ((g_cia1.regs[CIA1_CRA] & CIA_CR_TIMERSTART) == 0) {
+	if ((cra & CIA_CR_TIMERSTART) == 0) {
 		//
 		// timer not running.
 		//
@@ -320,7 +324,7 @@ void cia1_update_timera() {
 	//
 	// count down ticks
 	//
-	if (g_cia1.regs[CIA1_CRA] & CIA_CRA_TIMERINPUT) {
+	if (cra & CIA_CRA_TIMERINPUT) {
 
 		//
 		// BUGBUG: Not implemented. Should count down on  CNT presses here. 
@@ -328,17 +332,15 @@ void cia1_update_timera() {
 
 	} else {
 		ticks = sysclock_getticks();
-		tval = ((word) g_cia1.regs[CIA1_TAHI] << 8 ) | g_cia1.regs[CIA1_TALO];
+		tval = ((word) cia1_getreal(CIA1_TAHI) << 8 ) | cia1_getreal(CIA1_TALO);
 		updateval = tval - (ticks - g_cia1.lticks);
-		g_cia1.regs[CIA1_TAHI] = updateval >> 8;
-		g_cia1.regs[CIA1_TALO] = updateval & 0xFF; 
-	
+		cia1_setreal(CIA1_TAHI,updateval >> 8);
+		cia1_setreal(CIA1_TALO,updateval & 0xFF); 
 	}
 	// 
 	// check for underflow condition.
 	//
 	if (updateval > tval) { 
-
 		//
 		// set bit in ICS regiser. 
 		//
@@ -346,9 +348,9 @@ void cia1_update_timera() {
 		//
 		// check to see if (and how) to signal underflow on port b bit six. 
 		//
-		if (g_cia1.regs[CIA1_CRA] & CIA_CR_PORTBSELECT) {
+		if (cra & CIA_CR_PORTBSELECT) {
 
-			if (g_cia1.regs[CIA1_CRA] & CIA_CR_PORTBMODE) {
+			if (cra & CIA_CR_PORTBMODE) {
 				//
 				// BUGBUG Not Implemented
 				//
@@ -362,13 +364,13 @@ void cia1_update_timera() {
 		//
 		// if runmode is one shot, turn timer off.  
 		// 
-		if (g_cia1.regs[CIA1_CRA] & CIA_CR_TIMERRUNMODE) {
-			g_cia1.regs[CIA1_CRA] &= (~CIA_CR_TIMERSTART);
+		if (cra & CIA_CR_TIMERRUNMODE) {
+			cia1_setreal(CIA1_CRA,cra & (~CIA_CR_TIMERSTART));
 		}
 		//
 		// should we trigger an interrupt? 
 		//
-		if (g_cia1.regs[CIA1_ICR] & CIA_FLAG_TAUIRQ) {
+		if (cia1_getreal(CIA1_ICR) & CIA_FLAG_TAUIRQ) {
 			//
 			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
 			//
@@ -378,8 +380,8 @@ void cia1_update_timera() {
 		//
 		// reset to latch value. 
 		//
-		g_cia1.regs[CIA1_TAHI] = g_cia1.tahilatch;
-		g_cia1.regs[CIA1_TALO] = g_cia1.talolatch;
+		cia1_latchtoreal(CIA1_TAHI);
+		cia1_latchtoreal(CIA1_TALO);
 	}
 }
 
@@ -388,11 +390,12 @@ void cia1_update_timerb() {
 	unsigned long ticks = 0;
 	word tval = 0;
 	word updateval= 0;
+	byte crb = cia1_getreal(CIA1_CRB);
 	
 	//
 	// is timer a enabled?
 	//
-	if ((g_cia1.regs[CIA1_CRB] & CIA_CR_TIMERSTART) == 0) {
+	if ((crb & CIA_CR_TIMERSTART) == 0) {
 		//
 		// timer not running.
 		//
@@ -402,7 +405,7 @@ void cia1_update_timerb() {
 	//
 	// get timer ticks.
 	//
-	switch(g_cia1.regs[CIA1_CRB] & (CIA_CRB_TIMERINPUT1 | CIA_CRB_TIMERINPUT2)) {
+	switch(crb & (CIA_CRB_TIMERINPUT1 | CIA_CRB_TIMERINPUT2)) {
 
 		case 0b00000000: // sysclock ticks
 			ticks = sysclock_getticks() - g_cia1.lticks;
@@ -419,10 +422,11 @@ void cia1_update_timerb() {
 		default: break;
 	}
 
-	tval = ((word) g_cia1.regs[CIA1_TBHI] << 8 ) | g_cia1.regs[CIA1_TBLO];
+	tval = ((word) cia1_getreal(CIA1_TBHI) << 8 ) | cia1_getreal(CIA1_TBLO);
 	updateval = tval - ticks;
-	g_cia1.regs[CIA1_TBHI] = updateval >> 8;
-	g_cia1.regs[CIA1_TBLO] = updateval & 0xFF; 
+
+	cia1_setreal(CIA1_TBHI,updateval >> 8);
+	cia1_setreal(CIA1_TBLO,updateval & 0xFF);
 
 	// 
 	// check for underflow condition.
@@ -437,9 +441,9 @@ void cia1_update_timerb() {
 		//
 		// check to see if (and how) to signal underflow on port b bit six. 
 		//
-		if (g_cia1.regs[CIA1_CRB] & CIA_CR_PORTBSELECT) {
+		if (crb & CIA_CR_PORTBSELECT) {
 
-			if (g_cia1.regs[CIA1_CRB] & CIA_CR_PORTBMODE) {
+			if (crb & CIA_CR_PORTBMODE) {
 				//
 				// BUGBUG Not Implemented
 				//
@@ -453,13 +457,13 @@ void cia1_update_timerb() {
 		//
 		// if runmode is one shot, turn timer off.  
 		// 
-		if (g_cia1.regs[CIA1_CRB] & CIA_CR_TIMERRUNMODE) {
-			g_cia1.regs[CIA1_CRB] &= (~CIA_CR_TIMERSTART);
+		if (crb & CIA_CR_TIMERRUNMODE) {
+			cia1_setreal(CIA1_CRB,crb & (~CIA_CR_TIMERSTART));
 		}
 		//
 		// should we trigger an interrupt? 
 		//
-		if (g_cia1.regs[CIA1_ICR] & CIA_FLAG_TBUIRQ) {
+		if (cia1_getreal(CIA1_ICR) & CIA_FLAG_TBUIRQ) {
 			//
 			// set isr bit that we did do an interrupt and signal IRQ line on CPU. 
 			//
@@ -469,8 +473,8 @@ void cia1_update_timerb() {
 		//
 		// reset to latch value. 
 		//
-		g_cia1.regs[CIA1_TBHI] = g_cia1.tbhilatch;
-		g_cia1.regs[CIA1_TBLO] = g_cia1.tblolatch;
+		cia1_latchtoreal(CIA1_TBHI);
+		cia1_latchtoreal(CIA1_TBLO);
 	}
 }
 
