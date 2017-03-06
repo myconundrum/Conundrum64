@@ -7,7 +7,12 @@
 #define CIA_LATCH 0x01
 #define CIA_REAL  0x00
 
-typedef struct {
+
+typedef struct _CIA CIA;
+typedef byte (*PORTBDATAHANDLER)(CIA * c);
+typedef void (*SIGNALIRQHANDLER)();
+
+struct _CIA {
 
 	byte regs[3][0x10];			// CIA1 internal registers. use CIA1_REGS enum to address.
 	byte isr;  					// read pulls current irq status
@@ -17,20 +22,18 @@ typedef struct {
 								// the tenths register is read. 
 	unsigned long todstart;
 
-} CIA;
+	PORTBDATAHANDLER bfn;		// port b data handler.
+	SIGNALIRQHANDLER irqfn;		// signal irqs here.
 
+};
 
 typedef word (*CLOCKHANDLER)(CIA *,byte mode);
-
-
 
 CIA g_cia1;
 CIA g_cia2;
 
 byte cia_peek(CIA *c,byte reg);
 void cia_poke(CIA *c,byte reg,byte val);
-
-
 
 byte cia1_peek(byte reg) {
 	return cia_peek(&g_cia1,reg);
@@ -43,6 +46,9 @@ byte cia2_peek(byte reg) {
 	return cia_peek(&g_cia2,reg);
 }
 void cia2_poke(byte reg,byte val) {
+
+	DEBUG_PRINT("write to $DD%02X with val %02X near %04x\n",reg,val,cpu_getpc());
+
 	cia_poke(&g_cia2,reg,val);
 }
 
@@ -85,6 +91,14 @@ byte cia_getkbdprb(CIA * c) {
 
 }
 
+byte cia_getserialprb(CIA * c) {
+
+	// not implemented
+	return 0xff;
+
+}
+
+
 void cia_latchtod(CIA * c) {
 
 	c->todlatched 		= true;
@@ -98,8 +112,6 @@ byte cia_readtod(CIA * c,byte reg) {
    return c->todlatched ? cia_getlatched(c,reg) : cia_getreal(c,reg);
 }
 
-
-
 byte cia_peek(CIA * c,byte address) {
 
 	byte val;
@@ -109,7 +121,7 @@ byte cia_peek(CIA * c,byte address) {
 			val = c->isr;
 		break;
 		case CIA_PRB:
-			val = cia_getkbdprb(c);
+			val = c->bfn(c);
 		break;
 		case CIA_TODHRS: 
 			cia_latchtod(c);
@@ -259,6 +271,15 @@ void cia_init() {
 
 	g_cia2.lticks = 0;
 	g_cia2.todstart = sysclock_getticks();
+
+	//
+	// connect the cia chips to other components
+	//
+	g_cia1.bfn = cia_getkbdprb;
+	g_cia2.bfn = cia_getserialprb;
+
+	g_cia1.irqfn = cpu_irq;
+	g_cia2.irqfn = cpu_nmi;
 }
 
 void cia_destroy() {
@@ -371,7 +392,6 @@ void cia_update_todreg(CIA * c,byte reg,double timeincrement,byte modval) {
 	val %= modval; 	   // what flips back to zero.
 	high = (val / 10) << 4;
 	low =  val % 10; 
-
 	//
 	// BUGBUG am/pm!
 	//
@@ -400,7 +420,6 @@ void cia_update_timeofday(CIA * c) {
 		c->regs[CIA_REAL][CIA_TODMINS] == c->regs[CIA_ALARM][CIA_TODMINS] &&
 		c->regs[CIA_REAL][CIA_TODSECS] == c->regs[CIA_ALARM][CIA_TODSECS] &&
 		c->regs[CIA_REAL][CIA_TODTENTHS] >= c->regs[CIA_ALARM][CIA_TODTENTHS]) {
-
 		//
 		// hit alarm
 		//
@@ -414,7 +433,7 @@ void cia_check_interrupts(CIA * c) {
 	byte icr = cia_getreal(c,CIA_ICR);
 
 	if (c->isr & icr & (CIA_FLAG_TODIRQ | CIA_FLAG_TAUIRQ | CIA_FLAG_TBUIRQ)) {
-		cpu_irq();
+		c->irqfn();
 	}
 }
 

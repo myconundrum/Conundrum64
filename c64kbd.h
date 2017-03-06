@@ -15,6 +15,7 @@ void c64kbd_keydown	(byte ch);
 //
 // BUGBUG dummy values for c64 keys
 //
+
 #define C64KEY_LSHIFT 	0xD0
 #define C64KEY_CTRL  	0xD1
 #define C64KEY_RUNSTOP	0xD2
