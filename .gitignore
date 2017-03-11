@@ -8,3 +8,7 @@
 emu
 
 *.sav
+
+emu.sublime-workspace
+
+emu.sublime-project

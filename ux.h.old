@@ -2,11 +2,13 @@
 #define UX_H 1
 
 #include "emu.h"
-#include "SDL_FontCache.h"
-#include <sdl2/sdl.h>
-#include <sdl2/SDL_ttf.h>
+#include <ncurses.h>
 
 
+
+#define CONSOLE_LINES 10
+#define REGISTER_COLS 20
+#define DISPLAY_COLS 40
 
 typedef struct {
 	word address;
@@ -14,18 +16,16 @@ typedef struct {
 } DISLINE;
 
 
-#define DISLINESCOUNT 16
+#define DISLINESCOUNT 20
 
-
-#define MON_SCREEN_WIDTH 	800
-#define MON_SCREEN_HEIGHT 	380
 
 typedef struct {
 
-
-    SDL_Window  	* wMon; 
-    FC_Font 		* font;
-    SDL_Renderer	* rMon;
+	WINDOW * 	memory;
+	WINDOW * 	console;
+	WINDOW * 	registers;
+	WINDOW * 	display;
+	WINDOW * 	disassembly;
 	byte 		curpage;
 	DISLINE		dislines[DISLINESCOUNT];
 	byte		disstart;
@@ -37,15 +37,16 @@ typedef struct {
 	word 		asm_address;
 	word		brk_address;
 	bool		brk; 
+	FILE * 	    log;
 	bool 		running;
 	bool		passthru;
 	ASSEMBLER  * assembler;
 
 } UX;
 
-extern void ux_init(UX * ux,ASSEMBLER *a);
-extern void ux_destroy(UX * ux);
-extern void ux_update(UX *ux);
+extern void init_ux(UX * ux,ASSEMBLER *a);
+extern void destroy_ux(UX * ux);
+extern void update_ux(UX *ux);
 
 
 #endif

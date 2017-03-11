@@ -24,14 +24,16 @@ int main(int argc, char**argv) {
 	cpu_init();								// init 6502 CPU for C64 emulator.
 	cia_init();								// init CIA1 chip for C64 emulator.
 	init_assembler(&assembler);
-	init_ux(&ux, &assembler);
+	ux_init(&ux, &assembler);
 
 	fillDisassembly(&ux,cpu_getpc());
+
+	ux.running = true;
 
 	do {
 
 		if (!(cycles % 10000)) {
-			update_ux(&ux);
+			ux_update(&ux);
 			
 		}
 		if (ux.running) {
@@ -51,7 +53,7 @@ int main(int argc, char**argv) {
 
 	} while (!ux.done);
 
-	destroy_ux(&ux);
+	ux_destroy(&ux);
 
 	cpu_destroy();
 	mem_destroy();
