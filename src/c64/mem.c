@@ -2,155 +2,92 @@
 #include "emu.h"
 
 
-
-
-#define ISKERNALADDRESS(x) (g_memory.kernalmapped && (x) >= KERNAL_ROM_LOW_ADDRESS && (x) <= KERNAL_ROM_HIGH_ADDRESS)
-#define ISBASICADDRESS(x) (g_memory.basicmapped && (x) >= BASIC_ROM_LOW_ADDRESS && (x) <= BASIC_ROM_HIGH_ADDRESS)
-#define ISCHARADDRESS(x) (g_memory.charmapped && (x) >= CHAR_ROM_LOW_ADDRESS && (x) <= CHAR_ROM_HIGH_ADDRESS)
-//#define ISIOADDRESS(x) (g_memory.iomapped && (x) >= IO_AREA_LOW_ADDRESS && (x) <= IO_AREA_HIGH_ADDRESS)
-#define ISCIA1ADDRESS(x) (g_memory.iomapped && (x) >= CIA1_AREA_LOW_ADDRESS && (x) <= CIA1_AREA_HIGH_ADDRESS)
-#define ISCIA2ADDRESS(x) (g_memory.iomapped && (x) >= CIA2_AREA_LOW_ADDRESS && (x) <= CIA2_AREA_HIGH_ADDRESS)
-
-
 typedef struct {
 
-	byte ram[MEM_PAGE_SIZE * MEM_PAGE_COUNT];
-	byte * charrom;
-	byte * kernalrom;
-	byte * basicrom;
-	bool kernalmapped;
-	bool charmapped;
-	bool basicmapped;
-	bool iomapped;
-	
+	word low;
+	word high;
 
+	POKEHANDLER poke;
+	PEEKHANDLER peek;
+
+	bool active; 
+
+} MEMORY_MAP;
+
+#define MAX_MEMORY_MAPS 30 // arbitrary
+
+typedef struct {
+	byte 		ram  [MEM_PAGE_SIZE * MEM_PAGE_COUNT];
+	MEMORY_MAP 	maps [MAX_MEMORY_MAPS];
+	byte 		mapNext;
 } MEMORY;
 
 MEMORY g_memory;
 
 
+byte mem_map(word low, word high, PEEKHANDLER peekfn, POKEHANDLER pokefn) {
 
-//
-// BUGBUG: I don't handle extended ram and cartridge ram yet. 
-//
-void mem_config_change() {
-
-	byte val = mem_peek(BANKSWITCH_ADDRESS);
-
-	g_memory.basicmapped 	= false;
-	g_memory.iomapped 		= false;
-	g_memory.charmapped 	= false;
-	g_memory.kernalmapped 	= false;
-
-
-	if (!(val & 0x03)) {
-		//
-		// all ram.
-		//
-	} else {
-		g_memory.kernalmapped 	= val & 0x02;
-		g_memory.basicmapped 	= val & 0x01;
-		g_memory.iomapped 		= val & 0x04;
-		g_memory.charmapped 	= !g_memory.iomapped;
-
+	if (g_memory.mapNext == MAX_MEMORY_MAPS) {
+		DEBUG_PRINT("Memory: Out of memory mapping space.\n");
+		return 0;
 	}
+	g_memory.maps[g_memory.mapNext].low = low;
+	g_memory.maps[g_memory.mapNext].high = high;
+	g_memory.maps[g_memory.mapNext].peek = peekfn;
+	g_memory.maps[g_memory.mapNext].poke = pokefn;
+
+	return g_memory.mapNext++;
 }
 
-byte * mem_init_rom(char * name) {
 
-	FILE * 	f;
-	int 	len;
-	byte * 	where = NULL;
+void mem_mapactive(byte map, bool flag) {g_memory.maps[map].active = flag;}
 
-	f = fopen(name,"rb");
+void mem_init() {memset(&g_memory,0,sizeof(MEMORY));}
+void mem_destroy() {}
+
+MEMORY_MAP *mem_getmap(address) {
 	
-	if (f) {
+	int i;
 
-		fseek(f, 0, SEEK_END);          
-    	len = ftell(f);            
-    	rewind(f);
-    	DEBUG_PRINT("MEM: loaded binary image %s size %d\n",name,len);
-
-    	where = (byte *) malloc(sizeof(byte) * len);   
-		fread(where,1,len,f);
-		fclose(f);
+	for (i = 0; i < g_memory.mapNext; i++) {
+		if (address >= g_memory.maps[i].low && 
+			address <= g_memory.maps[i].high && g_memory.maps[i].active) {
+			return &g_memory.maps[i];
+		}
 	}
-
-	return where;
+	return NULL;
 }
 
-
-void mem_init() {
-	memset(&g_memory,0,sizeof(MEMORY));
-	g_memory.kernalrom = mem_init_rom("asm/901227-03-kernal.bin");
-	g_memory.basicrom = mem_init_rom("asm/901226-01-basic.bin");
-	g_memory.charrom = mem_init_rom("asm/901225-01-char.bin");
-
-	
-}
-void mem_destroy() {
-	free(g_memory.kernalrom);
-	free(g_memory.basicrom);
-	free(g_memory.charrom);
-}
+void mem_nonmappable_poke(word address,byte value) {g_memory.ram[address] = value;}
+byte mem_nonmappable_peek(word address) {return g_memory.ram[address];}
 
 void mem_poke(word address,byte value) {
 
-	if (ISKERNALADDRESS(address) || ISBASICADDRESS(address) || ISCHARADDRESS(address)) {
-		// do nothing
-		return;
-	}
-	
-	if (ISCIA1ADDRESS(address)) {
-		cia1_poke(address,value);
-	} else if (ISCIA2ADDRESS(address)) {
-		cia2_poke(address,value);
+	MEMORY_MAP * map = mem_getmap(address);
+	if (map) {
+		map->poke(address-map->low,value);
 	}
 	else {
 		g_memory.ram[address] = value;
-		if (address == BANKSWITCH_ADDRESS) {
-			mem_config_change();
-		}
 	}
 }
+byte mem_peek(word address) {
 
+	MEMORY_MAP * map = mem_getmap(address);
 
-
+	if (map) {
+		return map->peek(address-map->low);
+	}
+	else {
+		return g_memory.ram[address];
+	}
+}
 void mem_pokeword(word address,word value) {
 
 	mem_poke(address, (byte) (value & 0xFF));
 	mem_poke(address+1,(byte) (value >> 8));
 }
-
 word mem_peekword(word address) {
 	return (mem_peek(address+1) << 8) | mem_peek(address);
-}
-
-
-byte mem_peek(word address) {
-
-
-	byte val = 0;
-
-	if (ISKERNALADDRESS(address)) {
-		val = g_memory.kernalrom[address - KERNAL_ROM_LOW_ADDRESS];
-	}
-	else if (ISCHARADDRESS(address)) {
-		val = g_memory.charrom[address - CHAR_ROM_LOW_ADDRESS];
-	}
-	else if (ISBASICADDRESS(address)) {
-		val = g_memory.basicrom[address - BASIC_ROM_LOW_ADDRESS];
-	}
-	else if (ISCIA1ADDRESS(address)) {
-
-		val = cia1_peek(address);
-	}
-	else if (ISCIA2ADDRESS(address)) {
-
-		val = cia2_peek(address);
-	}
-	else {val = g_memory.ram[address];}
-
-	return val;
 }
 

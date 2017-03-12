@@ -14,6 +14,7 @@
 #include "stdint.h"
 #include "sysclock.h"
 #include "c64.h"
+#include "vicii.h"
 
 #define DEBUG 1
 

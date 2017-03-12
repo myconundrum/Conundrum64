@@ -2,35 +2,30 @@
 #define MEMH
 #include "emu.h"
 
+typedef void (*POKEHANDLER)(word,byte);
+typedef byte (*PEEKHANDLER)(word);
+
+
 #define MEM_PAGE_SIZE 	0xFF
 #define MEM_PAGE_COUNT 	0xFF
 
-#define BANKSWITCH_ADDRESS 				0x0001
-#define BANKSWITCH_DIRECTION_ADDRESS	0x0000
-
-#define BASIC_ROM_LOW_ADDRESS			0xA000
-#define BASIC_ROM_HIGH_ADDRESS			0xBFFF
-
-#define CHAR_ROM_LOW_ADDRESS			0xD000
-#define CHAR_ROM_HIGH_ADDRESS			0xDFFF
-
-#define KERNAL_ROM_LOW_ADDRESS			0xE000
-#define KERNAL_ROM_HIGH_ADDRESS			0xFFFF
-
-#define IO_AREA_LOW_ADDRESS				0xD000
-#define IO_AREA_HIGH_ADDRESS			0xDFFF
-
-#define CIA1_AREA_LOW_ADDRESS			0xDC00
-#define CIA1_AREA_HIGH_ADDRESS			0xDCFF
-
-#define CIA2_AREA_LOW_ADDRESS			0xDD00
-#define CIA2_AREA_HIGH_ADDRESS			0xDDFF
 
 void mem_init();
 void mem_destroy();
+
+
 void mem_poke(word address,byte value);
 void mem_pokeword(word address,word value);
 byte mem_peek(word address);
 word mem_peekword(word address);
+
+
+//
+// memory mapping functions for i/o and other.
+//
+byte 	mem_map (word lowaddress,word hiaddress,PEEKHANDLER peekfn, POKEHANDLER pokefn);
+void 	mem_mapactive (byte id, bool flag);
+byte    mem_nonmappable_peek(word address);				
+void    mem_nonmappable_poke(word address,byte val); 	
 
 #endif

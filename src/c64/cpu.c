@@ -970,12 +970,7 @@ void cpu_init() {
 	setopcode(0x6e,"ROR",AM_ABSOLUTE,handle_ROR,6);
 	setopcode(0x7e,"ROR",AM_ABSOLUTEX,handle_ROR,7);
 	
-	//
-	// Set initial bankswitch configuration (IO, Basic, Kernal mapped in)
-	//
-	mem_poke(BANKSWITCH_ADDRESS,0xE7);
 	g_cpu.pc = mem_peekword(VECTOR_RESET);
-
 }
 
 void cpu_irq() {g_cpu.irq = true;}
