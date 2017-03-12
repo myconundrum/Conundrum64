@@ -23,11 +23,6 @@ void parseStep (char * s);
 void parseComment  (char * s);
 void parsePassThru (char * s);
 
-
-
-
-
-
 PARSECMD g_commands[] = {
 	{"QUIT",parseQuit},
 	{"MEM",parseMem},
@@ -36,9 +31,7 @@ PARSECMD g_commands[] = {
 	{"STOP",parseStop},
 	{"DIS",parseDis},
 	{"S",parseStep},
-	{"\"",parsePassThru},
 };
-
 
 typedef struct {
 	word address;
@@ -50,6 +43,11 @@ typedef struct {
     SDL_Window  	* wMon; 
     FC_Font 		* font;
     SDL_Renderer	* rMon;
+    SDL_Window  	* wTextD; 
+    FC_Font 		* fTextD;
+    SDL_Renderer	* rTextD;
+
+
 	byte 		curpage;
 	DISLINE		dislines[DISLINESCOUNT];
 	byte		disstart;
@@ -86,7 +84,6 @@ void handle_step() {
 
 	c64_update();
 	g_ux.discur++;
-
 	if (cpu_getpc() != g_ux.dislines[g_ux.discur].address || g_ux.discur == DISLINESCOUNT) {
 		fillDisassembly(cpu_getpc());
 	}
@@ -94,9 +91,7 @@ void handle_step() {
 
 void parseExec (char *s) {g_ux.running = true;}
 void parseStop (char *s) {g_ux.running = false;}
-void parsePassThru (char *s) {g_ux.passthru = true;}
 void parseQuit(char * s) {g_ux.done = true;}
-
 void parseMem (char * s) {
 	s = strtok(NULL," ");
 	if (s) {
@@ -118,8 +113,6 @@ void parseDis (char * s) {
 	}
 	fillDisassembly(address);	
 }
-
-
 typedef struct {
 	byte hi;
 	byte low;
@@ -266,7 +259,6 @@ void parseBrk (char * s) {
 	}
 }
 
-
 bool ux_running() {
 	return g_ux.running;
 }
@@ -299,14 +291,12 @@ void ux_handle_command() {
 	}
 }
 
-
-
 void ux_handle_step();
 void fillDisassembly(word address);
 
 
 
-void ux_handleKeyPress(SDL_Keycode code);
+void ux_handleKeyPress(SDL_Event);
 void ux_init() {
 
 	memset(&g_ux,0,sizeof(UX));
@@ -323,6 +313,16 @@ void ux_init() {
 	SDL_RenderSetLogicalSize (g_ux.rMon, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT);
 	SDL_SetRenderDrawColor (g_ux.rMon, 0, 0, 0, 255);
 	FC_LoadFont(g_ux.font, g_ux.rMon, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
+
+
+    g_ux.wTextD = SDL_CreateWindow ("Emulator Display", 
+    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+   	g_ux.rTextD = SDL_CreateRenderer(g_ux.wTextD, -1, SDL_RENDERER_ACCELERATED);
+   	g_ux.fTextD =  FC_CreateFont();
+
+	SDL_RenderSetLogicalSize (g_ux.rTextD, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT);
+	SDL_SetRenderDrawColor (g_ux.rTextD, 0, 0, 0, 255);
+	FC_LoadFont(g_ux.fTextD, g_ux.rTextD, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
 
 }
 
@@ -382,7 +382,6 @@ void ux_updateRegisters() {
 		);
 }
 
-
 void ux_updateDisassembly() {
  	
 	int i;
@@ -400,6 +399,53 @@ void ux_updateDisassembly() {
 	}
 }
 
+char getScreenChar(byte code) {
+
+	if (code < 0x20) {
+		code += 0x40;
+	}
+	return  code;
+}
+
+void ux_updateDisplay() {
+
+	int i;
+	int j;
+	byte high;
+	byte low;
+	int address;
+	byte b;
+	byte ch;
+	char buf[255];
+	char * p;
+	*buf = 0;
+
+	for (i = 0; i < 25; i++) {
+		p = buf;
+		for (j = 0; j < 40; j++) {
+	
+			address = 0x0400 + i * 40 + j;
+			high = address >> 8;
+			low = address & 0xff;
+			b = mem_peek((high << 8) | low);
+			ch = getScreenChar(b);
+			//
+			// cursor blink hack
+			//
+			if (ch == 0xa0) {
+				ch = 0x20;
+				*p++ = isprint(ch) ? ch : ' ';
+			} else {
+				*p++ = isprint(ch) ? ch : ' ';
+			}
+		}
+		*p = 0;
+		FC_Draw(g_ux.fTextD,g_ux.rTextD,0,20*i,buf);
+	}
+}
+
+
+
 void ux_updateConsole() {
 
 	SDL_Rect r = {0,360,MON_SCREEN_WIDTH,20};
@@ -407,9 +453,6 @@ void ux_updateConsole() {
 	FC_Draw(g_ux.font,g_ux.rMon,0,360,g_ux.buf);
 
 }
-
-
-
 
 void ux_update() {
 
@@ -434,13 +477,22 @@ void ux_update() {
 	SDL_RenderClear(g_ux.rMon);
 	SDL_SetRenderDrawColor(g_ux.rMon,255,255,255,255);
 	
+	SDL_SetRenderDrawColor (g_ux.rTextD, 0, 0, 0, 255);
+	SDL_RenderClear(g_ux.rTextD);
+	SDL_SetRenderDrawColor(g_ux.rTextD,255,255,255,255);
+
+	
 	ux_updateRegisters();
 	ux_updateMemory();
 	ux_updateDisassembly();
 	ux_updateConsole();
+	ux_updateDisplay();
 
 	SDL_RenderPresent(g_ux.rMon);
-    SDL_UpdateWindowSurface (g_ux.wMon);
+    //SDL_UpdateWindowSurface (g_ux.wMon);
+
+	SDL_RenderPresent(g_ux.rTextD);
+    SDL_UpdateWindowSurface (g_ux.wTextD);
 
 	while (SDL_PollEvent (&e)) {
 	
@@ -449,9 +501,10 @@ void ux_update() {
 				g_ux.done = true;
 				break;
       		case SDL_KEYDOWN:
-      			ux_handleKeyPress(e.key.keysym.sym);
+      			ux_handleKeyPress(e);
         	break;
       		case SDL_KEYUP:
+      			ux_handleKeyPress(e);
       		break;
       		default:
         	break;
@@ -545,27 +598,61 @@ char ux_getasciich(SDL_Keycode code) {
 	return ch;
 }
 
-void ux_handlec64key(SDL_Keycode code) {
+void ux_handlec64key(SDL_Event e) {
 
+
+	char ch = ux_getasciich(e.key.keysym.sym);
+	if (!ch) {
+		switch(e.key.keysym.sym) {
+
+		case SDLK_RIGHT: ch = C64KEY_CURRIGHT;break;
+		case SDLK_DOWN:  ch = C64KEY_CURDOWN;break;
+		case SDLK_LEFT:  ch = C64KEY_CURRIGHT;break;
+		case SDLK_UP:    ch = C64KEY_CURUP;break;
+		case SDLK_LCTRL: ch = C64KEY_CTRL;break;
+		case SDLK_LSHIFT: ch = C64KEY_LSHIFT;break;
+		case SDLK_RSHIFT: ch = C64KEY_RSHIFT;break;		
+		default:break;
+		}
+	}	
+
+	if (e.type == SDL_KEYDOWN) {
+		c64kbd_keydown(ch);
+	} else {
+		DEBUG_PRINT("key up %c\n",ch);
+		c64kbd_keyup(ch);
+	}
 }
 
-void ux_handleKeyPress(SDL_Keycode code) {
+void ux_handlepassthru(SDL_Event e) {
+
+	if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+		memset(g_ux.buf,0,256);
+		g_ux.bpos = 0;	
+		g_ux.passthru = !g_ux.passthru;
+	}
+}
+
+void ux_handleKeyPress(SDL_Event e) {
+
+	//
+	// check to see if we are switching modes between monitor and c64.
+	//
+	ux_handlepassthru(e);
 
 	if (g_ux.passthru) {
-		ux_handlec64key(code);
+		ux_handlec64key(e);
+		return;
+	}
+
+	if (e.type == SDL_KEYUP) {
+		return;
 	}
 	
-	char ch = ux_getasciich(code);
+	char ch = ux_getasciich(e.key.keysym.sym);
 
 	if (!ch) {
-		switch (code) {
-			case SDLK_ESCAPE:				// switch between c64 and regular mode.
-				g_ux.buf[g_ux.bpos++] = '"';
-				g_ux.buf[g_ux.bpos++] = ' ';
-				ux_handle_command(g_ux.buf);
-				memset(g_ux.buf,0,256);
-				g_ux.bpos = 0;
-			break;
+		switch (e.key.keysym.sym) {
 			case SDLK_DOWN:					// step one instruction
 				handle_step();
 			break;
@@ -589,8 +676,3 @@ void ux_handleKeyPress(SDL_Keycode code) {
 		g_ux.buf[g_ux.bpos++] = ch;
 	}
 }
-
-
-
-
-

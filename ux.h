@@ -22,8 +22,5 @@ void ux_update();
 bool ux_running();
 bool ux_done();
 
-
-
-
 #endif
 
