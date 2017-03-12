@@ -14,8 +14,7 @@
 #include "ux.h"
 #include "stdint.h"
 #include "sysclock.h"
-
-
+#include "c64.h"
 
 #define DEBUG 1
 
@@ -32,12 +31,6 @@ FILE * g_debug;
  #define DEBUG_PRINT(fmt, args...) /* Don't do anything in release builds */
  #define DEBUG_DESTROY()
 #endif
-
-
-void handle_command(UX * ux);
-void handle_step(UX * ux);
-void fillDisassembly(UX *ux, word address);
-int asmfile(char * path);
 
 
 #endif

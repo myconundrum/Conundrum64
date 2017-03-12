@@ -8,11 +8,6 @@
 
 
 
-typedef struct {
-	word address;
-	char buf[32];
-} DISLINE;
-
 
 #define DISLINESCOUNT 16
 
@@ -20,32 +15,14 @@ typedef struct {
 #define MON_SCREEN_WIDTH 	800
 #define MON_SCREEN_HEIGHT 	380
 
-typedef struct {
+
+void ux_init(ASSEMBLER *a);
+void ux_destroy();
+void ux_update();
+bool ux_running();
+bool ux_done();
 
 
-    SDL_Window  	* wMon; 
-    FC_Font 		* font;
-    SDL_Renderer	* rMon;
-	byte 		curpage;
-	DISLINE		dislines[DISLINESCOUNT];
-	byte		disstart;
-	byte 		discur;
-	char 		buf[256];
-	char 		disbuf[1024];
-	bool 		done;
-	int 		bpos;
-	word 		asm_address;
-	word		brk_address;
-	bool		brk; 
-	bool 		running;
-	bool		passthru;
-	ASSEMBLER  * assembler;
-
-} UX;
-
-extern void ux_init(UX * ux,ASSEMBLER *a);
-extern void ux_destroy(UX * ux);
-extern void ux_update(UX *ux);
 
 
 #endif
