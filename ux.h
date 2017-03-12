@@ -8,10 +8,6 @@
 
 
 
-
-#define DISLINESCOUNT 16
-
-
 #define MON_SCREEN_WIDTH 	800
 #define MON_SCREEN_HEIGHT 	380
 

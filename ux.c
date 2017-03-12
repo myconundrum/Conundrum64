@@ -1,45 +1,21 @@
 #include "emu.h"
 
-
-typedef void (*PARSEFN)(char *);
-
-typedef struct {
-
-	const char * cmd;
-	PARSEFN fn;
-
-} PARSECMD;
-
-
-
-void parseQuit(char * s);
-void parseMem (char * s);
-void parseBrk (char * s);
-void parseAsm (char * s);
-void parseExec (char * s);
-void parseStop  (char * s);
-void parseDis  (char * s);
-void parseStep (char * s);
-void parseComment  (char * s);
-void parsePassThru (char * s);
-
-PARSECMD g_commands[] = {
-	{"QUIT",parseQuit},
-	{"MEM",parseMem},
-	{"BRK",parseBrk},
-	{"EXEC",parseExec},
-	{"STOP",parseStop},
-	{"DIS",parseDis},
-	{"S",parseStep},
-};
-
 typedef struct {
 	word address;
 	char buf[32];
 } DISLINE;
 
+
+
+#define DISLINESCOUNT 16
+
+
+
 typedef struct {
 
+	//
+	// SDL Window structures
+	//
     SDL_Window  	* wMon; 
     FC_Font 		* font;
     SDL_Renderer	* rMon;
@@ -48,29 +24,32 @@ typedef struct {
     SDL_Renderer	* rTextD;
 
 
-	byte 		curpage;
-	DISLINE		dislines[DISLINESCOUNT];
-	byte		disstart;
-	byte 		discur;
-	char 		buf[256];
-	char 		disbuf[1024];
-	bool 		done;
-	int 		bpos;
-	word 		asm_address;
-	word		brk_address;
-	bool		brk; 
-	bool 		running;
-	bool		passthru;
-	int 		cycles;
+	byte 		curpage;					// current page of memory in monitor.
+	DISLINE		dislines[DISLINESCOUNT];	// disassembled lines.
+	byte 		discur;						// current index of disassembly lines.
+	
+	char 		buf[256];					// captures keyboard input
+	int 		bpos;						// keyboard input buffer position
+
+	word		brk_address;				// breakpoint address if brk is set
+	bool		brk; 						// look for breakpoints.
+	
+	bool 		running;					// c64 is running
+	bool 		done;						// user wishes to quit when true
+	bool		passthru;					// send input to c64 if true, otherwise monitor
+	
+	int 		cycles;						// track ux cycles (used for rendering perf)
 	
 } UX;
 
 UX g_ux;
 
-void fillDisassembly(word address) {
+
+void ux_handleKeyPress(SDL_Event);
+
+void ux_fillDisassembly(word address) {
 
 	int i;
-	g_ux.disstart = 0;
 	g_ux.discur = 0;
 
 	for (i =0 ; i <  DISLINESCOUNT; i++) {
@@ -79,185 +58,59 @@ void fillDisassembly(word address) {
 		address += cpu_disassemble(g_ux.dislines[i].buf,address);
 	}
 }
-
-void parseStep(char *s) { c64_update();}
-void handle_step() {
+void ux_handlestep() {
 
 	c64_update();
 	g_ux.discur++;
 	if (cpu_getpc() != g_ux.dislines[g_ux.discur].address || g_ux.discur == DISLINESCOUNT) {
-		fillDisassembly(cpu_getpc());
+		ux_fillDisassembly(cpu_getpc());
 	}
 }
 
-void parseExec (char *s) {g_ux.running = true;}
-void parseStop (char *s) {g_ux.running = false;}
-void parseQuit(char * s) {g_ux.done = true;}
-void parseMem (char * s) {
-	s = strtok(NULL," ");
-	if (s) {
-		g_ux.curpage = strtoul(s,NULL,16);
-	}
-}
-
-void parseDis (char * s) {
-
-	word address;
-	int  i;
-
-	s = strtok(NULL," ");
-	if (s) {
-		address = strtoul(s,NULL,16);
-	}
-	else {
-		address = cpu_getpc();
-	}
-	fillDisassembly(address);	
-}
-typedef struct {
-	byte hi;
-	byte low;
-	ENUM_AM mode;
-	byte bytes;
-
-} ADDRESSANDMODE;
-
-int getBytesFromString(char *s, ADDRESSANDMODE * am) {
-
-	char lows[3];
-	char his[3];
-	int count =0;
-	int i;
-
-	for (i = 0; i < strlen(s); i++) {
-		if (!isxdigit(s[i])) {break;}
-		if (i < 2) {
-			his[i] = s[i];
-		}
-		else if (i < 4) {
-			lows[i-2] = s[i];
-		}	
-		count++;	
-	}
-
-	if (count > 2) {
-		am->hi = strtoul(his,NULL,16);
-		am->low = strtoul(lows,NULL,16);
-		am->bytes = 2;
-	} else {
-		am->hi= 0;
-		am->low = strtol(his,NULL,16);
-		am->bytes = 1;
-	}
-
-	return count;
-}
-
-void getAddressAndMode (char *s, ADDRESSANDMODE * am) {
-
-	int i;
-	bool immediate = false;
-	bool indirect = false;
-	bool xreg = false;
-	bool yreg = false;
-	int numlen = 0;
+bool ux_running() {return g_ux.running;}
+bool ux_done() {return g_ux.done;}
 
 
-	for (i = 0; i < strlen(s); i++) {
-		switch(s[i]) {
-			case '#': immediate = true; break;
-			case 'X': xreg = true; break;
-			case 'Y': yreg = true; break;
-			case '(': indirect = true; break;
-			case '$': 
-				numlen = getBytesFromString(s+i+1,am);
-				i+=numlen;
-				break;
-			default:break; 
-		}
-	}
-
-	if (immediate) {
-		am->mode = AM_IMMEDIATE;
-	}
-	else if (indirect && am->bytes == 2) {
-		am->mode = AM_INDIRECT;
-	}
-	else if (indirect && xreg) {
-		am->mode = AM_INDEXEDINDIRECT;
-	}
-	else if (indirect && yreg) {
-		am->mode = AM_INDIRECTINDEXED;
-	}
-	else if (am->bytes==2  && xreg) {
-		am->mode = AM_ABSOLUTEX;
-	}
-	else if (am->bytes==2 && yreg) {
-		am->mode = AM_ABSOLUTEY;
-	}
-	else if (am->bytes==2) {
-		am->mode = AM_ABSOLUTE;
-	}
-	else if (am->bytes==1 && xreg) {
-		am->mode = AM_ZEROPAGEX;
-	}
-	else if (am->bytes==1 && yreg) {
-		am->mode = AM_ZEROPAGEY;
-	}
-	else if (am->bytes==1)  {
-
-		am->mode = AM_ZEROPAGE;
-	}
-}
-
-void parseBrk (char * s) {
-	s = strtok(NULL," ");
-	g_ux.brk_address = 0;
-
-	if (s) {
-		g_ux.brk = true;
-		g_ux.brk_address = strtoul(s,NULL,16);
-	}
-}
-
-bool ux_running() {
-	return g_ux.running;
-}
-
-bool ux_done() {
-	return g_ux.done;
-}
-
-
-void ux_handle_command() {
+void ux_handlecommand() {
 
 	char * p = NULL;
-	int i;
-
+	word address;	
+		
 	p = strtok(g_ux.buf," ");
 	if (!p) {
-		if (!p) {
-			return;
-		}
+		p = g_ux.buf;
 	}
 
-	for (i = 0; i < sizeof(g_commands)/sizeof(PARSECMD); i++) {
-		if (strcmp(g_commands[i].cmd,p)==0) {
-			g_commands[i].fn(p);
-			break;
+	if (!strcmp(p,"QUIT")) {
+		g_ux.done = true;
+	} else if (!strcmp(p,"EXEC")) {
+		g_ux.running = true;
+	} else if (!strcmp(p,"STOP")) {
+		g_ux.running = false;
+	} else if (!strcmp(p,"DIS")) {
+ 		p = strtok(NULL," ");
+ 		address = p ? strtoul(p,NULL,16) : cpu_getpc();
+		ux_fillDisassembly(address);	
+		g_ux.running = false;
+	} else if (!strcmp(p,"BRK")) {
+		p = strtok(NULL," ");
+		if (p) {
+			g_ux.brk = true;
+			g_ux.brk_address = strtoul(p,NULL,16);
 		}
-	}
-	if (i==sizeof(g_commands)/sizeof(PARSECMD)) {
-		DEBUG_PRINT("Error. Could not parse %s\n ",g_ux.buf);
+		else {
+			g_ux.brk = false;
+			g_ux.brk_address = 0;
+		} 		
+	} else if (!strcmp(p,"MEM")) {
+		p = strtok(NULL," ");
+		if (p) {
+			g_ux.curpage = strtoul(p,NULL,16);
+		}
 	}
 }
 
-void ux_handle_step();
-void fillDisassembly(word address);
 
-
-
-void ux_handleKeyPress(SDL_Event);
 void ux_init() {
 
 	memset(&g_ux,0,sizeof(UX));
@@ -284,6 +137,8 @@ void ux_init() {
 	SDL_RenderSetLogicalSize (g_ux.rTextD, 40*10, 25*20);
 	SDL_SetRenderDrawColor (g_ux.rTextD, 0, 0, 0, 255);
 	FC_LoadFont(g_ux.fTextD, g_ux.rTextD, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
+
+	ux_fillDisassembly(cpu_getpc());
 
 }
 
@@ -360,7 +215,7 @@ void ux_updateDisassembly() {
 	}
 }
 
-char getScreenChar(byte code) {
+char ux_getScreenChar(byte code) {
 
 	if (code < 0x20) {
 		code += 0x40;
@@ -389,7 +244,7 @@ void ux_updateDisplay() {
 			high = address >> 8;
 			low = address & 0xff;
 			b = mem_peek((high << 8) | low);
-			ch = getScreenChar(b);
+			ch = ux_getScreenChar(b);
 			//
 			// cursor blink hack
 			//
@@ -424,7 +279,7 @@ void ux_update() {
 			g_ux.running = false;
 			g_ux.brk = false;
 			g_ux.passthru = false;
-			fillDisassembly(cpu_getpc());
+			ux_fillDisassembly(cpu_getpc());
 		}
 	}
 
@@ -605,7 +460,7 @@ void ux_handleKeyPress(SDL_Event e) {
 	if (!ch) {
 		switch (e.key.keysym.sym) {
 			case SDLK_DOWN:					// step one instruction
-				handle_step();
+				ux_handlestep();
 			break;
 			case SDLK_RIGHT:				// step over JSR
 				//
@@ -619,7 +474,7 @@ void ux_handleKeyPress(SDL_Event e) {
 		}
 	}
 	else if (ch == '\n') {
-		ux_handle_command();
+		ux_handlecommand();
 		memset(g_ux.buf,0,256);
 		g_ux.bpos = 0;
 	}

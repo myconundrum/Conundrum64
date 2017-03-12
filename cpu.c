@@ -133,7 +133,6 @@ void setPCFromOffset(byte val) {
 	}
 }
 
-
 word cpu_getloc(ENUM_AM mode) {
 
 	word address = 0x00; 
@@ -222,7 +221,6 @@ void handle_EOR(ENUM_AM m) {
 	setOrClearZFlag(g_cpu.reg_a);
 }
 
-
 void handle_ORA(ENUM_AM m) {
 
 	g_cpu.reg_a |= getval(m);
@@ -251,7 +249,6 @@ void handle_LDX(ENUM_AM m) {
 	setOrClearZFlag(g_cpu.reg_x);
 }
 
-
 void handle_STA(ENUM_AM m) {
 	mem_poke(cpu_getloc(m), g_cpu.reg_a);
 }
@@ -271,7 +268,6 @@ void handle_TAX(ENUM_AM m) {
 	setOrClearZFlag(g_cpu.reg_x);
 }
 
-
 void handle_TAY(ENUM_AM m) {
 
 	g_cpu.reg_y = g_cpu.reg_a;
@@ -279,14 +275,12 @@ void handle_TAY(ENUM_AM m) {
 	setOrClearZFlag(g_cpu.reg_y);
 }
 
-
 void handle_TXA(ENUM_AM m) {
 
 	g_cpu.reg_a = g_cpu.reg_x;	
 	setOrClearNFlag(g_cpu.reg_a);
 	setOrClearZFlag(g_cpu.reg_a);
 }
-
 
 void handle_TYA(ENUM_AM m) {
 
@@ -370,7 +364,6 @@ void handle_DEX(ENUM_AM m) {
 	setOrClearZFlag(g_cpu.reg_x);
 }
 
-
 void handle_DEY(ENUM_AM m) {
 
 	g_cpu.reg_y--;
@@ -441,7 +434,6 @@ void handle_RTI (ENUM_AM m) {
 	g_cpu.reg_status &= ~B_FLAG;
 
 }
-
 
 void handle_BCC (ENUM_AM m) {
 
@@ -596,7 +588,6 @@ void handle_ROR (ENUM_AM m) {
 	}	
 }
 
-
 void handle_ASL (ENUM_AM m) {
 
 	byte src; 
@@ -691,7 +682,6 @@ void handle_SBC (ENUM_AM m) {
 	}          
 }
 
-
 void handle_ADC (ENUM_AM m) {
 		
 	unsigned int src = getval(m);                                                                     
@@ -726,7 +716,6 @@ void handle_ADC (ENUM_AM m) {
 	g_cpu.reg_a = tmp; 
 }
 
-
 void cpu_checkinterrupts() {
 
 	if (g_cpu.nmi) {
@@ -752,7 +741,6 @@ void cpu_checkinterrupts() {
 
 }
 
-
 void cpu_run() {
 
 	byte op;
@@ -773,7 +761,6 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 	g_opcodes[op].fn = fn;
 	g_opcodes[op].cycles = c;
 }
-
 
 void cpu_destroy() {
 
@@ -983,14 +970,11 @@ void cpu_init() {
 	setopcode(0x6e,"ROR",AM_ABSOLUTE,handle_ROR,6);
 	setopcode(0x7e,"ROR",AM_ABSOLUTEX,handle_ROR,7);
 	
-
 	//
 	// Set initial bankswitch configuration (IO, Basic, Kernal mapped in)
 	//
 	mem_poke(BANKSWITCH_ADDRESS,0xE7);
 	g_cpu.pc = mem_peekword(VECTOR_RESET);
-
-
 
 }
 
