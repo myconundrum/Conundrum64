@@ -97,5 +97,7 @@ void cpu_nmi();  // signal nmi line
 //
 bool cpu_isopcode(char * name);
 bool cpu_getopcodeinfo(byte opcode, char *name, ENUM_AM *mode);
+void cpu_disassemble(char * buf,word * address);
+
 
 #endif

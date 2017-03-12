@@ -16,7 +16,7 @@
 #define MON_SCREEN_HEIGHT 	380
 
 
-void ux_init(ASSEMBLER *a);
+void ux_init();
 void ux_destroy();
 void ux_update();
 bool ux_running();

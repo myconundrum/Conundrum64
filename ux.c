@@ -64,8 +64,7 @@ typedef struct {
 	bool 		running;
 	bool		passthru;
 	int 		cycles;
-	ASSEMBLER  * assembler;
-
+	
 } UX;
 
 UX g_ux;
@@ -78,11 +77,9 @@ void fillDisassembly(word address) {
 
 	for (i =0 ; i <  DISLINESCOUNT; i++) {
 		g_ux.dislines[i].address = address;
-		disassembleLine(g_ux.assembler,g_ux.dislines[i].buf,&address);
+		cpu_disassemble(g_ux.dislines[i].buf,&address);
 	}
 }
-
-
 
 void parseStep(char *s) { c64_update();}
 void handle_step() {
@@ -310,12 +307,9 @@ void fillDisassembly(word address);
 
 
 void ux_handleKeyPress(SDL_Keycode code);
-void ux_init(ASSEMBLER *a) {
+void ux_init() {
 
 	memset(&g_ux,0,sizeof(UX));
-
-	g_ux.assembler = a;
-
     if (SDL_Init (SDL_INIT_EVERYTHING) < 0 ) {
         DEBUG_PRINT( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return;

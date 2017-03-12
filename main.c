@@ -8,11 +8,8 @@
 
 int main(int argc, char**argv) {
 
-	ASSEMBLER assembler;
 	DEBUG_INIT("c64.log");
-
-	init_assembler(&assembler);
-	ux_init(&assembler);
+	ux_init();
 	c64_init();
 	fillDisassembly(cpu_getpc());
 	
@@ -26,6 +23,7 @@ int main(int argc, char**argv) {
 
 	ux_destroy();
 	c64_destroy();
+
 	DEBUG_DESTROY();
 	return 0;
 }

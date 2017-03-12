@@ -1028,3 +1028,93 @@ byte cpu_getstatus()			{return g_cpu.reg_status;}
 byte cpu_getstack()				{return g_cpu.reg_stack;}
 
 
+void cpu_disassemble(char * buf,word * address) {
+	
+	int i = 0;
+	byte b = mem_peek(*address);
+	byte h;
+	char * p = buf;
+	word reladdress;
+	char opbuf[10];
+	ENUM_AM mode;
+	*address += 1;
+
+	
+
+	if (!cpu_getopcodeinfo(b,opbuf,&mode)) {
+		sprintf(p,"$%02X",b);
+	}
+	else {
+		strcpy(p,opbuf);
+		p += strlen(p);
+		switch(mode) {
+			case AM_IMMEDIATE:
+				sprintf(p," #$%02X", mem_peek(*address));
+				*address += 1;
+			break;
+			case AM_ZEROPAGE:
+				sprintf(p," $%02X",mem_peek(*address));
+				*address += 1;
+			break;
+			case AM_ZEROPAGEX:
+				sprintf(p," $%02X,X",mem_peek(*address));
+				*address += 1;
+			break;
+			case AM_ZEROPAGEY:
+				sprintf(p," $%02X,Y",mem_peek(*address));
+				*address += 1;
+			case AM_ABSOLUTE:
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
+				sprintf(p," $%02X%02X",h,b);
+			break;
+			case AM_ABSOLUTEX:
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
+				sprintf(p," $%02X%02X,X",h,b);
+			break;
+			case AM_ABSOLUTEY:
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
+				sprintf(p," $%02X%02X,Y",h,b);
+			break;
+			case AM_INDIRECT:
+				b = mem_peek(*address);
+				*address += 1;
+				h = mem_peek(*address);
+				*address += 1;
+				sprintf(p," ($%02X%02X)",h,b);
+			break;
+			case AM_INDEXEDINDIRECT:
+				sprintf(p," ($%02X,X)",mem_peek(*address));
+				*address += 1;
+			break;
+			case AM_INDIRECTINDEXED:
+				sprintf(p," ($%02X),Y",mem_peek(*address));
+				*address += 1;
+			break;
+			case AM_RELATIVE:
+				b = mem_peek(*address);
+				*address += 1;
+				if (b & N_FLAG) {
+					b = ~b + 1;
+					reladdress = *address - b;
+				}
+				else {
+					reladdress = *address + b;
+				}
+				sprintf(p," $%04X",reladdress);
+			break;
+			default: 
+			break;
+		}
+	}
+}
+
+

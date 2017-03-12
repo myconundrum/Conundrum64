@@ -10,7 +10,6 @@
 #include "c64kbd.h"
 #include "cia.h"
 #include "mem.h"
-#include "asm.h"
 #include "ux.h"
 #include "stdint.h"
 #include "sysclock.h"
