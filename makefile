@@ -1,7 +1,7 @@
 
 
 #OBJS specifies which files to compile as part of the project
-OBJS = *.c
+OBJS = SRC/*.c SRC/C64/*.c SRC/UX/*.c
 
 #CC specifies which compiler we're using
 CC = gcc
@@ -18,4 +18,4 @@ OBJ_NAME = emu
 
 #This is the target that compiles our executable
 all : $(OBJS)
-	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME)
+	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME) -I./src/ux -I./src/c64 -I./src/

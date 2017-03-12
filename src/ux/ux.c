@@ -408,7 +408,7 @@ void ux_handlec64key(SDL_Event e) {
 		case SDLK_LCTRL: 		ch = C64KEY_CTRL;break;
 		case SDLK_LSHIFT: 		ch = C64KEY_LSHIFT;break;
 		case SDLK_RSHIFT: 		ch = C64KEY_RSHIFT;break;	
-		case SDLK_BACKSPACE: 	ch = C64KEY_BACK;break;	
+		case SDLK_BACKSPACE: 	ch = C64KEY_DELETE;break;	
 		default:break;
 		}
 	}	
