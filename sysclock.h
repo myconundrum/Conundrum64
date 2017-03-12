@@ -11,9 +11,6 @@
 	17095 * 60 = 1025700 cycles per second.
 	NTSC: 8.18MHz / 8 = 1.023MHz
 
-
-
-
 */
 
 #define CLOCK_TICKS_PER_LINE_PAL 		63
@@ -25,9 +22,6 @@
 
 #define NTSC_TICKS_PER_SECOND 		(NTSC_FPS*CLOCK_TICKS_PER_LINE_NTSC*NTSC_LINES)
 #define PAL_TICKS_PER_SECOND 		(PAL_FPS*CLOCK_TICKS_PER_LINE_PAL*PAL_LINES)
-
-
-
 
 
 void sysclock_init(void);

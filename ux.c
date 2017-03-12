@@ -75,7 +75,8 @@ void fillDisassembly(word address) {
 
 	for (i =0 ; i <  DISLINESCOUNT; i++) {
 		g_ux.dislines[i].address = address;
-		cpu_disassemble(g_ux.dislines[i].buf,&address);
+		DEBUG_PRINT("address: $%04X\n",address);
+		address += cpu_disassemble(g_ux.dislines[i].buf,address);
 	}
 }
 
@@ -209,46 +210,6 @@ void getAddressAndMode (char *s, ADDRESSANDMODE * am) {
 	}
 }
 
-void parseOp (char *s) {
-	
-	char buf[4];
-	ADDRESSANDMODE am;
-	int i = 0;
-	ENUM_AM m;
-	char opbuf[10];
-
-	strncpy(buf,s,4);
-	s = strtok(NULL," ");
-	if (s) {
-		getAddressAndMode(s,&am);
-	} else {
-		am.bytes = 0;
-		am.mode = AM_IMPLICIT;
-	} 
-
-	//
-	// fix up branch instructions.
-	//
-	if (buf[0] == 'B' && am.mode == AM_ZEROPAGE && (strcmp(buf,"BIT") != 0)) {
-		am.mode = AM_RELATIVE;
-	}
-
-	for (int i = 0; i < 256; i++) {
-
-		if (cpu_getopcodeinfo(i,opbuf,&m) &&
-			!strcmp(buf,opbuf) && am.mode == m) {
-		
-			mem_poke(g_ux.asm_address++,i);
-			if (am.bytes) {
-				mem_poke(g_ux.asm_address++,am.low);
-			}
-			if (am.bytes == 2) {
-				mem_poke(g_ux.asm_address++,am.hi);
-			}
-		}
-	}	
-}
-
 void parseBrk (char * s) {
 	s = strtok(NULL," ");
 	g_ux.brk_address = 0;
@@ -316,11 +277,11 @@ void ux_init() {
 
 
     g_ux.wTextD = SDL_CreateWindow ("Emulator Display", 
-    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,40*10, 25*20, SDL_WINDOW_SHOWN);
    	g_ux.rTextD = SDL_CreateRenderer(g_ux.wTextD, -1, SDL_RENDERER_ACCELERATED);
    	g_ux.fTextD =  FC_CreateFont();
 
-	SDL_RenderSetLogicalSize (g_ux.rTextD, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT);
+	SDL_RenderSetLogicalSize (g_ux.rTextD, 40*10, 25*20);
 	SDL_SetRenderDrawColor (g_ux.rTextD, 0, 0, 0, 255);
 	FC_LoadFont(g_ux.fTextD, g_ux.rTextD, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
 
@@ -511,27 +472,6 @@ void ux_update() {
     	}
 	}
 }
-/*
-	if (ch != -1 && g_ux.passthru) {
-		switch(ch) {
-			
-			case 0x1B : handle_specialkeys(ux);break;
-			case 0x7F : kq_add(C64KEY_DELETE,false,false);break;
-			case '`'  : kq_add(C64KEY_RUNSTOP,false,false);break;
-			case '~'  : kq_add(C64KEY_RESTORE,false,false);break;
-			case '!'  : kq_add('1',true,false);break;
-			case '"'  : kq_add('2',true,false);break;
-			case '#'  : kq_add('3',true,false);break;
-			case '$'  : kq_add('4',true,false);break;
-			case '%'  : kq_add('5',true,false);break;
-			case '&'  : kq_add('6',true,false);break;
-			case '\'' : kq_add('7',true,false);break;
-			case '('  : kq_add('8',true,false);break;
-			case ')'  : kq_add('9',true,false);break;
-			default: kq_add(toupper(ch),false,false); break;
-		}	
-	}
-*/
 
 
 //
@@ -602,24 +542,35 @@ void ux_handlec64key(SDL_Event e) {
 
 
 	char ch = ux_getasciich(e.key.keysym.sym);
+	char oldch;
 	if (!ch) {
 		switch(e.key.keysym.sym) {
 
-		case SDLK_RIGHT: ch = C64KEY_CURRIGHT;break;
-		case SDLK_DOWN:  ch = C64KEY_CURDOWN;break;
-		case SDLK_LEFT:  ch = C64KEY_CURRIGHT;break;
-		case SDLK_UP:    ch = C64KEY_CURUP;break;
-		case SDLK_LCTRL: ch = C64KEY_CTRL;break;
-		case SDLK_LSHIFT: ch = C64KEY_LSHIFT;break;
-		case SDLK_RSHIFT: ch = C64KEY_RSHIFT;break;		
+		case SDLK_RIGHT: 		ch = C64KEY_CURRIGHT;break;
+		case SDLK_DOWN:  		ch = C64KEY_CURDOWN;break;
+		case SDLK_LEFT:  		ch = C64KEY_CURRIGHT;break;
+		case SDLK_UP:    		ch = C64KEY_CURUP;break;
+		case SDLK_LCTRL: 		ch = C64KEY_CTRL;break;
+		case SDLK_LSHIFT: 		ch = C64KEY_LSHIFT;break;
+		case SDLK_RSHIFT: 		ch = C64KEY_RSHIFT;break;	
+		case SDLK_BACKSPACE: 	ch = C64KEY_BACK;break;	
 		default:break;
 		}
 	}	
 
+	if (e.key.keysym.mod == KMOD_RSHIFT || e.key.keysym.mod ==KMOD_LSHIFT) {
+		oldch = ch;
+		switch(oldch) {
+			case '\'': ch = '2';break;
+			default:break;
+		}
+	}
+
 	if (e.type == SDL_KEYDOWN) {
+		DEBUG_PRINT("key down name %s %c\n",SDL_GetKeyName(e.key.keysym.sym),ch);
 		c64kbd_keydown(ch);
 	} else {
-		DEBUG_PRINT("key up %c\n",ch);
+		DEBUG_PRINT("key up name %s %c\n",SDL_GetKeyName(e.key.keysym.sym),ch);
 		c64kbd_keyup(ch);
 	}
 }
