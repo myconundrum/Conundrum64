@@ -54,7 +54,6 @@ void ux_fillDisassembly(word address) {
 
 	for (i =0 ; i <  DISLINESCOUNT; i++) {
 		g_ux.dislines[i].address = address;
-		DEBUG_PRINT("address: $%04X\n",address);
 		address += cpu_disassemble(g_ux.dislines[i].buf,address);
 	}
 }

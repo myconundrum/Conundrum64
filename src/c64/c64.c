@@ -70,12 +70,19 @@ void c64_bankswitchpoke(word address, byte val) {
 		//
 		val = 0;
 	} else {
-		mem_mapactive(g_io.mBasic,val & 0x01);
-		mem_mapactive(g_io.mKernal,val & 0x02);
+		//
+		// do memory mapping.
+		//
+		mem_mapactive(g_io.mKernal,val & 0x02);mem_mapactive(g_io.mBasic,val & 0x01);
 		mem_mapactive(g_io.mChar, val && ((val & 0x04) == 0));
 		mem_mapactive(g_io.mCia1, val & 0x04);
 		mem_mapactive(g_io.mCia2, val & 0x04);
 		mem_mapactive(g_io.mVicii, val & 0x04);
+
+		DEBUG_PRINT("mmap: Kernal Rom:    %sactive\n",(val & 0x02) ? "":"in");
+		DEBUG_PRINT("mmap: Basic Rom:     %sactive\n",(val & 0x01) ? "":"in");
+		DEBUG_PRINT("mmap: Char Rom:      %sactive\n",val && ((val & 0x04) == 0) ? "":"in");
+		DEBUG_PRINT("mmap: I/O:           %sactive\n",(val & 0x04) ? "":"in");
 	}
 }
 
@@ -122,7 +129,6 @@ void c64_init() {
 	g_io.mCia1			= mem_map(CIA1_AREA_LOW_ADDRESS,CIA1_AREA_HIGH_ADDRESS,cia1_peek,cia1_poke);
 	g_io.mCia2			= mem_map(CIA2_AREA_LOW_ADDRESS,CIA2_AREA_HIGH_ADDRESS,cia2_peek,cia2_poke);
 	g_io.mVicii			= mem_map(VICII_AREA_LOW_ADDRESS,VICII_AREA_HIGH_ADDRESS,vicii_peek,vicii_poke);
-
 
 	//
 	// Bankswitching is always active. Determines which other memory locations are currently mapped. 
