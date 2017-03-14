@@ -741,7 +741,7 @@ void cpu_checkinterrupts() {
 
 }
 
-void cpu_run() {
+void cpu_update() {
 
 	byte op;
 

@@ -154,7 +154,7 @@ void c64_init() {
 void c64_update() {
 
 	cia_update();
-	cpu_run();
+	cpu_update();
 	vicii_update();
 }
 

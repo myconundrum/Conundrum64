@@ -1,70 +1,109 @@
 #include "emu.h"
 
+#define VICII_ICR_RASTER_INTERRUPT 				0b00000001
+#define VICII_ICR_SPRITE_BACKGROUND_INTERRUPT	0b00000010
+#define VICII_ICR_SPRITE_SPRITE_INTERRUPT		0b00000100
+#define VICII_ICR_LIGHT_PEN_INTERRUPT			0b00001000 
 
 typedef enum {
-	//
-	// Sprite positions in M0 through M7.
-	//
-	VICII_M0X,
-	VICII_M0Y,
-	VICII_M1X,
-	VICII_M1Y,
-	VICII_M2X,
-	VICII_M2Y,
-	VICII_M3X,
-	VICII_M3Y,
-	VICII_M4X,
-	VICII_M4Y,
-	VICII_M5X,
-	VICII_M5Y,
-	VICII_M6X,
-	VICII_M6Y,
-	VICII_M7X,
-	VICII_M7Y,
-	VICII_MX8,
-	VICII_CR1,
-	VICII_RASTER,
-	VICII_RSTCMP,
-	VICII_LPX,
-	VICII_LPY,
-	VICII_ME,
-	VICII_VMCB,
-	VICII_IRQST,
-	VICII_IRQEN,
-	VICII_MDP,
-	VICII_MMC,
-	VICII_MXE,
-	VICII_MM,
-	VICII_MD,
-	VICII_EC,
-	VICII_B0C,
-	VICII_B1C,
-	VICII_B2C,
-	VICII_B3C,
-	VICII_MM0,
-	VICII_MM1,
-	VICII_M0C,
-	VICII_M1C,
-	VICII_M2C,
-	VICII_M3C,
-	VICII_M4C,
-	VICII_M5C,
-	VICII_M6C,
-	VICII_M7C,
-	VICII_KCR,
-	VICII_FAST,
+	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
+	VICII_S0Y				=0x01,
+	VICII_S1X				=0x02,
+	VICII_S1Y				=0x03,
+	VICII_S2X				=0x04,
+	VICII_S2Y				=0x05,
+	VICII_S3X				=0x06,
+	VICII_S3Y				=0x07,
+	VICII_S4X				=0x08,
+	VICII_S4Y				=0x09,
+	VICII_S5X				=0x0A,
+	VICII_S5Y				=0x0B,
+	VICII_S6X				=0x0C,
+	VICII_S6Y				=0x0D,
+	VICII_S7X				=0x0E,
+	VICII_S7Y				=0x0F,
+	VICII_SMSB				=0x10, // Sprite Most significant bits for Sprites 0-7 (bit by bite)
+	VICII_CR1				=0x11, // Screen Control Register #1 
+	VICII_RASTER			=0x12, // Current Raster position / Also latches Raster Interrupt Compare
+	VICII_PENX				=0x13, // Light Pen X
+	VICII_PENY				=0x14, // Light Pen Y
+	VICII_SPRITEN			=0x15, // Sprite Enabled bit by bit
+	VICII_CR2				=0x16, // Screen Control Register #2 
+	VICII_SPRITEDH			=0x17, // Double Sprite Height, bit by bit 
+	VICII_MEMSR				=0x18, // Memory Setup Register
+	VICII_ISR				=0x19, // Interrupt Status Register
+	VICII_ICR				=0x1A, // Interrupt Control Register
+	VICII_SPRITEPRI			=0x1B, // Sprite Priority bit by bit
+	VICII_SPRITEMCM			=0x1C, // Sprite Multi Color Mode bit by bit
+	VICII_SPRITEDW			=0x1D, // Sprrite Double width bit by bit
+	VICII_SSCOLLIDE			=0x1E, // Sprite to Sprite collisions
+	VICII_SBCOLLIDE			=0x1F, // Sprite to background collisions
+	VICII_BORDERCOL			=0x20, // Border color
+	VICII_BACKCOL			=0x21, // background color
+	VICII_EBACKCOL1			=0x22, // extra background color
+	VICII_EBACKCOL2			=0x23, // extra background color
+	VICII_EBACKCOL3			=0x24, // extra background color
+	VICII_ESPRITECOL1		=0x25, // extra sprite color
+	VICII_ESPRITECOL2		=0x26, // extra sprite color
+	VICII_S0C				=0x27, // S0C - S07 Sprite Color
+	VICII_S1C				=0x28, 
+	VICII_S2C				=0x29, 
+	VICII_S3C				=0x2A,
+	VICII_S4C				=0x2B,
+	VICII_S5C				=0x2C,
+	VICII_S6C				=0x2D,
+	VICII_S7C				=0x2E,
+	VICII_UN0				=0x2F, // All unused below
+	VICII_UN1				=0x30,
+	VICII_UN2				=0x31,
+	VICII_UN3				=0x32,
+	VICII_UN4				=0x33,
+	VICII_UN5				=0x34,
+	VICII_UN6				=0x35,
+	VICII_UN7				=0x36,
+	VICII_UN8				=0x37,
+	VICII_UN9				=0x38,
+	VICII_UNA				=0x39,
+	VICII_UNB				=0x3A,
+	VICII_UNC				=0x3B,
+	VICII_UND				=0x3C,
+	VICII_UNE				=0x3D,
+	VICII_UNF				=0x3E,
+	VICII_UN10				=0x3F,	
 	VICII_LAST
 } VICII_REG;
 
 
+#define VICII_LATCH 0x01
+#define VICII_REAL  0x00
+
+
 typedef struct {
 
-	byte reg[0x30];
+	byte regs[2][0x30];
 	byte slcycles; 			// how many clocks on this scansline so far?
 
 } VICII;
 
+
+
+
 VICII g_vic = {0};
+
+byte vicii_getreal(byte reg) {
+	return g_vic.regs[VICII_REAL][reg];
+}
+
+void vicii_setreal(byte reg,byte val) {
+	g_vic.regs[VICII_REAL][reg] = val;
+}
+
+byte vicii_getlatched(byte reg) {
+	return g_vic.regs[VICII_LATCH][reg];
+}
+void vicii_setlatched(byte reg,byte val) {
+	g_vic.regs[VICII_LATCH][reg] = val;
+}
 
 void vicii_init() {
 
@@ -73,20 +112,34 @@ void vicii_init() {
 
 void vicii_updateraster() {
 	word rline;
+	word iline;
 
 	g_vic.slcycles += sysclock_getticks();
 
 	if (g_vic.slcycles > CLOCK_TICKS_PER_LINE_NTSC) {
-		rline = g_vic.reg[VICII_CR1] & BIT_7 ? 0x100 : 0;
-		rline += g_vic.reg[VICII_RASTER];
+		rline = vicii_getreal(VICII_CR1) & BIT_7 ? 0x100 : 0;
+		rline |= vicii_getreal(VICII_RASTER);
+
+		iline = vicii_getlatched(VICII_CR1) & BIT_7 ? 0x100 : 0;
+		iline |= vicii_getlatched(VICII_RASTER);
 		
 		if (++rline == NTSC_LINES) {
 			rline = 0;
 		}
-		
-		g_vic.reg[VICII_RASTER] = rline & 0xFF;
-		g_vic.reg[VICII_CR1] = (rline & 0x100) ? 
-			(BIT_7 | g_vic.reg[VICII_CR1]) : (g_vic.reg[VICII_CR1] & (~BIT_7));
+
+		if (iline == rline) {
+			//
+			// BUGBUG: not sure this gets cleared. 
+			//
+			vicii_setreal(VICII_ISR,vicii_getreal(VICII_ISR) | VICII_ICR_RASTER_INTERRUPT);
+			if (vicii_getreal(VICII_ICR) & VICII_ICR_RASTER_INTERRUPT) {
+				cpu_irq();
+			}
+		}
+
+		vicii_setreal(VICII_RASTER,rline & 0xFF);
+		vicii_setreal(VICII_CR1, (rline & 0x100) ? 
+			(BIT_7 | vicii_getreal(VICII_CR1)) : (vicii_getreal(VICII_CR1) & (~BIT_7)));
 
 		g_vic.slcycles = g_vic.slcycles - CLOCK_TICKS_PER_LINE_NTSC;
 	}
@@ -98,14 +151,83 @@ void vicii_update() {
 	vicii_updateraster();
 
 }
-void vicii_destroy() {}
+void vicii_destroy(){} 
 
 byte vicii_peek(word address) {
-	return g_vic.reg[address % VICII_LAST];
+	
+	byte reg = address % VICII_LAST;
+	byte rval;
+	switch(reg) {
+
+		
+
+		case VICII_CR2: 
+			// B7 and B6 not connected.
+			rval = BIT_7 | BIT_6 | vicii_getreal(reg); 
+		break;
+		case VICII_ISR: 
+			// B6,B5,B4 not connected.
+			rval = BIT_6 | BIT_5 | BIT_4 | vicii_getreal(reg); 
+		break;
+		case VICII_ICR: 
+			// B7-B4 not connected.
+			rval = BIT_7 | BIT_6 | BIT_5 | BIT_4 | vicii_getreal(reg); 
+		break;
+
+		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // these registers are cleared on reading.
+			//
+			// BUGBUG: Monitor will destroy these values.
+			//
+			rval = vicii_getreal(reg);
+			vicii_setreal(reg,0);
+		break;
+
+		case VICII_BORDERCOL: case VICII_BACKCOL: case VICII_EBACKCOL1:		
+		case VICII_EBACKCOL2: case VICII_EBACKCOL3: case VICII_ESPRITECOL1: case VICII_ESPRITECOL2:		
+		case VICII_S0C:	case VICII_S1C:	case VICII_S2C:	case VICII_S3C:				
+		case VICII_S4C:	case VICII_S5C:	case VICII_S6C:	case VICII_S7C:
+			// B7-B4 not connected.
+			rval = BIT_7 | BIT_6 | BIT_5 | BIT_4 | vicii_getreal(reg);
+		break;	
+
+		case VICII_UN0: case VICII_UN1: case VICII_UN2: case VICII_UN3:
+		case VICII_UN4: case VICII_UN5: case VICII_UN6: case VICII_UN7:
+		case VICII_UN8: case VICII_UN9: case VICII_UNA: case VICII_UNB:
+		case VICII_UNC: case VICII_UND: case VICII_UNE: case VICII_UNF: case VICII_UN10:
+			rval = 0xff;
+		break;
+
+
+
+		default: rval = vicii_getreal(reg);
+	}
+
+	return rval;
 }
 
 void vicii_poke(word address,byte val) {
-	g_vic.reg[address % VICII_LAST] = val;
+	byte reg = address % VICII_LAST;
+
+	switch(reg) {
+
+		case VICII_CR1: 	// latch bit 7. Its part of the irq raster compare. 
+			vicii_setlatched(reg,val & BIT_7);
+			vicii_setreal(reg,val);
+		break;
+		case VICII_RASTER: // latch raster line irq compare.
+			vicii_setlatched(reg,val);
+		break;
+		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // cannot write to collision registers
+		break;
+		case VICII_UN0: case VICII_UN1: case VICII_UN2: case VICII_UN3:
+		case VICII_UN4: case VICII_UN5: case VICII_UN6: case VICII_UN7:
+		case VICII_UN8: case VICII_UN9: case VICII_UNA: case VICII_UNB:
+		case VICII_UNC: case VICII_UND: case VICII_UNE: case VICII_UNF: case VICII_UN10:
+			// do nothing.
+		break;
+
+		default:vicii_setreal(reg,val);break;
+	}	
 }
 
 

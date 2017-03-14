@@ -84,7 +84,7 @@ byte cpu_getstack();
 //
 // action signals
 //
-void cpu_run();  // run one instruction 
+void cpu_update();  // run one instruction 
 void cpu_irq();  // signal irq line
 void cpu_nmi();  // signal nmi line
 
