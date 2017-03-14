@@ -144,7 +144,22 @@ typedef struct {
 	
 	bool badline;					// when badline is true, VICII prevents the CPU from getting clock cycles. 
 	bool den;
-	unsigned long startcycles; 		// what was the cycle count when this line started?
+	bool idle; 						// idle or display state. 
+
+
+
+	//
+	// internal vic counters.
+	//
+	word vc; 						// (video counter -- 10 bit)
+	word vcbase;					// (video counter base)
+	byte rc;						// (row counter)
+	byte vmli;						// (video matrix line index)
+
+	//
+	// currently the vic implementation is keeping its own internal cycle count per line.
+	//
+	byte cycle;
 	
 
 } VICII;
@@ -182,10 +197,13 @@ void vicii_updateraster() {
 	}
 
 	//
-	// update Y raster if we are at a new line.
+	// Check for new line and update.
 	//
 	if (g_vic.raster_x == VICII_NTSC_LINE_START_X) {
 		
+		g_vic.cycle = 0;
+		g_vic.badline = false;
+
 		g_vic.raster_y++;
 		if (g_vic.raster_y == NTSC_LINES) {
 			g_vic.raster_y = 0;
@@ -214,28 +232,24 @@ void vicii_updateraster() {
 }
 
 
-void vicii_update_new() {
+void vicii_setdisplayenable() {
 
 
-	//
-	// update raster position.
-	//
-	vicii_updateraster();
-
-	//
-	// reset display enable at the beginning of the frame (BUGBUG: is this right?)
-	//
 	if (g_vic.raster_y == 0) {
-		g_vic.den = false;
+		g_vic.den = false; // should this be here? BUGBUG
+		g_vic.vcbase = 0;	// reset on line zero. 
+		
 	}
-
 	//
 	// display enable is indicated by the DEN bit being set during any cycle of raster line 0x30.
 	//
 	if (g_vic.raster_y == 0x30 && !g_vic.den && (vicii_getreal(VICII_CR1) & BIT_4))  { 
-		DEBUG_PRINT("Display Enabled.\n");
 		g_vic.den = true;
 	}
+}
+
+
+void vicii_setbadline() {
 
 	//
 	// check to see if this is a badline.
@@ -250,8 +264,98 @@ void vicii_update_new() {
 		(g_vic.raster_y & 0b00000111) == (vicii_getreal(VICII_CR1) & 0b00000111)) {
 
 		g_vic.badline = true;
-		DEBUG_PRINT("Bad Line at Raster Line %d\n",g_vic.raster_y);
+		g_vic.idle = false;
 	}	
+
+}
+
+void vicii_dodisplaycycles() {
+
+	//
+	// BUGBUG: Are these numbers right for all versions (NTSC/PAL and model number?)
+	//
+	if (g_vic.cycle < 12 || g_vic.cycle > 58) {
+		return;
+	}
+
+
+	//
+	// reset indices on cycle 14. 
+	//
+	if (g_vic.cycle == 14) {
+		g_vic.vmli = 0;
+		g_vic.vc = g_vic.vcbase;
+
+		if (g_vic.badline) {
+			g_vic.rc = 0;
+		}
+	}
+
+	if (g_vic.cycle == 58) {
+		if (g_vic.rc == 7) {
+			g_vic.vcbase = g_vic.vc;
+			if (!g_vic.badline) {
+				//
+				// transition back to idle state. 
+				//
+				g_vic.idle = true;
+			}
+			else {
+				g_vic.rc = 0; // three bit counter, so this is an increment. 7+1 = 0.
+			}
+		}
+	}
+
+	if (g_vic.badline && g_vic.cycle >= 15 && g_vic.cycle <= 54) {
+		//
+		// BUGBUG: c access read here. 
+		//
+	}
+
+	if (!g_vic.idle) {
+		//
+		// BUGBUG: g access read here.
+		//
+
+		//
+		// update vc and vmli. 
+		//
+		g_vic.vc++; 
+		g_vic.vmli++;
+
+
+	}
+
+}
+
+
+void vicii_update_new() {
+
+	//
+	// update line cycle count.
+	//
+	g_vic.cycle++;
+
+	//
+	// update raster position.
+	//
+	vicii_updateraster();
+
+	//
+	// check and set display enable
+	//
+	vicii_setdisplayenable();
+
+	//
+	// check and set bad line.
+	//
+	vicii_setbadline();
+
+	//
+	// cycles 12-58
+	//
+	vicii_dodisplaycycles(); 
+
 }
 
 void vicii_update() {

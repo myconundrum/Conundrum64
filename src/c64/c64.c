@@ -78,11 +78,6 @@ void c64_bankswitchpoke(word address, byte val) {
 		mem_mapactive(g_io.mCia1, val & 0x04);
 		mem_mapactive(g_io.mCia2, val & 0x04);
 		mem_mapactive(g_io.mVicii, val & 0x04);
-
-		DEBUG_PRINT("mmap: Kernal Rom:    %sactive\n",(val & 0x02) ? "":"in");
-		DEBUG_PRINT("mmap: Basic Rom:     %sactive\n",(val & 0x01) ? "":"in");
-		DEBUG_PRINT("mmap: Char Rom:      %sactive\n",val && ((val & 0x04) == 0) ? "":"in");
-		DEBUG_PRINT("mmap: I/O:           %sactive\n",(val & 0x04) ? "":"in");
 	}
 }
 
@@ -154,8 +149,18 @@ void c64_init() {
 void c64_update() {
 
 	cia_update();
-	cpu_update();
-	vicii_update();
+	if (!vicii_badline()) {
+		cpu_update();
+		vicii_update();
+	}
+	else {
+		//
+		// badline -- starving the CPU for ~40 cycles.
+		//
+		vicii_update();
+		sysclock_addticks(1);
+	}
+	
 }
 
 void c64_destroy() {
