@@ -5,6 +5,59 @@
 #define VICII_ICR_SPRITE_SPRITE_INTERRUPT		0b00000100
 #define VICII_ICR_LIGHT_PEN_INTERRUPT			0b00001000 
 
+
+
+
+typedef struct {
+
+	byte r;
+	byte g;
+	byte b;
+} VICII_COLOR;
+
+/*
+	RGB values of C64 colors from 
+	http://unusedino.de/ec64/technical/misc/vic656x/colors/
+
+	0 black
+  	1 white
+  	2 red
+  	3 cyan
+  	4 pink
+  	5 green
+  	6 blue
+  	7 yellow
+  	8 orange
+  	9 brown
+ 	10 light red
+ 	11 dark gray
+ 	12 medium gray
+ 	13 light green
+ 	14 light blue
+ 	15 light gray
+*/
+
+g_colors[0x10] = {
+	{0x00, 0x00, 0x00},
+	{0xFF, 0xFF, 0xFF},
+	{0x68, 0x37, 0x2B},
+	{0x70, 0xA4, 0xB2},
+	{0x6F, 0x3D, 0x86},
+	{0x58, 0x8D, 0x43},
+	{0x35, 0x28, 0x79},
+	{0xB8, 0xC7, 0x6F},
+	{0x6F, 0x4F, 0x25},
+	{0x43, 0x39, 0x00},
+	{0x9A, 0x67, 0x59},
+	{0x44, 0x44, 0x44},
+	{0x6C, 0x6C, 0x6C},
+	{0x9A, 0xD2, 0x84},
+	{0x6C, 0x5E, 0xB5},
+	{0x95, 0x95, 0x95}
+};
+
+
+
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
 	VICII_S0Y				=0x01,

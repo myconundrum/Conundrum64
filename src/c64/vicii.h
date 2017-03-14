@@ -3,6 +3,10 @@
 
 #include "emu.h"
 
+
+#define VICII_SCREEN_WIDTH_PIXELS  320
+#define VICII_SCREEN_HEIGHT_PIXELS 200
+
 void vicii_init();
 void vicii_update();
 void vicii_destroy();

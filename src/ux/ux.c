@@ -23,6 +23,9 @@ typedef struct {
     FC_Font 		* fTextD;
     SDL_Renderer	* rTextD;
 
+    SDL_Renderer    * rScreen;
+    SDL_Window      * wScreen;
+
 
 	byte 		curpage;					// current page of memory in monitor.
 	DISLINE		dislines[DISLINESCOUNT];	// disassembled lines.
@@ -128,14 +131,9 @@ void ux_init() {
 	FC_LoadFont(g_ux.font, g_ux.rMon, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
 
 
-    g_ux.wTextD = SDL_CreateWindow ("Emulator Display", 
-    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,40*10, 25*20, SDL_WINDOW_SHOWN);
-   	g_ux.rTextD = SDL_CreateRenderer(g_ux.wTextD, -1, SDL_RENDERER_ACCELERATED);
-   	g_ux.fTextD =  FC_CreateFont();
-
-	SDL_RenderSetLogicalSize (g_ux.rTextD, 40*10, 25*20);
-	SDL_SetRenderDrawColor (g_ux.rTextD, 0, 0, 0, 255);
-	FC_LoadFont(g_ux.fTextD, g_ux.rTextD, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
+	g_ux.wScreen = SDL_CreateWindow ("C64 Screen", 
+    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_SCREEN_WIDTH_PIXELS, VICII_SCREEN_HEIGHT_PIXELS, SDL_WINDOW_SHOWN);
+   	g_ux.rScreen = SDL_CreateRenderer(g_ux.wMon, -1, SDL_RENDERER_ACCELERATED);
 
 	ux_fillDisassembly(cpu_getpc());
 
@@ -145,6 +143,7 @@ void ux_destroy() {
 
 	FC_FreeFont(g_ux.font);
     SDL_DestroyWindow (g_ux.wMon);
+    SDL_DestroyWindow (g_ux.wScreen);
     SDL_Quit();
 }
 
@@ -214,52 +213,6 @@ void ux_updateDisassembly() {
 	}
 }
 
-char ux_getScreenChar(byte code) {
-
-	if (code < 0x20) {
-		code += 0x40;
-	}
-	return  code;
-}
-
-void ux_updateDisplay() {
-
-	int i;
-	int j;
-	byte high;
-	byte low;
-	int address;
-	byte b;
-	byte ch;
-	char buf[255];
-	char * p;
-	*buf = 0;
-
-	for (i = 0; i < 25; i++) {
-		p = buf;
-		for (j = 0; j < 40; j++) {
-	
-			address = 0x0400 + i * 40 + j;
-			high = address >> 8;
-			low = address & 0xff;
-			b = mem_peek((high << 8) | low);
-			ch = ux_getScreenChar(b);
-			//
-			// cursor blink hack
-			//
-			if (ch == 0xa0) {
-				ch = 0x20;
-				*p++ = isprint(ch) ? ch : ' ';
-			} else {
-				*p++ = isprint(ch) ? ch : ' ';
-			}
-		}
-		*p = 0;
-		FC_Draw(g_ux.fTextD,g_ux.rTextD,0,20*i,buf);
-	}
-}
-
-
 
 void ux_updateConsole() {
 
@@ -292,22 +245,12 @@ void ux_update() {
 	SDL_RenderClear(g_ux.rMon);
 	SDL_SetRenderDrawColor(g_ux.rMon,255,255,255,255);
 	
-	SDL_SetRenderDrawColor (g_ux.rTextD, 0, 0, 0, 255);
-	SDL_RenderClear(g_ux.rTextD);
-	SDL_SetRenderDrawColor(g_ux.rTextD,255,255,255,255);
-
-	
 	ux_updateRegisters();
 	ux_updateMemory();
 	ux_updateDisassembly();
 	ux_updateConsole();
-	ux_updateDisplay();
 
 	SDL_RenderPresent(g_ux.rMon);
-    //SDL_UpdateWindowSurface (g_ux.wMon);
-
-	SDL_RenderPresent(g_ux.rTextD);
-    SDL_UpdateWindowSurface (g_ux.wTextD);
 
 	while (SDL_PollEvent (&e)) {
 	
