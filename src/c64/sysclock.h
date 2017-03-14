@@ -27,5 +27,6 @@
 void sysclock_init(void);
 void sysclock_addticks(unsigned long ticks);
 unsigned long sysclock_getticks(void);
+word sysclock_getlastaddticks(void);
 
 #endif

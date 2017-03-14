@@ -6,9 +6,10 @@
 
 typedef struct {
 
-	unsigned long total;		// total systicks
-	word 		  clast;		// systicks since last catchup
+	unsigned long total;			// total systicks
+	word 		  clast;			// systicks since last catchup
 	clock_t		  clastreal;		// time at last refresh
+	word	      lastadd;			// amount of ticks added in last call to sysclock_addticks()
 
 } SYSCLOCK;
 
@@ -22,11 +23,17 @@ void sysclock_init(void) {
 }
 
 
+word sysclock_getlastaddticks() {return g_sysclock.lastadd;}
+
 void sysclock_addticks(unsigned long ticks) {
 
+	clock_t c;
+
+	g_sysclock.lastadd = ticks;
 	g_sysclock.total += ticks;
 	g_sysclock.clast += ticks;
-	clock_t c;
+
+
 
 	if (g_sysclock.clast > SYSCLOCK_CATCHUP) {
 		//

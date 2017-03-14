@@ -14,5 +14,6 @@ void vicii_destroy();
 byte vicii_peek(word address);
 void vicii_poke(word address,byte val);
 
+bool vicii_badline();
 
 #endif

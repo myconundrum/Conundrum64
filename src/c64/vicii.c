@@ -6,6 +6,8 @@
 #define VICII_ICR_LIGHT_PEN_INTERRUPT			0b00001000 
 
 
+#define VICII_NTSC_LINE_START_X		0x1A0
+
 
 
 typedef struct {
@@ -134,7 +136,16 @@ typedef enum {
 typedef struct {
 
 	byte regs[2][0x30];
-	byte slcycles; 			// how many clocks on this scansline so far?
+	byte membuf[40];				// this is copied from the video matrix during badlines.
+
+	byte slcycles; 					// how many clocks on this scansline so far?
+	word raster_y;					// faster look up of current raster line
+	word raster_x;					// faster look up of x position within current raster line.
+	
+	bool badline;					// when badline is true, VICII prevents the CPU from getting clock cycles. 
+	bool den;
+	unsigned long startcycles; 		// what was the cycle count when this line started?
+	
 
 } VICII;
 
@@ -143,44 +154,47 @@ typedef struct {
 
 VICII g_vic = {0};
 
-byte vicii_getreal(byte reg) {
-	return g_vic.regs[VICII_REAL][reg];
-}
 
-void vicii_setreal(byte reg,byte val) {
-	g_vic.regs[VICII_REAL][reg] = val;
-}
-
-byte vicii_getlatched(byte reg) {
-	return g_vic.regs[VICII_LATCH][reg];
-}
-void vicii_setlatched(byte reg,byte val) {
-	g_vic.regs[VICII_LATCH][reg] = val;
-}
-
+bool vicii_badline() 						{return g_vic.badline;}
+byte vicii_getreal(byte reg) 				{return g_vic.regs[VICII_REAL][reg];}
+void vicii_setreal(byte reg,byte val) 		{g_vic.regs[VICII_REAL][reg] = val;}
+byte vicii_getlatched(byte reg) 			{return g_vic.regs[VICII_LATCH][reg];}
+void vicii_setlatched(byte reg,byte val) 	{g_vic.regs[VICII_LATCH][reg] = val;}
 void vicii_init() {
 
+	//
+	// BUGBUG: This magic value needs to be configurable by model and type of VICII
+	// e.g. revision number, NTSC, PAL, etc.
+	//
+	g_vic.raster_x = VICII_NTSC_LINE_START_X; // starting X coordinate for an NTSC VICII.
 
 }
 
 void vicii_updateraster() {
-	word rline;
+
 	word iline;
+	//
+	// increment x raster position.
+	//
+	g_vic.raster_x +=8;
+	if (g_vic.raster_x >= 0x1FF ) {
+		g_vic.raster_x = 0;
+	}
 
-	g_vic.slcycles += sysclock_getticks();
-
-	if (g_vic.slcycles > CLOCK_TICKS_PER_LINE_NTSC) {
-		rline = vicii_getreal(VICII_CR1) & BIT_7 ? 0x100 : 0;
-		rline |= vicii_getreal(VICII_RASTER);
+	//
+	// update Y raster if we are at a new line.
+	//
+	if (g_vic.raster_x == VICII_NTSC_LINE_START_X) {
+		
+		g_vic.raster_y++;
+		if (g_vic.raster_y == NTSC_LINES) {
+			g_vic.raster_y = 0;
+		}
 
 		iline = vicii_getlatched(VICII_CR1) & BIT_7 ? 0x100 : 0;
 		iline |= vicii_getlatched(VICII_RASTER);
-		
-		if (++rline == NTSC_LINES) {
-			rline = 0;
-		}
 
-		if (iline == rline) {
+		if (iline == g_vic.raster_y) {
 			//
 			// BUGBUG: not sure this gets cleared. 
 			//
@@ -190,20 +204,66 @@ void vicii_updateraster() {
 			}
 		}
 
-		vicii_setreal(VICII_RASTER,rline & 0xFF);
-		vicii_setreal(VICII_CR1, (rline & 0x100) ? 
+		//
+		// save raster position in register.
+		//
+		vicii_setreal(VICII_RASTER,g_vic.raster_y & 0xFF);
+		vicii_setreal(VICII_CR1, (g_vic.raster_y & 0x100) ? 
 			(BIT_7 | vicii_getreal(VICII_CR1)) : (vicii_getreal(VICII_CR1) & (~BIT_7)));
-
-		g_vic.slcycles = g_vic.slcycles - CLOCK_TICKS_PER_LINE_NTSC;
 	}
 }
 
 
-void vicii_update() {
+void vicii_update_new() {
 
+
+	//
+	// update raster position.
+	//
 	vicii_updateraster();
 
+	//
+	// reset display enable at the beginning of the frame (BUGBUG: is this right?)
+	//
+	if (g_vic.raster_y == 0) {
+		g_vic.den = false;
+	}
+
+	//
+	// display enable is indicated by the DEN bit being set during any cycle of raster line 0x30.
+	//
+	if (g_vic.raster_y == 0x30 && !g_vic.den && (vicii_getreal(VICII_CR1) & BIT_4))  { 
+		DEBUG_PRINT("Display Enabled.\n");
+		g_vic.den = true;
+	}
+
+	//
+	// check to see if this is a badline.
+	// (1) display is enabled
+	// (2) beginning of a raster line
+	// (3) between raster line 0x30 and 0xF7
+	// (4) bottom 3 bits of raster_y == the SCROLLY bits in VICII_CR1
+	//
+	if (g_vic.den && 
+		g_vic.raster_x == VICII_NTSC_LINE_START_X && 
+		g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
+		(g_vic.raster_y & 0b00000111) == (vicii_getreal(VICII_CR1) & 0b00000111)) {
+
+		g_vic.badline = true;
+		DEBUG_PRINT("Bad Line at Raster Line %d\n",g_vic.raster_y);
+	}	
 }
+
+void vicii_update() {
+
+	int i;
+	int ticks = sysclock_getlastaddticks();
+
+	for (i = 0; i < ticks; i++) {
+		vicii_update_new();
+	}
+}
+
 void vicii_destroy(){} 
 
 byte vicii_peek(word address) {
@@ -211,9 +271,6 @@ byte vicii_peek(word address) {
 	byte reg = address % VICII_LAST;
 	byte rval;
 	switch(reg) {
-
-		
-
 		case VICII_CR2: 
 			// B7 and B6 not connected.
 			rval = BIT_7 | BIT_6 | vicii_getreal(reg); 
