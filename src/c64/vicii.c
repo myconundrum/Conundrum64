@@ -23,6 +23,8 @@ typedef struct {
 
 } VICII_COLOR;
 
+
+
 /*
 	RGB values of C64 colors from 
 	http://unusedino.de/ec64/technical/misc/vic656x/colors/
@@ -160,10 +162,17 @@ typedef struct {
 	byte vmli;						// (video matrix line index)
 
 	//
-	// currently the vic implementation is keeping its own internal cycle count per line.
+	// internal cycle count per line.
 	//
 	byte cycle;
+
+	//
+	// the current bitmap frame.
+	//
+	VICII_COLOR frame[320*240];
+	VICII_COLOR * curpixel;	
 	
+
 } VICII;
 
 VICII g_vic = {0};
@@ -209,16 +218,52 @@ void vicii_updateraster() {
 	}
 }
 
+
+//
+// memory peeks are determined by the bankswitch in CIA2 and char memory base in the VIC MSR 
+//
+byte vic_peekchar(word address) {
+
+	word real_address = g_vic.bank | g_vic.charmembase | address;
+	byte rval;
+
+	switch(real_address & 0xF000) {
+		case 0x1000: // character rom in bank 0
+			rval = c64_charpeek(address & 0xFFF);
+		break;
+		case 0x8000: // character rom in bank 2
+			rval = c64_charpeek(address & 0xFFF);
+		break;
+		default:
+			rval = mem_peek(real_address); 
+	}
+	return rval;
+}
+
+//
+// color always appears at VICII_COLOR_MEM_BASE in VIC space
+//
+byte vic_peekcolor(word address) {
+	return mem_peek(VICII_COLOR_MEM_BASE | g_vic.vc);	
+}
+
+//
+// memory peeks are determined by the bankswitch in CIA2 and video memory base in the VIC MSR 
+//
+byte vic_peekmem(word address) {
+	return mem_peek(g_vic.bank | g_vic.vidmembase | address);
+}
+
 //
 // read data from memory into vic buffer.
 //
 void vicii_caccess() {
-	g_vic.data[g_vic.vmli].data 	= mem_peek(g_vic.bank | g_vic.vidmembase | g_vic.vc);
-	g_vic.data[g_vic.vmli].color 	= mem_peek(VICII_COLOR_MEM_BASE | g_vic.vc);
+	g_vic.data[g_vic.vmli].data 	= vic_peekmem(g_vic.vc);
+	g_vic.data[g_vic.vmli].color 	= vic_peekcolor(g_vic.vc);
 }
 
 void vicii_gaccess() {
-	byte pixels = mem_peek(g_vic.charmembase | ((word) g_vic.data[g_vic.vmli].data) << 3 | g_vic.rc);
+	byte pixels = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
 	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
 }
@@ -244,7 +289,10 @@ void vicii_update_three() {
 
 			if (g_vic.raster_y == 1) {
 				g_vic.vcbase = 0;	// reset on line zero.
+				g_vic.curpixel = g_vic.frame;
 			}
+
+
 
 			//
 			// check to see if this is a badline.
