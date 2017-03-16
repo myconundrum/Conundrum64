@@ -5,16 +5,22 @@
 #define VICII_ICR_SPRITE_SPRITE_INTERRUPT		0b00000100
 #define VICII_ICR_LIGHT_PEN_INTERRUPT			0b00001000 
 
-
 #define VICII_NTSC_LINE_START_X		0x1A0
+#define VICII_COLOR_MEM_BASE		0xD800
 
+typedef struct {
 
+	byte data;
+	byte color;
+
+} VICII_VIDEODATA;
 
 typedef struct {
 
 	byte r;
 	byte g;
 	byte b;
+
 } VICII_COLOR;
 
 /*
@@ -57,8 +63,6 @@ g_colors[0x10] = {
 	{0x6C, 0x5E, 0xB5},
 	{0x95, 0x95, 0x95}
 };
-
-
 
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
@@ -128,28 +132,27 @@ typedef enum {
 	VICII_LAST
 } VICII_REG;
 
-
-#define VICII_LATCH 0x01
-#define VICII_REAL  0x00
-
-
 typedef struct {
 
-	byte regs[2][0x30];
-	byte membuf[40];				// this is copied from the video matrix during badlines.
-
-	byte slcycles; 					// how many clocks on this scansline so far?
-	word raster_y;					// faster look up of current raster line
-	word raster_x;					// faster look up of x position within current raster line.
+	byte regs[0x30];				// note some reg read/writes fall through to 
+									// member variables below. 
+	VICII_VIDEODATA data[40];		// copied during badlines.
 	
-	bool badline;					// when badline is true, VICII prevents the CPU from getting clock cycles. 
-	bool den;
+	word raster_y;					// raster Y position -- CPU can get this through registers.
+	word raster_irq;				// raster irq compare -- CPU can set this through registers.
+	word raster_x;					// raster x position  -- VIC internal only. 
+	
+	bool badline;					// Vic needs extra cycles to fetch data during this line. 
+	bool balow;						// BAlow stuns the CPU on badline situations.
+	bool den;						// is display enabled? 
 	bool idle; 						// idle or display state. 
 
-
+	word bank;						// Base address for graphics addresses. 
+	word vidmembase;				// video memory offset relative to graphics bank
+	word charmembase;				// char memory offset relative to graphics bank
 
 	//
-	// internal vic counters.
+	// internal vic counters, side effect of other regiser writes can effect, but not directly accesible.
 	//
 	word vc; 						// (video counter -- 10 bit)
 	word vcbase;					// (video counter base)
@@ -161,20 +164,11 @@ typedef struct {
 	//
 	byte cycle;
 	
-
 } VICII;
-
-
-
 
 VICII g_vic = {0};
 
-
-bool vicii_badline() 						{return g_vic.badline;}
-byte vicii_getreal(byte reg) 				{return g_vic.regs[VICII_REAL][reg];}
-void vicii_setreal(byte reg,byte val) 		{g_vic.regs[VICII_REAL][reg] = val;}
-byte vicii_getlatched(byte reg) 			{return g_vic.regs[VICII_LATCH][reg];}
-void vicii_setlatched(byte reg,byte val) 	{g_vic.regs[VICII_LATCH][reg] = val;}
+bool vicii_stuncpu() 						{return g_vic.balow;}
 void vicii_init() {
 
 	//
@@ -187,175 +181,200 @@ void vicii_init() {
 
 void vicii_updateraster() {
 
-	word iline;
-	//
-	// increment x raster position.
-	//
-	g_vic.raster_x +=8;
+	g_vic.raster_x +=8;										// Increment X raster position. wraps at 0x1FF
 	if (g_vic.raster_x >= 0x1FF ) {
 		g_vic.raster_x = 0;
 	}
 
-	//
-	// Check for new line and update.
-	//
-	if (g_vic.raster_x == VICII_NTSC_LINE_START_X) {
+	if (g_vic.raster_x == VICII_NTSC_LINE_START_X) {		// Update Y raster position if we've reached end of line.
 		
-		g_vic.cycle = 0;
-		g_vic.badline = false;
-
+		g_vic.cycle = 1;
 		g_vic.raster_y++;
-		if (g_vic.raster_y == NTSC_LINES) {
+		
+
+		if (g_vic.raster_y == NTSC_LINES) {					//  End of screen, wrap to raster 0. 
+			
 			g_vic.raster_y = 0;
 		}
 
-		iline = vicii_getlatched(VICII_CR1) & BIT_7 ? 0x100 : 0;
-		iline |= vicii_getlatched(VICII_RASTER);
-
-		if (iline == g_vic.raster_y) {
+		if (g_vic.raster_irq == g_vic.raster_y) {			// Check for Raster IRQ
 			//
 			// BUGBUG: not sure this gets cleared. 
 			//
-			vicii_setreal(VICII_ISR,vicii_getreal(VICII_ISR) | VICII_ICR_RASTER_INTERRUPT);
-			if (vicii_getreal(VICII_ICR) & VICII_ICR_RASTER_INTERRUPT) {
+			g_vic.regs[VICII_ISR] |= VICII_ICR_RASTER_INTERRUPT;
+			if (g_vic.regs[VICII_ICR] & VICII_ICR_RASTER_INTERRUPT) {
 				cpu_irq();
 			}
 		}
-
-		//
-		// save raster position in register.
-		//
-		vicii_setreal(VICII_RASTER,g_vic.raster_y & 0xFF);
-		vicii_setreal(VICII_CR1, (g_vic.raster_y & 0x100) ? 
-			(BIT_7 | vicii_getreal(VICII_CR1)) : (vicii_getreal(VICII_CR1) & (~BIT_7)));
 	}
 }
 
+//
+// read data from memory into vic buffer.
+//
+void vicii_caccess() {
+	g_vic.data[g_vic.vmli].data 	= mem_peek(g_vic.bank | g_vic.vidmembase | g_vic.vc);
+	g_vic.data[g_vic.vmli].color 	= mem_peek(VICII_COLOR_MEM_BASE | g_vic.vc);
+}
 
-void vicii_setdisplayenable() {
+void vicii_gaccess() {
+	byte pixels = mem_peek(g_vic.charmembase | ((word) g_vic.data[g_vic.vmli].data) << 3 | g_vic.rc);
+	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
+	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
+}
 
+//
+// I like the frodo method of a big switch by cycle. 
+//
 
-	if (g_vic.raster_y == 0) {
-		g_vic.den = false; // should this be here? BUGBUG
-		g_vic.vcbase = 0;	// reset on line zero. 
+void vicii_update_three() {
+
+	g_vic.cycle++;										// update cycle count.
+	vicii_updateraster();								// update raster x and y and check for raster IRQ
+	
+	switch(g_vic.cycle) {
+
 		
-	}
-	//
-	// display enable is indicated by the DEN bit being set during any cycle of raster line 0x30.
-	//
-	if (g_vic.raster_y == 0x30 && !g_vic.den && (vicii_getreal(VICII_CR1) & BIT_4))  { 
-		g_vic.den = true;
-	}
-}
+		// * various setup activities. 
+		case 1: 
 
+			if (g_vic.raster_y == 0x30) {
+				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
+			}
 
-void vicii_setbadline() {
+			if (g_vic.raster_y == 1) {
+				g_vic.vcbase = 0;	// reset on line zero.
+			}
 
-	//
-	// check to see if this is a badline.
-	// (1) display is enabled
-	// (2) beginning of a raster line
-	// (3) between raster line 0x30 and 0xF7
-	// (4) bottom 3 bits of raster_y == the SCROLLY bits in VICII_CR1
-	//
-	if (g_vic.den && 
-		g_vic.raster_x == VICII_NTSC_LINE_START_X && 
-		g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
-		(g_vic.raster_y & 0b00000111) == (vicii_getreal(VICII_CR1) & 0b00000111)) {
+			//
+			// check to see if this is a badline.
+			// (1) display is enabled
+			// (2) beginning of a raster line
+			// (3) between raster line 0x30 and 0xF7
+			// (4) bottom 3 bits of raster_y == the SCROLLY bits in VICII_CR1
+			//
+			g_vic.badline = g_vic.den && g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
+				(g_vic.raster_y & 0x7) == (g_vic.regs[VICII_CR1] & 0x7);
+		break;
+		case 2: 
+		break;
+		case 3: 
+		break;
+		case 4: 
+		break;
+		case 5: 
+		break;
+		case 6: 
+		break;
+		case 7: 
+		break;
+		case 8: 
+		break;
+		case 9: 
+		break;
+		case 10: 
+		break;
+		case 11:
+		break;
+		// * Set BA Low if BadLine 
+		case 12: 
+			if (g_vic.badline) {
+				g_vic.balow = true;
+			} 
+		break;
+		case 13: 
+		break;
+		// * reset internal indices on cycle 14.
+		case 14: 
+			g_vic.vmli = 0;
+			g_vic.vc = g_vic.vcbase;
 
-		g_vic.badline = true;
-		g_vic.idle = false;
-	}	
-
-}
-
-void vicii_dodisplaycycles() {
-
-	//
-	// BUGBUG: Are these numbers right for all versions (NTSC/PAL and model number?)
-	//
-	if (g_vic.cycle < 12 || g_vic.cycle > 58) {
-		return;
-	}
-
-
-	//
-	// reset indices on cycle 14. 
-	//
-	if (g_vic.cycle == 14) {
-		g_vic.vmli = 0;
-		g_vic.vc = g_vic.vcbase;
-
-		if (g_vic.badline) {
-			g_vic.rc = 0;
-		}
-	}
-
-	if (g_vic.cycle == 58) {
-		if (g_vic.rc == 7) {
-			g_vic.vcbase = g_vic.vc;
-			if (!g_vic.badline) {
-				//
-				// transition back to idle state. 
-				//
+			if (g_vic.badline) {
+					g_vic.rc = 0;
+			}
+		break;
+		// * start refreshing video matrix if balow.
+		case 15:
+		case 16:
+		case 17:
+		case 18:
+		case 19:
+		case 20:
+		case 21:
+		case 22:
+		case 23:
+		case 24:
+		case 25:
+		case 26:
+		case 27:
+		case 28:
+		case 29:
+		case 30:
+		case 31:
+		case 32:
+		case 33:
+		case 34:
+		case 35:
+		case 36:
+		case 37:
+		case 38:
+		case 39:
+		case 40:
+		case 41:
+		case 42:
+		case 43:
+		case 44:
+		case 45:
+		case 46:
+		case 47:
+		case 48:
+		case 49:
+		case 50:
+		case 51:
+		case 52: 
+		case 53: 
+		case 54: 
+			vicii_caccess();
+			vicii_gaccess();
+		break;
+		// * turn off balow because of badline.
+		case 55: 
+			g_vic.balow = false;	
+		break;
+		case 56: 
+		break;
+		case 57: 
+		break;
+		// * reset vcbase if rc == 7. handle display/idle.
+		case 58: 
+			
+			if (g_vic.rc == 7) {
+				g_vic.vcbase = g_vic.vc;
 				g_vic.idle = true;
 			}
-			else {
-				g_vic.rc = 0; // three bit counter, so this is an increment. 7+1 = 0.
+			if (g_vic.badline || !g_vic.idle) {
+				g_vic.idle = false;
+				g_vic.rc = (g_vic.rc + 1) & 0x7;
 			}
-		}
+
+		break;
+		case 59: 
+		break;
+		case 60: 
+		break;
+		case 61: 
+		break;
+		case 62: 
+		break;
+		case 63: 
+		break;
+		case 64: 
+		break;
+		case 65: 
+		break;
+		default: 
+		break;
 	}
-
-	if (g_vic.badline && g_vic.cycle >= 15 && g_vic.cycle <= 54) {
-		//
-		// BUGBUG: c access read here. 
-		//
-	}
-
-	if (!g_vic.idle) {
-		//
-		// BUGBUG: g access read here.
-		//
-
-		//
-		// update vc and vmli. 
-		//
-		g_vic.vc++; 
-		g_vic.vmli++;
-
-
-	}
-
-}
-
-
-void vicii_update_new() {
-
-	//
-	// update line cycle count.
-	//
-	g_vic.cycle++;
-
-	//
-	// update raster position.
-	//
-	vicii_updateraster();
-
-	//
-	// check and set display enable
-	//
-	vicii_setdisplayenable();
-
-	//
-	// check and set bad line.
-	//
-	vicii_setbadline();
-
-	//
-	// cycles 12-58
-	//
-	vicii_dodisplaycycles(); 
-
 }
 
 void vicii_update() {
@@ -364,36 +383,46 @@ void vicii_update() {
 	int ticks = sysclock_getlastaddticks();
 
 	for (i = 0; i < ticks; i++) {
-		vicii_update_new();
+		vicii_update_three();
 	}
 }
 
 void vicii_destroy(){} 
+
+void vicii_setbank() {
+	g_vic.bank = ((~mem_peek(0xDD00)) & 0x03) << 6;
+}
 
 byte vicii_peek(word address) {
 	
 	byte reg = address % VICII_LAST;
 	byte rval;
 	switch(reg) {
+		case VICII_RASTER: 
+			rval = g_vic.raster_y & 0xFF; 
+		break;
+		case VICII_CR1:
+			rval = g_vic.regs[VICII_CR1] | ((g_vic.raster_y & 0x100) >> 1);
+		break;
 		case VICII_CR2: 
 			// B7 and B6 not connected.
-			rval = BIT_7 | BIT_6 | vicii_getreal(reg); 
+			rval = BIT_7 | BIT_6 |  g_vic.regs[reg];
 		break;
 		case VICII_ISR: 
 			// B6,B5,B4 not connected.
-			rval = BIT_6 | BIT_5 | BIT_4 | vicii_getreal(reg); 
+			rval = BIT_6 | BIT_5 | BIT_4 |  g_vic.regs[reg];
 		break;
 		case VICII_ICR: 
 			// B7-B4 not connected.
-			rval = BIT_7 | BIT_6 | BIT_5 | BIT_4 | vicii_getreal(reg); 
+			rval = BIT_7 | BIT_6 | BIT_5 | BIT_4 |  g_vic.regs[reg]; 
 		break;
 
 		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // these registers are cleared on reading.
 			//
 			// BUGBUG: Monitor will destroy these values.
 			//
-			rval = vicii_getreal(reg);
-			vicii_setreal(reg,0);
+			rval = g_vic.regs[reg];
+			g_vic.regs[reg] = 0;
 		break;
 
 		case VICII_BORDERCOL: case VICII_BACKCOL: case VICII_EBACKCOL1:		
@@ -401,7 +430,7 @@ byte vicii_peek(word address) {
 		case VICII_S0C:	case VICII_S1C:	case VICII_S2C:	case VICII_S3C:				
 		case VICII_S4C:	case VICII_S5C:	case VICII_S6C:	case VICII_S7C:
 			// B7-B4 not connected.
-			rval = BIT_7 | BIT_6 | BIT_5 | BIT_4 | vicii_getreal(reg);
+			rval = BIT_7 | BIT_6 | BIT_5 | BIT_4 | g_vic.regs[reg];
 		break;	
 
 		case VICII_UN0: case VICII_UN1: case VICII_UN2: case VICII_UN3:
@@ -413,7 +442,7 @@ byte vicii_peek(word address) {
 
 
 
-		default: rval = vicii_getreal(reg);
+		default: rval = g_vic.regs[reg];
 	}
 
 	return rval;
@@ -425,11 +454,17 @@ void vicii_poke(word address,byte val) {
 	switch(reg) {
 
 		case VICII_CR1: 	// latch bit 7. Its part of the irq raster compare. 
-			vicii_setlatched(reg,val & BIT_7);
-			vicii_setreal(reg,val);
+			g_vic.regs[reg] = val;
+			g_vic.raster_irq = (g_vic.raster_irq & 0xFF) | (((word) val & BIT_7)<<1) ;
 		break;
 		case VICII_RASTER: // latch raster line irq compare.
-			vicii_setlatched(reg,val);
+			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
+		break;
+		case VICII_MEMSR: 
+			g_vic.regs[reg] = val;
+			g_vic.vidmembase = (val & (BIT_7 | BIT_6 | BIT_5 | BIT_4)) << 6;
+			g_vic.charmembase = (val & (BIT_1 | BIT_2 | BIT_3)) << 10; 
+
 		break;
 		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // cannot write to collision registers
 		break;
@@ -440,844 +475,8 @@ void vicii_poke(word address,byte val) {
 			// do nothing.
 		break;
 
-		default:vicii_setreal(reg,val);break;
+		default:g_vic.regs[reg] = val;break;
 	}	
 }
-
-
-
-/*
-int MOS6569::EmulateLine(void)
-{
-	int cycles_left = ThePrefs.NormalCycles;	// Cycles left for CPU
-	bool is_bad_line = false;
-
-	// Get raster counter into local variable for faster access and increment
-	unsigned int raster = raster_y+1;
-
-	// End of screen reached?
-	if (raster != TOTAL_RASTERS)
-		raster_y = raster;
-	else {
-		vblank();
-		raster = 0;
-	}
-
-	// Trigger raster IRQ if IRQ line reached
-	if (raster == irq_raster)
-		raster_irq();
-
-	// In line $30, the DEN bit controls if Bad Lines can occur
-	if (raster == 0x30)
-		bad_lines_enabled = ctrl1 & 0x10;
-
-	// Skip frame? Only calculate Bad Lines then
-	if (frame_skipped) {
-		if (raster >= FIRST_DMA_LINE && raster <= LAST_DMA_LINE && ((raster & 7) == y_scroll) && bad_lines_enabled) {
-			is_bad_line = true;
-			cycles_left = ThePrefs.BadLineCycles;
-		}
-		goto VIC_nop;
-	}
-
-	// Within the visible range?
-	if (raster >= FIRST_DISP_LINE && raster <= LAST_DISP_LINE) {
-
-		// Our output goes here
-#ifdef __POWERPC__
-		uint8 *chunky_ptr = (uint8 *)chunky_tmp;
-#else
-		uint8 *chunky_ptr = chunky_line_start;
-#endif
-
-		// Set video counter
-		vc = vc_base;
-
-		// Bad Line condition?
-		if (raster >= FIRST_DMA_LINE && raster <= LAST_DMA_LINE && ((raster & 7) == y_scroll) && bad_lines_enabled) {
-
-			// Turn on display
-			display_state = is_bad_line = true;
-			cycles_left = ThePrefs.BadLineCycles;
-			rc = 0;
-
-			// Read and latch 40 bytes from video matrix and color RAM
-			uint8 *mp = matrix_line - 1;
-			uint8 *cp = color_line - 1;
-			int vc1 = vc - 1;
-			uint8 *mbp = matrix_base + vc1;
-			uint8 *crp = color_ram + vc1;
-			for (int i=0; i<40; i++) {
-				*++mp = *++mbp;
-				*++cp = *++crp;
-			}
-		}
-
-		// Handler upper/lower border
-		if (raster == dy_stop)
-			border_on = true;
-		if (raster == dy_start && (ctrl1 & 0x10)) // Don't turn off border if DEN bit cleared
-			border_on = false;
-
-		if (!border_on) {
-
-			// Display window contents
-			uint8 *p = chunky_ptr + COL40_XSTART;		// Pointer in chunky display buffer
-			uint8 *r = fore_mask_buf + COL40_XSTART/8;	// Pointer in foreground mask buffer
-#ifdef ALIGNMENT_CHECK
-			uint8 *use_p = ((((int)p) & 3) == 0) ? p : text_chunky_buf;
-#endif
-
-			{
-				p--;
-				uint8 b0cc = b0c_color;
-				int limit = x_scroll;
-				for (int i=0; i<limit; i++)	// Background on the left if XScroll>0
-					*++p = b0cc;
-				p++;
-			}
-
-			if (display_state) {
-				switch (display_idx) {
-
-					case 0:	// Standard text
-#ifndef CAN_ACCESS_UNALIGNED
-#ifdef ALIGNMENT_CHECK
-						el_std_text(use_p, char_base + rc, r);
-						if (use_p != p)
-							memcpy(p, use_p, 8*40);
-#else
-						if (x_scroll) {
-							el_std_text(text_chunky_buf, char_base + rc, r);
-							memcpy(p, text_chunky_buf, 8*40);					        
-						} else
-							el_std_text(p, char_base + rc, r);
-#endif
-#else
-						el_std_text(p, char_base + rc, r);
-#endif
-						break;
-
-					case 1:	// Multicolor text
-#ifndef CAN_ACCESS_UNALIGNED
-#ifdef ALIGNMENT_CHECK
-						el_mc_text(use_p, char_base + rc, r);
-						if (use_p != p)
-							memcpy(p, use_p, 8*40);
-#else
-						if (x_scroll) {
-							el_mc_text(text_chunky_buf, char_base + rc, r);
-							memcpy(p, text_chunky_buf, 8*40);					        
-						} else
-							el_mc_text(p, char_base + rc, r);
-#endif
-#else
-						el_mc_text(p, char_base + rc, r);
-#endif
-						break;
-
-					case 2:	// Standard bitmap
-#ifndef CAN_ACCESS_UNALIGNED
-#ifdef ALIGNMENT_CHECK
-						el_std_bitmap(use_p, bitmap_base + (vc << 3) + rc, r);
-						if (use_p != p)
-							memcpy(p, use_p, 8*40);
-#else
-						if (x_scroll) {
-							el_std_bitmap(text_chunky_buf, bitmap_base + (vc << 3) + rc, r);
-							memcpy(p, text_chunky_buf, 8*40);					        
-						} else
-							el_std_bitmap(p, bitmap_base + (vc << 3) + rc, r);
-#endif
-#else
-						el_std_bitmap(p, bitmap_base + (vc << 3) + rc, r);
-#endif
-						break;
-
-					case 3:	// Multicolor bitmap
-#ifndef CAN_ACCESS_UNALIGNED
-#ifdef ALIGNMENT_CHECK
-						el_mc_bitmap(use_p, bitmap_base + (vc << 3) + rc, r);
-						if (use_p != p)
-							memcpy(p, use_p, 8*40);
-#else
-						if (x_scroll) {
-							el_mc_bitmap(text_chunky_buf, bitmap_base + (vc << 3) + rc, r);
-							memcpy(p, text_chunky_buf, 8*40);					        
-						} else
-							el_mc_bitmap(p, bitmap_base + (vc << 3) + rc, r);
-#endif
-#else
-						el_mc_bitmap(p, bitmap_base + (vc << 3) + rc, r);
-#endif
-						break;
-
-					case 4:	// ECM text
-#ifndef CAN_ACCESS_UNALIGNED
-#ifdef ALIGNMENT_CHECK
-						el_ecm_text(use_p, char_base + rc, r);
-						if (use_p != p)
-							memcpy(p, use_p, 8*40);
-#else
-						if (x_scroll) {
-							el_ecm_text(text_chunky_buf, char_base + rc, r);
-							memcpy(p, text_chunky_buf, 8*40);					        
-						} else
-							el_ecm_text(p, char_base + rc, r);
-#endif
-#else
-						el_ecm_text(p, char_base + rc, r);
-#endif
-						break;
-
-					default:	// Invalid mode (all black)
-						memset(p, colors[0], 320);
-						memset(r, 0, 40);
-						break;
-				}
-				vc += 40;
-
-			} else {	// Idle state graphics
-				switch (display_idx) {
-
-					case 0:		// Standard text
-					case 1:		// Multicolor text
-					case 4:		// ECM text
-#ifndef CAN_ACCESS_UNALIGNED
-#ifdef ALIGNMENT_CHECK
-						el_std_idle(use_p, r);
-						if (use_p != p) {memcpy(p, use_p, 8*40);}
-#else
-						if (x_scroll) {
-							el_std_idle(text_chunky_buf, r);
-							memcpy(p, text_chunky_buf, 8*40);					        
-						} else
-							el_std_idle(p, r);
-#endif
-#else
-						el_std_idle(p, r);
-#endif
-						break;
-
-					case 3:		// Multicolor bitmap
-#ifndef CAN_ACCESS_UNALIGNED
-#ifdef ALIGNMENT_CHECK
-						el_mc_idle(use_p, r);
-						if (use_p != p) {memcpy(p, use_p, 8*40);}
-#else
-						if (x_scroll) {
-							el_mc_idle(text_chunky_buf, r);
-							memcpy(p, text_chunky_buf, 8*40);					        
-						} else
-							el_mc_idle(p, r);
-#endif
-#else
-						el_mc_idle(p, r);
-#endif
-						break;
-
-					default:	// Invalid mode (all black)
-						memset(p, colors[0], 320);
-						memset(r, 0, 40);
-						break;
-				}
-			}
-
-			// Draw sprites
-			if (sprite_on && ThePrefs.SpritesOn) {
-
-				// Clear sprite collision buffer
-				uint32 *lp = (uint32 *)spr_coll_buf - 1;
-				for (int i=0; i<DISPLAY_X/4; i++)
-					*++lp = 0;
-
-				el_sprites(chunky_ptr);
-			}
-
-			// Handle left/right border
-			uint32 *lp = (uint32 *)chunky_ptr - 1;
-			uint32 c = ec_color_long;
-			for (int i=0; i<COL40_XSTART/4; i++)
-				*++lp = c;
-			lp = (uint32 *)(chunky_ptr + COL40_XSTOP) - 1;
-			for (int i=0; i<(DISPLAY_X-COL40_XSTOP)/4; i++)
-				*++lp = c;
-			if (!border_40_col) {
-				c = ec_color;
-				p = chunky_ptr + COL40_XSTART - 1;
-				for (int i=0; i<COL38_XSTART-COL40_XSTART; i++)
-					*++p = c;
-				p = chunky_ptr + COL38_XSTOP - 1;
-				for (int i=0; i<COL40_XSTOP-COL38_XSTOP; i++)
-					*++p = c;
-			}
-
-#if 0
-			if (is_bad_line) {
-				chunky_ptr[DISPLAY_X-2] = colors[7];
-				chunky_ptr[DISPLAY_X-3] = colors[7];
-			}
-			if (rc & 1) {
-				chunky_ptr[DISPLAY_X-4] = colors[1];
-				chunky_ptr[DISPLAY_X-5] = colors[1];
-			}
-			if (rc & 2) {
-				chunky_ptr[DISPLAY_X-6] = colors[1];
-				chunky_ptr[DISPLAY_X-7] = colors[1];
-			}
-			if (rc & 4) {
-				chunky_ptr[DISPLAY_X-8] = colors[1];
-				chunky_ptr[DISPLAY_X-9] = colors[1];
-			}
-			if (ctrl1 & 0x40) {
-				chunky_ptr[DISPLAY_X-10] = colors[5];
-				chunky_ptr[DISPLAY_X-11] = colors[5];
-			}
-			if (ctrl1 & 0x20) {
-				chunky_ptr[DISPLAY_X-12] = colors[3];
-				chunky_ptr[DISPLAY_X-13] = colors[3];
-			}
-			if (ctrl2 & 0x10) {
-				chunky_ptr[DISPLAY_X-14] = colors[2];
-				chunky_ptr[DISPLAY_X-15] = colors[2];
-			}
-#endif
-		} else {
-
-			// Display border
-			uint32 *lp = (uint32 *)chunky_ptr - 1;
-			uint32 c = ec_color_long;
-			for (int i=0; i<DISPLAY_X/4; i++)
-				*++lp = c;
-		}
-
-#ifdef __POWERPC__
-		// Copy temporary buffer to bitmap
-		fastcopy(chunky_line_start, (uint8 *)chunky_tmp);
-#endif
-
-		// Increment pointer in chunky buffer
-		chunky_line_start += xmod;
-
-		// Increment row counter, go to idle state on overflow
-		if (rc == 7) {
-			display_state = false;
-			vc_base = vc;
-		} else
-			rc++;
-
-		if (raster >= FIRST_DMA_LINE-1 && raster <= LAST_DMA_LINE-1 && (((raster+1) & 7) == y_scroll) && bad_lines_enabled)
-			rc = 0;
-	}
-
-VIC_nop:
-	// Skip this if all sprites are off
-	if (me | sprite_on)
-		cycles_left -= el_update_mc(raster);
-
-	return cycles_left;
-}
-
-
-bool MOS6569::EmulateCycle(void)
-{
-	uint8 mask;
-	int i;
-
-	switch (cycle) {
-
-		// Fetch sprite pointer 3, increment raster counter, trigger raster IRQ,
-		// test for Bad Line, reset BA if sprites 3 and 4 off, read data of sprite 3
-		case 1:
-			if (raster_y == TOTAL_RASTERS-1)
-
-				// Trigger VBlank in cycle 2
-				vblanking = true;
-
-			else {
-
-				// Increment raster counter
-				raster_y++;
-
-				// Trigger raster IRQ if IRQ line reached
-				if (raster_y == irq_raster)
-					raster_irq();
-
-				// In line $30, the DEN bit controls if Bad Lines can occur
-				if (raster_y == 0x30)
-					bad_lines_enabled = ctrl1 & 0x10;
-
-				// Bad Line condition?
-				is_bad_line = (raster_y >= FIRST_DMA_LINE && raster_y <= LAST_DMA_LINE && ((raster_y & 7) == y_scroll) && bad_lines_enabled);
-
-				// Don't draw all lines, hide some at the top and bottom
-				draw_this_line = (raster_y >= FIRST_DISP_LINE && raster_y <= LAST_DISP_LINE && !frame_skipped);
-			}
-
-			// First sample of border state
-			border_on_sample[0] = border_on;
-
-			SprPtrAccess(3);
-			SprDataAccess(3, 0);
-			DisplayIfBadLine;
-			if (!(spr_dma_on & 0x18))
-				the_cpu->BALow = false;
-			break;
-
-		// Set BA for sprite 5, read data of sprite 3
-		case 2:
-			if (vblanking) {
-
-				// Vertical blank, reset counters
-				raster_y = vc_base = 0;
-				ref_cnt = 0xff;
-				lp_triggered = vblanking = false;
-
-				if (!(frame_skipped = --skip_counter))
-					skip_counter = ThePrefs.SkipFrames;
-
-				the_c64->VBlank(!frame_skipped);
-
-				// Get bitmap pointer for next frame. This must be done
-				// after calling the_c64->VBlank() because the preferences
-				// and screen configuration may have been changed there
-				chunky_line_start = the_display->BitmapBase();
-				xmod = the_display->BitmapXMod();
-
-				// Trigger raster IRQ if IRQ in line 0
-				if (irq_raster == 0)
-					raster_irq();
-
-			}
-
-			// Our output goes here
-#ifdef __POWERPC__
-			chunky_ptr = (uint8 *)chunky_tmp;
-#else
-			chunky_ptr = chunky_line_start;
-#endif
-
-			// Clear foreground mask
-			memset(fore_mask_buf, 0, DISPLAY_X/8);
-			fore_mask_ptr = fore_mask_buf;
-
-			SprDataAccess(3,1);
-			SprDataAccess(3,2);
-			DisplayIfBadLine;
-			if (spr_dma_on & 0x20)
-				SetBALow;
-			break;
-
-		// Fetch sprite pointer 4, reset BA is sprite 4 and 5 off
-		case 3:
-			SprPtrAccess(4);
-			SprDataAccess(4, 0);
-			DisplayIfBadLine;
-			if (!(spr_dma_on & 0x30))
-				the_cpu->BALow = false;
-			break;
-
-		// Set BA for sprite 6, read data of sprite 4 
-		case 4:
-			SprDataAccess(4, 1);
-			SprDataAccess(4, 2);
-			DisplayIfBadLine;
-			if (spr_dma_on & 0x40)
-				SetBALow;
-			break;
-
-		// Fetch sprite pointer 5, reset BA if sprite 5 and 6 off
-		case 5:
-			SprPtrAccess(5);
-			SprDataAccess(5, 0);
-			DisplayIfBadLine;
-			if (!(spr_dma_on & 0x60))
-				the_cpu->BALow = false;
-			break;
-
-		// Set BA for sprite 7, read data of sprite 5
-		case 6:
-			SprDataAccess(5, 1);
-			SprDataAccess(5, 2);
-			DisplayIfBadLine;
-			if (spr_dma_on & 0x80)
-				SetBALow;
-			break;
-
-		// Fetch sprite pointer 6, reset BA if sprite 6 and 7 off
-		case 7:
-			SprPtrAccess(6);
-			SprDataAccess(6, 0);
-			DisplayIfBadLine;
-			if (!(spr_dma_on & 0xc0))
-				the_cpu->BALow = false;
-			break;
-
-		// Read data of sprite 6
-		case 8:
-			SprDataAccess(6, 1);
-			SprDataAccess(6, 2);
-			DisplayIfBadLine;
-			break;
-
-		// Fetch sprite pointer 7, reset BA if sprite 7 off
-		case 9:
-			SprPtrAccess(7);
-			SprDataAccess(7, 0);
-			DisplayIfBadLine;
-			if (!(spr_dma_on & 0x80))
-				the_cpu->BALow = false;
-			break;
-
-		// Read data of sprite 7
-		case 10:
-			SprDataAccess(7, 1);
-			SprDataAccess(7, 2);
-			DisplayIfBadLine;
-			break;
-
-		// Refresh, reset BA
-		case 11:
-			RefreshAccess;
-			DisplayIfBadLine;
-			the_cpu->BALow = false;
-			break;
-
-		// Refresh, turn on matrix access if Bad Line
-		case 12:
-			RefreshAccess;
-			FetchIfBadLine;
-			break;
-
-		// Refresh, turn on matrix access if Bad Line, reset raster_x, graphics display starts here
-		case 13:
-			draw_background();
-			SampleBorder;
-			RefreshAccess;
-			FetchIfBadLine;
-			raster_x = 0xfffc;
-			break;
-
-		// Refresh, VCBASE->VCCOUNT, turn on matrix access and reset RC if Bad Line
-		case 14:
-			draw_background();
-			SampleBorder;
-			RefreshAccess;
-			RCIfBadLine;
-			vc = vc_base;
-			break;
-
-		// Refresh and matrix access, increment mc_base by 2 if y expansion flipflop is set
-		case 15:
-			draw_background();
-			SampleBorder;
-			RefreshAccess;
-			FetchIfBadLine;
-
-			for (i=0; i<8; i++)
-				if (spr_exp_y & (1 << i))
-					mc_base[i] += 2;
-
-			ml_index = 0;
-			matrix_access();
-			break;
-
-		// Graphics and matrix access, increment mc_base by 1 if y expansion flipflop is set
-		// and check if sprite DMA can be turned off
-		case 16:
-			draw_background();
-			SampleBorder;
-			graphics_access();
-			FetchIfBadLine;
-
-			mask = 1;
-			for (i=0; i<8; i++, mask<<=1) {
-				if (spr_exp_y & mask)
-					mc_base[i]++;
-				if ((mc_base[i] & 0x3f) == 0x3f)
-					spr_dma_on &= ~mask;
-			}
-
-			matrix_access();
-			break;
-
-		// Graphics and matrix access, turn off border in 40 column mode, display window starts here
-		case 17:
-			if (ctrl2 & 8) {
-				if (raster_y == dy_stop)
-					ud_border_on = true;
-				else {
-					if (ctrl1 & 0x10) {
-						if (raster_y == dy_start)
-							border_on = ud_border_on = false;
-						else
-							if (!ud_border_on)
-								border_on = false;
-					} else
-						if (!ud_border_on)
-							border_on = false;
-				}
-			}
-
-			// Second sample of border state
-			border_on_sample[1] = border_on;
-
-			draw_background();
-			draw_graphics();
-			SampleBorder;
-			graphics_access();
-			FetchIfBadLine;
-			matrix_access();
-			break;
-
-		// Turn off border in 38 column mode
-		case 18:
-			if (!(ctrl2 & 8)) {
-				if (raster_y == dy_stop)
-					ud_border_on = true;
-				else {
-					if (ctrl1 & 0x10) {
-						if (raster_y == dy_start)
-							border_on = ud_border_on = false;
-						else
-							if (!ud_border_on)
-								border_on = false;
-					} else
-						if (!ud_border_on)
-							border_on = false;
-				}
-			}
-
-			// Third sample of border state
-			border_on_sample[2] = border_on;
-
-			// Falls through
-
-		// Graphics and matrix access
-		case 19: case 20: case 21: case 22: case 23: case 24:
-		case 25: case 26: case 27: case 28: case 29: case 30:
-		case 31: case 32: case 33: case 34: case 35: case 36:
-		case 37: case 38: case 39: case 40: case 41: case 42:
-		case 43: case 44: case 45: case 46: case 47: case 48:
-		case 49: case 50: case 51: case 52: case 53: case 54:	// Gnagna...
-			draw_graphics();
-			SampleBorder;
-			graphics_access();
-			FetchIfBadLine;
-			matrix_access();
-			last_char_data = char_data;
-			break;
-
-		// Last graphics access, turn off matrix access, turn on sprite DMA if Y coordinate is
-		// right and sprite is enabled, handle sprite y expansion, set BA for sprite 0
-		case 55:
-			draw_graphics();
-			SampleBorder;
-			graphics_access();
-			DisplayIfBadLine;
-
-			// Invert y expansion flipflop if bit in MYE is set
-			mask = 1;
-			for (i=0; i<8; i++, mask<<=1)
-				if (mye & mask)
-					spr_exp_y ^= mask;
-			CheckSpriteDMA;
-
-			if (spr_dma_on & 0x01) {	// Don't remove these braces!
-				SetBALow;
-			} else
-				the_cpu->BALow = false;
-			break;
-
-		// Turn on border in 38 column mode, turn on sprite DMA if Y coordinate is right and
-		// sprite is enabled, set BA for sprite 0, display window ends here
-		case 56:
-			if (!(ctrl2 & 8))
-				border_on = true;
-
-			// Fourth sample of border state
-			border_on_sample[3] = border_on;
-
-			draw_graphics();
-			SampleBorder;
-			IdleAccess;
-			DisplayIfBadLine;
-			CheckSpriteDMA;
-
-			if (spr_dma_on & 0x01)
-				SetBALow;
-			break;
-
-		// Turn on border in 40 column mode, set BA for sprite 1, paint sprites
-		case 57:
-			if (ctrl2 & 8)
-				border_on = true;
-
-			// Fifth sample of border state
-			border_on_sample[4] = border_on;
-
-			// Sample spr_disp_on and spr_data for sprite drawing
-			if ((spr_draw = spr_disp_on))
-				memcpy(spr_draw_data, spr_data, 8*4);
-
-			// Turn off sprite display if DMA is off
-			mask = 1;
-			for (i=0; i<8; i++, mask<<=1)
-				if ((spr_disp_on & mask) && !(spr_dma_on & mask))
-					spr_disp_on &= ~mask;
-
-			draw_background();
-			SampleBorder;
-			IdleAccess;
-			DisplayIfBadLine;
-			if (spr_dma_on & 0x02)
-				SetBALow;
-			break;
-
-		// Fetch sprite pointer 0, mc_base->mc, turn on sprite display if necessary,
-		// turn off display if RC=7, read data of sprite 0
-		case 58:
-			draw_background();
-			SampleBorder;
-
-			mask = 1;
-			for (i=0; i<8; i++, mask<<=1) {
-				mc[i] = mc_base[i];
-				if ((spr_dma_on & mask) && (raster_y & 0xff) == my[i])
-					spr_disp_on |= mask;
-			}
-			SprPtrAccess(0);
-			SprDataAccess(0, 0);
-
-			if (rc == 7) {
-				vc_base = vc;
-				display_state = false;
-			}
-			if (is_bad_line || display_state) {
-				display_state = true;
-				rc = (rc + 1) & 7;
-			}
-			break;
-
-		// Set BA for sprite 2, read data of sprite 0
-		case 59:
-			draw_background();
-			SampleBorder;
-			SprDataAccess(0, 1);
-			SprDataAccess(0, 2);
-			DisplayIfBadLine;
-			if (spr_dma_on & 0x04)
-				SetBALow;
-			break;
-
-		// Fetch sprite pointer 1, reset BA if sprite 1 and 2 off, graphics display ends here
-		case 60:
-			draw_background();
-			SampleBorder;
-
-			if (draw_this_line) {
-
-				// Draw sprites
-				if (spr_draw && ThePrefs.SpritesOn)
-					draw_sprites();
-
-				// Draw border
-#ifdef __POWERPC__
-				if (border_on_sample[0])
-					for (i=0; i<4; i++)
-						memset8((uint8 *)chunky_tmp+i*8, border_color_sample[i]);
-				if (border_on_sample[1])
-					memset8((uint8 *)chunky_tmp+4*8, border_color_sample[4]);
-				if (border_on_sample[2])
-					for (i=5; i<43; i++)
-						memset8((uint8 *)chunky_tmp+i*8, border_color_sample[i]);
-				if (border_on_sample[3])
-					memset8((uint8 *)chunky_tmp+43*8, border_color_sample[43]);
-				if (border_on_sample[4])
-					for (i=44; i<DISPLAY_X/8; i++)
-						memset8((uint8 *)chunky_tmp+i*8, border_color_sample[i]);
-#else
-				if (border_on_sample[0])
-					for (i=0; i<4; i++)
-						memset8(chunky_line_start+i*8, border_color_sample[i]);
-				if (border_on_sample[1])
-					memset8(chunky_line_start+4*8, border_color_sample[4]);
-				if (border_on_sample[2])
-					for (i=5; i<43; i++)
-						memset8(chunky_line_start+i*8, border_color_sample[i]);
-				if (border_on_sample[3])
-					memset8(chunky_line_start+43*8, border_color_sample[43]);
-				if (border_on_sample[4])
-					for (i=44; i<DISPLAY_X/8; i++)
-						memset8(chunky_line_start+i*8, border_color_sample[i]);
-#endif
-
-#ifdef __POWERPC__
-				// Copy temporary buffer to bitmap
-				fastcopy(chunky_line_start, (uint8 *)chunky_tmp);
-#endif
-
-				// Increment pointer in chunky buffer
-				chunky_line_start += xmod;
-			}
-
-			SprPtrAccess(1);
-			SprDataAccess(1, 0);
-			DisplayIfBadLine;
-			if (!(spr_dma_on & 0x06))
-				the_cpu->BALow = false;
-			break;
-
-		// Set BA for sprite 3, read data of sprite 1
-		case 61:
-			SprDataAccess(1, 1);
-			SprDataAccess(1, 2);
-			DisplayIfBadLine;
-			if (spr_dma_on & 0x08)
-				SetBALow;
-			break;
-
-		// Read sprite pointer 2, reset BA if sprite 2 and 3 off, read data of sprite 2
-		case 62:
-			SprPtrAccess(2);
-			SprDataAccess(2, 0);
-			DisplayIfBadLine;
-			if (!(spr_dma_on & 0x0c))
-				the_cpu->BALow = false;
-			break;
-
-		// Set BA for sprite 4, read data of sprite 2
-		case 63:
-			SprDataAccess(2, 1);
-			SprDataAccess(2, 2);
-			DisplayIfBadLine;
-
-			if (raster_y == dy_stop)
-				ud_border_on = true;
-			else
-				if (ctrl1 & 0x10 && raster_y == dy_start)
-					ud_border_on = false;
-
-			if (spr_dma_on & 0x10)
-				SetBALow;
-
-			// Last cycle
-			raster_x += 8;
-			cycle = 1;
-			return true;
-	}
-
-	// Next cycle
-	raster_x += 8;
-	cycle++;
-	return false;
-}
-
-
-
-*/
-
-
-
 
 

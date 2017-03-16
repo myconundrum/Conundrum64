@@ -149,7 +149,7 @@ void c64_init() {
 void c64_update() {
 
 	cia_update();
-	if (!vicii_badline()) {
+	if (!vicii_stuncpu()) {
 		cpu_update();
 		vicii_update();
 	}

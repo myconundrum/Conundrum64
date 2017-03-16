@@ -46,10 +46,13 @@ byte cia2_peek(byte reg) {
 	return cia_peek(&g_cia2,reg);
 }
 void cia2_poke(byte reg,byte val) {
-
-	DEBUG_PRINT("write to $DD%02X with val %02X near %04x\n",reg,val,cpu_getpc());
-
 	cia_poke(&g_cia2,reg,val);
+	if (reg == 0x00) {
+		//
+		// VIC looks here to understand graphics bank switches.
+		//
+		vicii_setbank();
+	}
 }
 
 byte cia_getreal(CIA * c,byte reg) {

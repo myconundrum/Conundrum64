@@ -11,8 +11,12 @@ void vicii_init();
 void vicii_update();
 void vicii_destroy();
 
+
+void vicii_setbank();
+
 byte vicii_peek(word address);
 void vicii_poke(word address,byte val);
+
 
 bool vicii_badline();
 
