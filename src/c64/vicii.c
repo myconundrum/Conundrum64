@@ -15,56 +15,10 @@ typedef struct {
 
 } VICII_VIDEODATA;
 
-typedef struct {
-
-	byte r;
-	byte g;
-	byte b;
-
-} VICII_COLOR;
 
 
 
-/*
-	RGB values of C64 colors from 
-	http://unusedino.de/ec64/technical/misc/vic656x/colors/
 
-	0 black
-  	1 white
-  	2 red
-  	3 cyan
-  	4 pink
-  	5 green
-  	6 blue
-  	7 yellow
-  	8 orange
-  	9 brown
- 	10 light red
- 	11 dark gray
- 	12 medium gray
- 	13 light green
- 	14 light blue
- 	15 light gray
-*/
-
-g_colors[0x10] = {
-	{0x00, 0x00, 0x00},
-	{0xFF, 0xFF, 0xFF},
-	{0x68, 0x37, 0x2B},
-	{0x70, 0xA4, 0xB2},
-	{0x6F, 0x3D, 0x86},
-	{0x58, 0x8D, 0x43},
-	{0x35, 0x28, 0x79},
-	{0xB8, 0xC7, 0x6F},
-	{0x6F, 0x4F, 0x25},
-	{0x43, 0x39, 0x00},
-	{0x9A, 0x67, 0x59},
-	{0x44, 0x44, 0x44},
-	{0x6C, 0x6C, 0x6C},
-	{0x9A, 0xD2, 0x84},
-	{0x6C, 0x5E, 0xB5},
-	{0x95, 0x95, 0x95}
-};
 
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
@@ -169,9 +123,11 @@ typedef struct {
 	//
 	// the current bitmap frame.
 	//
-	VICII_COLOR frame[320*240];
-	VICII_COLOR * curpixel;	
-	
+	byte frame1[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS];	// frame buffers used to display pixel data
+	byte frame2[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS];	
+	word curpixel;			// current index inside the image.
+	byte *curframe;			// current frame being rendered against
+	byte *lastframe;		// last frame rendered.
 
 } VICII;
 
@@ -185,6 +141,8 @@ void vicii_init() {
 	// e.g. revision number, NTSC, PAL, etc.
 	//
 	g_vic.raster_x = VICII_NTSC_LINE_START_X; // starting X coordinate for an NTSC VICII.
+	g_vic.curframe = g_vic.frame1;
+	g_vic.lastframe = g_vic.frame2;
 
 }
 
@@ -202,7 +160,6 @@ void vicii_updateraster() {
 		
 
 		if (g_vic.raster_y == NTSC_LINES) {					//  End of screen, wrap to raster 0. 
-			
 			g_vic.raster_y = 0;
 		}
 
@@ -217,6 +174,19 @@ void vicii_updateraster() {
 		}
 	}
 }
+
+
+byte * vicii_getframe() {
+	return g_vic.lastframe;
+}
+void vicii_flip() {
+
+	byte * t;
+	t = g_vic.lastframe;
+	g_vic.lastframe = g_vic.curframe;
+	g_vic.curframe = t;
+}
+
 
 
 //
@@ -263,7 +233,18 @@ void vicii_caccess() {
 }
 
 void vicii_gaccess() {
+	byte i;
 	byte pixels = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
+
+
+	for (i = BIT_7;i;i>>=1) {
+
+		g_vic.curframe[g_vic.curpixel] = (i & pixels) ? 
+			(g_vic.data[g_vic.vmli].color & 0xf): 
+			(g_vic.regs[VICII_BACKCOL] & 0xf);
+		g_vic.curpixel++;
+	}
+
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
 	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
 }
@@ -289,7 +270,8 @@ void vicii_update_three() {
 
 			if (g_vic.raster_y == 1) {
 				g_vic.vcbase = 0;	// reset on line zero.
-				g_vic.curpixel = g_vic.frame;
+				g_vic.curpixel = 0;
+				vicii_flip(); // switch graphics frames.
 			}
 
 

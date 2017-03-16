@@ -10,6 +10,64 @@ typedef struct {
 #define DISLINESCOUNT 16
 
 
+typedef struct {
+
+	byte r;
+	byte g;
+	byte b;
+	byte a;
+
+} VICII_COLOR;
+
+
+/*
+	RGB values of C64 colors from 
+	http://unusedino.de/ec64/technical/misc/vic656x/colors/
+
+	0 black
+  	1 white
+  	2 red
+  	3 cyan
+  	4 pink
+  	5 green
+  	6 blue
+  	7 yellow
+  	8 orange
+  	9 brown
+ 	10 light red
+ 	11 dark gray
+ 	12 medium gray
+ 	13 light green
+ 	14 light blue
+ 	15 light gray
+*/
+
+VICII_COLOR g_colors[0x10] = {
+	{0x00, 0x00, 0x00, 0xFF},
+	{0xFF, 0xFF, 0xFF, 0xFF},
+	{0x68, 0x37, 0x2B, 0xFF},
+	{0x70, 0xA4, 0xB2, 0xFF},
+	{0x6F, 0x3D, 0x86, 0xFF},
+	{0x58, 0x8D, 0x43, 0xFF},
+	{0x35, 0x28, 0x79, 0xFF},
+	{0xB8, 0xC7, 0x6F, 0xFF},
+	{0x6F, 0x4F, 0x25, 0xFF},
+	{0x43, 0x39, 0x00, 0xFF},
+	{0x9A, 0x67, 0x59, 0xFF},
+	{0x44, 0x44, 0x44, 0xFF},
+	{0x6C, 0x6C, 0x6C, 0xFF},
+	{0x9A, 0xD2, 0x84, 0xFF},
+	{0x6C, 0x5E, 0xB5, 0xFF},
+	{0x95, 0x95, 0x95, 0xFF}
+};
+
+
+
+
+
+
+
+
 
 typedef struct {
 
@@ -25,6 +83,7 @@ typedef struct {
 
     SDL_Renderer    * rScreen;
     SDL_Window      * wScreen;
+    SDL_Texture 	* tScreen;
 
 
 	byte 		curpage;					// current page of memory in monitor.
@@ -133,7 +192,8 @@ void ux_init() {
 
 	g_ux.wScreen = SDL_CreateWindow ("C64 Screen", 
     	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_SCREEN_WIDTH_PIXELS, VICII_SCREEN_HEIGHT_PIXELS, SDL_WINDOW_SHOWN);
-   	g_ux.rScreen = SDL_CreateRenderer(g_ux.wMon, -1, SDL_RENDERER_ACCELERATED);
+   	g_ux.rScreen = SDL_CreateRenderer(g_ux.wScreen, -1, 0);
+   	g_ux.tScreen = SDL_CreateTexture(g_ux.rScreen, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, VICII_SCREEN_WIDTH_PIXELS, VICII_SCREEN_HEIGHT_PIXELS);
 
 	ux_fillDisassembly(cpu_getpc());
 
@@ -152,7 +212,6 @@ void ux_updateMemory() {
 	int i;
 	int j; 
 	char buf[255];
-
 
 	SDL_Rect r = {MON_SCREEN_WIDTH - 540,40,54*10,16*20};
 	SDL_RenderDrawRect(g_ux.rMon,&r);
@@ -222,6 +281,41 @@ void ux_updateConsole() {
 
 }
 
+
+void ux_updateScreen() {
+
+	byte * frame = vicii_getframe();
+	void * pixels;
+	int    pitch;
+	Uint32 * dst;
+	int 	row;
+	int 	col;
+
+	if (SDL_LockTexture(g_ux.tScreen, NULL, &pixels, &pitch) <0) {
+		DEBUG_PRINT("can't lock texure %s!\n",SDL_GetError());
+		return;
+	}
+
+	for (row = 0 ; row < VICII_SCREEN_HEIGHT_PIXELS; row++) {
+
+		dst = (Uint32*) ((Uint8 *)pixels + row * pitch);
+		for (col = 0; col < VICII_SCREEN_WIDTH_PIXELS; col++) {
+			*dst++ = (
+				(g_colors[*frame].a << 24)|
+				(g_colors[*frame].r << 16) | 
+				(g_colors[*frame].g << 8) |
+				(g_colors[*frame].b));
+			frame++;
+		}
+	}
+
+	SDL_UnlockTexture(g_ux.tScreen);
+	SDL_RenderClear(g_ux.rScreen);
+	SDL_RenderCopy(g_ux.rScreen, g_ux.tScreen, NULL, NULL);
+	SDL_RenderPresent(g_ux.rScreen);
+
+
+}
 void ux_update() {
 
 	char ch;
@@ -249,6 +343,7 @@ void ux_update() {
 	ux_updateMemory();
 	ux_updateDisassembly();
 	ux_updateConsole();
+	ux_updateScreen();
 
 	SDL_RenderPresent(g_ux.rMon);
 
@@ -364,10 +459,8 @@ void ux_handlec64key(SDL_Event e) {
 	}
 
 	if (e.type == SDL_KEYDOWN) {
-		DEBUG_PRINT("key down name %s %c\n",SDL_GetKeyName(e.key.keysym.sym),ch);
 		c64kbd_keydown(ch);
 	} else {
-		DEBUG_PRINT("key up name %s %c\n",SDL_GetKeyName(e.key.keysym.sym),ch);
 		c64kbd_keyup(ch);
 	}
 }
