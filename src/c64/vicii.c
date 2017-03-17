@@ -15,8 +15,10 @@
 #define VICII_DISPLAY_BOTTOM_1  		0xfa
 #define VICII_DISPLAY_LEFT_0 			0x1F
 #define VICII_DISPLAY_LEFT_1 			0x18
-#define VICII_DISPLAY_RIGHT_0 	 		0x14e
-#define VICII_DISPLAY_RIGHT_1  			0x157
+#define VICII_DISPLAY_RIGHT_0 	 		0x150
+#define VICII_DISPLAY_RIGHT_1  			0x158
+
+
 
 
 
@@ -147,11 +149,13 @@ typedef struct {
 	//
 	// the current bitmap frame.
 	//
-	byte frame1[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS * 8];	// frame buffers used to display pixel data
-	byte frame2[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS * 8];	
 	word curpixel;			// current index inside the image.
 	byte *curframe;			// current frame being rendered against
 	byte *lastframe;		// last frame rendered.
+
+
+	byte frame1[VICII_NTSC_RENDERED_PIXELS_WIDTH * VICII_NTSC_RENDERED_RASTERLINES];	// frame buffers used to display pixel data
+	byte frame2[VICII_NTSC_RENDERED_PIXELS_WIDTH * VICII_NTSC_RENDERED_RASTERLINES];	
 
 } VICII;
 
@@ -272,12 +276,14 @@ void vicii_gaccess() {
 	for (i = BIT_7;i;i>>=1) {
 
 		if (g_vic.vertborder) {
+
 			c = g_vic.regs[VICII_BACKCOL] & 0xF;
 		}
 		else {
+
 			c = (i & pixels) ? (g_vic.data[g_vic.vmli].color & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf);
-		}
-		if (g_vic.displayline) {
+
+		} if (g_vic.displayline) {
 			g_vic.curframe[g_vic.curpixel] = c;
 			g_vic.curpixel++;
 		}
@@ -289,23 +295,30 @@ void vicii_gaccess() {
 
 
 //
-// turn border on/off as needed.
+// all border flip flop logic in this function. May need to be broken into cycles later. 
 //
-vicii_checkborderoff() {
+vicii_checkborderflipflops() {
 
-	if (g_vic.raster_y == g_vic.displaybottom) {
+	if (g_vic.raster_x == g_vic.displayright)  {
+		g_vic.mainborder =  true;
+	}
+	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaybottom) {
 		g_vic.vertborder = true;
-	} else if (g_vic.den) {
-		if (g_vic.raster_y == g_vic.displaytop) {
-			g_vic.mainborder = false;
-			g_vic.vertborder = false;
-		} else if (g_vic.vertborder == false) {
-			g_vic.mainborder = false;
-		}
+	}
 
-	} else if (g_vic.vertborder == false) {
+	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaytop && g_vic.regs[VICII_CR1] & BIT_4) {
+		g_vic.vertborder = false;
+	}
+
+	if (g_vic.raster_x == g_vic.displayleft && g_vic.raster_y == g_vic.displaybottom) {
+		g_vic.vertborder = true;
+	}
+	if (g_vic.raster_x == g_vic.displayleft && g_vic.raster_y == g_vic.displaytop && g_vic.regs[VICII_CR1] & BIT_4) {
+		g_vic.vertborder = false;
+	}
+	if (g_vic.raster_x == g_vic.displayleft && !g_vic.vertborder) {
 		g_vic.mainborder = false;
-	}	
+	}
 }
 
 
@@ -317,8 +330,9 @@ void vicii_update_three() {
 
 	g_vic.cycle++;										// update cycle count.
 	vicii_updateraster();								// update raster x and y and check for raster IRQ
-	
+	vicii_checkborderflipflops();
 	switch(g_vic.cycle) {
+
 
 		
 		// * various setup activities. 
@@ -327,12 +341,17 @@ void vicii_update_three() {
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
 			}
+			
 
 			if (g_vic.raster_y == 1) {
 				g_vic.vcbase = 0;	// reset on line zero.
 				g_vic.curpixel = 0;
+				printf("\n");
+				
 				vicii_flip(); // switch graphics frames.
 			}
+
+			printf("%c",g_vic.vertborder || g_vic.mainborder ? 'B' : '*');
 
 			//
 			// Check whether we should skip this line.
@@ -341,9 +360,6 @@ void vicii_update_three() {
 			g_vic.displayline = g_vic.raster_y >= VICII_FIRST_DISPLAY_LINE && 
 				g_vic.raster_y <= VICII_LAST_DISPLAY_LINE;
 			
-
-			g_vic.displayline = true;
-
 			//
 			// check to see if this is a badline.
 			// (1) display is enabled
@@ -406,17 +422,12 @@ void vicii_update_three() {
 			break;
 		// turn border off in 40 column display.
 		case 17:
-			if (g_vic.displayleft == VICII_DISPLAY_LEFT_1) {
-				vicii_checkborderoff();
-			}
+
 			vicii_caccess();
 			vicii_gaccess();
 		break;
 		// turn border off in 38 column display.
 		case 18:
-			if (g_vic.displayleft == VICII_DISPLAY_LEFT_0) {
-				vicii_checkborderoff();
-			}
 			vicii_caccess();
 			vicii_gaccess();
 		break;
@@ -465,16 +476,11 @@ void vicii_update_three() {
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
-			if (g_vic.displayright == VICII_DISPLAY_RIGHT_0) {
-				g_vic.mainborder = true;
-			}
+			
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
-			if (g_vic.displayright == VICII_DISPLAY_RIGHT_1) {
-				g_vic.mainborder = true;
-			}
- 
+		
 		break;
 		// * reset vcbase if rc == 7. handle display/idle.
 		case 58: 
@@ -499,13 +505,7 @@ void vicii_update_three() {
 		break;
 		// * turn on border. 
 		case 63:
-			if (g_vic.raster_y == g_vic.displaybottom) {
-				g_vic.vertborder = true;
-			} 
-			else if (g_vic.den && g_vic.raster_y == g_vic.displaytop) {
-				g_vic.vertborder = false;
 
-			}
 		break;
 		case 64: 
 		break;

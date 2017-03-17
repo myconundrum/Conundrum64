@@ -296,10 +296,10 @@ void ux_updateScreen() {
 		return;
 	}
 
-	for (row = 0 ; row < VICII_SCREEN_HEIGHT_PIXELS; row++) {
+	for (row = 0 ; row < VICII_NTSC_RENDERED_RASTERLINES ; row++) {
 
 		dst = (Uint32*) ((Uint8 *)pixels + row * pitch);
-		for (col = 0; col < VICII_SCREEN_WIDTH_PIXELS; col++) {
+		for (col = 0; col < VICII_NTSC_RENDERED_PIXELS_WIDTH; col++) {
 			*dst++ = (
 				(g_colors[*frame].a << 24)|
 				(g_colors[*frame].r << 16) | 
