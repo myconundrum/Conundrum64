@@ -18,17 +18,13 @@
 #define VICII_DISPLAY_RIGHT_0 	 		0x14e
 #define VICII_DISPLAY_RIGHT_1  			0x157
 
+
 typedef struct {
 
 	byte data;
 	byte color;
 
 } VICII_VIDEODATA;
-
-
-
-
-
 
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
@@ -98,6 +94,9 @@ typedef enum {
 	VICII_LAST
 } VICII_REG;
 
+
+typedef void (*CYCLEFN)(void);
+
 typedef struct {
 
 	byte regs[0x30];				// note some reg read/writes fall through to 
@@ -108,6 +107,8 @@ typedef struct {
 	word raster_irq;				// raster irq compare -- CPU can set this through registers.
 	word raster_x;					// raster x position  -- VIC internal only. 
 	
+	CYCLEFN updatefns[70];
+
 	bool badline;					// Vic needs extra cycles to fetch data during this line. 
 	bool balow;						// BAlow stuns the CPU on badline situations.
 	bool den;						// is display enabled? 
@@ -125,14 +126,17 @@ typedef struct {
 	byte rc;						// (row counter)
 	byte vmli;						// (video matrix line index)
 
+
 	word  displaytop;				// these are the dimensions of the display window. 
 	word  displaybottom; 			// they are slightly configurable (38 vs 40 columns, 24 vs 25 rows)
 	word  displayleft;				// using vic registers;
 	word  displayright;
 	bool  mainborder;				// these are the two flip flops that control displaying the border.
-	bool  vertborder;
-
-	byte cycle;						// internal cycle count per line.
+	bool  vertborder; 
+	//
+	// internal cycle count per line.
+	//
+	byte cycle;
 
 	//
 	// the current bitmap frame.
@@ -148,6 +152,23 @@ typedef struct {
 VICII g_vic = {0};
 
 bool vicii_stuncpu() 						{return g_vic.balow;}
+
+
+void vicii_cycleunused();
+void vicii_cycle1();
+void vicii_cycle11();
+void vicii_cycle12();
+void vicii_cycle13();
+void vicii_cycle14();
+void vicii_cycle15();
+void vicii_cycle16();
+void vicii_cycle17();
+void vicii_cyclemain();
+void vicii_cycle55();
+void vicii_cycle56();
+void vicii_cycle57();
+void vicii_cycle58();
+
 void vicii_init() {
 
 	//
@@ -158,10 +179,78 @@ void vicii_init() {
 	g_vic.curframe = g_vic.frame1;
 	g_vic.lastframe = g_vic.frame2;
 
+
 	g_vic.displaytop 		= VICII_DISPLAY_TOP_0;
 	g_vic.displaybottom 	= VICII_DISPLAY_BOTTOM_0;
 	g_vic.displayleft 		= VICII_DISPLAY_LEFT_0;
 	g_vic.displayright 		= VICII_DISPLAY_RIGHT_0;
+
+	g_vic.updatefns[0] 		= vicii_cycleunused;
+	g_vic.updatefns[1] 		= vicii_cycle1;
+	g_vic.updatefns[2] 		= vicii_cycleunused;
+	g_vic.updatefns[3] 		= vicii_cycleunused;
+	g_vic.updatefns[4] 		= vicii_cycleunused;
+	g_vic.updatefns[5] 		= vicii_cycleunused;
+	g_vic.updatefns[6] 		= vicii_cycleunused;
+	g_vic.updatefns[7] 		= vicii_cycleunused;
+	g_vic.updatefns[8] 		= vicii_cycleunused;	
+	g_vic.updatefns[9] 		= vicii_cycleunused;
+	g_vic.updatefns[10] 	= vicii_cycleunused;
+	g_vic.updatefns[11] 	= vicii_cycle11;
+	g_vic.updatefns[12] 	= vicii_cycle12;
+	g_vic.updatefns[13] 	= vicii_cycle13;
+	g_vic.updatefns[14] 	= vicii_cycle14;
+	g_vic.updatefns[15] 	= vicii_cycle15;
+	g_vic.updatefns[16] 	= vicii_cycle16;
+	g_vic.updatefns[17] 	= vicii_cycle17;
+	g_vic.updatefns[18] 	= vicii_cyclemain;
+	g_vic.updatefns[19] 	= vicii_cyclemain;
+	g_vic.updatefns[20] 	= vicii_cyclemain;
+	g_vic.updatefns[21] 	= vicii_cyclemain;
+	g_vic.updatefns[22] 	= vicii_cyclemain;
+	g_vic.updatefns[23] 	= vicii_cyclemain;
+	g_vic.updatefns[24] 	= vicii_cyclemain;
+	g_vic.updatefns[25] 	= vicii_cyclemain;
+	g_vic.updatefns[26] 	= vicii_cyclemain;	
+	g_vic.updatefns[27] 	= vicii_cyclemain;
+	g_vic.updatefns[28] 	= vicii_cyclemain;
+	g_vic.updatefns[29] 	= vicii_cyclemain;
+	g_vic.updatefns[30] 	= vicii_cyclemain;
+	g_vic.updatefns[31] 	= vicii_cyclemain;
+	g_vic.updatefns[32] 	= vicii_cyclemain;
+	g_vic.updatefns[33] 	= vicii_cyclemain;
+	g_vic.updatefns[34] 	= vicii_cyclemain;
+	g_vic.updatefns[35] 	= vicii_cyclemain;
+	g_vic.updatefns[36] 	= vicii_cyclemain;
+	g_vic.updatefns[37] 	= vicii_cyclemain;
+	g_vic.updatefns[38] 	= vicii_cyclemain;
+	g_vic.updatefns[39] 	= vicii_cyclemain;
+	g_vic.updatefns[40] 	= vicii_cyclemain;
+	g_vic.updatefns[41] 	= vicii_cyclemain;
+	g_vic.updatefns[42] 	= vicii_cyclemain;
+	g_vic.updatefns[43] 	= vicii_cyclemain;
+	g_vic.updatefns[44] 	= vicii_cyclemain;	
+	g_vic.updatefns[45] 	= vicii_cyclemain;
+	g_vic.updatefns[46] 	= vicii_cyclemain;
+	g_vic.updatefns[47] 	= vicii_cyclemain;
+	g_vic.updatefns[48] 	= vicii_cyclemain;
+	g_vic.updatefns[49] 	= vicii_cyclemain;
+	g_vic.updatefns[50] 	= vicii_cyclemain;
+	g_vic.updatefns[51] 	= vicii_cyclemain;
+	g_vic.updatefns[52] 	= vicii_cyclemain;
+	g_vic.updatefns[53] 	= vicii_cyclemain;
+	g_vic.updatefns[54] 	= vicii_cyclemain; 
+	g_vic.updatefns[55] 	= vicii_cycle55;
+	g_vic.updatefns[56] 	= vicii_cycle56;
+	g_vic.updatefns[57] 	= vicii_cycle57;
+	g_vic.updatefns[58] 	= vicii_cycle58;
+	g_vic.updatefns[59] 	= vicii_cycleunused;
+	g_vic.updatefns[60] 	= vicii_cycleunused;
+	g_vic.updatefns[61] 	= vicii_cycleunused;
+	g_vic.updatefns[62] 	= vicii_cycleunused;	
+	g_vic.updatefns[63] 	= vicii_cycleunused;
+	g_vic.updatefns[64] 	= vicii_cycleunused;
+	g_vic.updatefns[65] 	= vicii_cycleunused;
 
 }
 
@@ -243,6 +332,19 @@ byte vic_peekmem(word address) {
 	return mem_peek(g_vic.bank | g_vic.vidmembase | address);
 }
 
+
+
+void vicii_border() {
+	
+	int i;
+
+	for (i = BIT_7;i;i>>=1) {
+		g_vic.curframe[g_vic.curpixel] = (g_vic.regs[VICII_BORDERCOL] & 0xf);
+		g_vic.curpixel++;
+	}
+}
+
+
 //
 // read data from memory into vic buffer.
 //
@@ -269,221 +371,144 @@ void vicii_gaccess() {
 }
 
 
-//
-// turn border on/off as needed.
-//
-vicii_checkborder() {
 
-	if (g_vic.raster_y == g_vic.displaybottom) {
-		g_vic.vertborder = true;
-	} else if (g_vic.den) {
-		if (g_vic.raster_y == g_vic.displaytop) {
-			g_vic.mainborder = false;
-			g_vic.vertborder = false;
-		} else if (g_vic.vertborder == false) {
-			g_vic.mainborder = false;
-		}
+void vicii_cycle1() {
 
-	} else if (g_vic.vertborder == false) {
-		g_vic.mainborder = false;
-	}	
+	if (g_vic.raster_y == 0x30) {
+		g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
+	}
+
+	if (g_vic.raster_y == 1) {
+		g_vic.vcbase = 0;	// reset on line zero.
+		g_vic.curpixel = 0;
+		vicii_flip(); // switch graphics frames.
+	}
+
+	//
+	// check to see if this is a badline.
+	// (1) display is enabled
+	// (2) beginning of a raster line
+	// (3) between raster line 0x30 and 0xF7
+	// (4) bottom 3 bits of raster_y == the SCROLLY bits in VICII_CR1
+	//
+
+	
+	g_vic.badline = g_vic.den && g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
+		(g_vic.raster_y & 0x7) == (g_vic.regs[VICII_CR1] & 0x7);
+}
+	
+
+
+void vicii_cycle11() {
+
 }
 
+void vicii_cycle12() {
 
-//
-// I like the frodo method of a big switch by cycle. 
-//
+	// * Set BA Low if BadLine 
+	if (g_vic.badline) {
+		g_vic.balow = true;
+	} 
 
-void vicii_update_three() {
-
-	g_vic.cycle++;										// update cycle count.
-	vicii_updateraster();								// update raster x and y and check for raster IRQ
 	
-	switch(g_vic.cycle) {
+}
 
-		
-		// * various setup activities. 
-		case 1: 
-
-			if (g_vic.raster_y == 0x30) {
-				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
-			}
-
-			if (g_vic.raster_y == 1) {
-				g_vic.vcbase = 0;	// reset on line zero.
-				g_vic.curpixel = 0;
-				vicii_flip(); // switch graphics frames.
-			}
+void vicii_cycle13() {
 
 
+}
 
-			//
-			// check to see if this is a badline.
-			// (1) display is enabled
-			// (2) beginning of a raster line
-			// (3) between raster line 0x30 and 0xF7
-			// (4) bottom 3 bits of raster_y == the SCROLLY bits in VICII_CR1
-			//
-			g_vic.badline = g_vic.den && g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
-				(g_vic.raster_y & 0x7) == (g_vic.regs[VICII_CR1] & 0x7);
-		break;
-		case 2: 
-		break;
-		case 3: 
-		break;
-		case 4: 
-		break;
-		case 5: 
-		break;
-		case 6: 
-		break;
-		case 7: 
-		break;
-		case 8: 
-		break;
-		case 9: 
-		break;
-		case 10: 
-		break;
-		case 11:
-		break;
-		// * Set BA Low if BadLine 
-		case 12: 
-			if (g_vic.badline) {
-				g_vic.balow = true;
-			} 
-		break;
-		case 13: 
-		break;
-		// * reset internal indices on cycle 14.
-		case 14: 
-			g_vic.vmli = 0;
-			g_vic.vc = g_vic.vcbase;
+void vicii_cycle14() {
+	
+	// * reset internal indices on cycle 14.
+	 
+	g_vic.vmli = 0;
+	g_vic.vc = g_vic.vcbase;
 
-			if (g_vic.badline) {
-					g_vic.rc = 0;
-			}
-		break;
-		// * start refreshing video matrix if balow.
-		case 15:
-			vicii_caccess();
-			vicii_gaccess();
-			break;
-		case 16:
-			vicii_caccess();
-			vicii_gaccess();
-			break;
-		// turn border off in 40 column display.
-		case 17:
-			if (g_vic.displayleft == VICII_DISPLAY_LEFT_1) {
-				vicii_checkborder();
-			}
-			vicii_caccess();
-			vicii_gaccess();
-		break;
-		// turn border off in 38 column display.
-		case 18:
-			if (g_vic.displayleft == VICII_DISPLAY_LEFT_0) {
-				vicii_checkborder();
-			}
-			vicii_caccess();
-			vicii_gaccess();
-		break;
-		case 19:
-		case 20:
-		case 21:
-		case 22:
-		case 23:
-		case 24:
-		case 25:
-		case 26:
-		case 27:
-		case 28:
-		case 29:
-		case 30:
-		case 31:
-		case 32:
-		case 33:
-		case 34:
-		case 35:
-		case 36:
-		case 37:
-		case 38:
-		case 39:
-		case 40:
-		case 41:
-		case 42:
-		case 43:
-		case 44:
-		case 45:
-		case 46:
-		case 47:
-		case 48:
-		case 49:
-		case 50:
-		case 51:
-		case 52: 
-		case 53: 
-		case 54: 
-			vicii_caccess();
-			vicii_gaccess();
-		break;
-		// * turn off balow because of badline.
-		case 55: 
-			g_vic.balow = false;	
-		break;
-		// * turn on border in 38 column mode.
-		case 56: 
-			if (g_vic.displayright == VICII_DISPLAY_RIGHT_0) {
-				g_vic.mainborder = true;
-			}
-		break;
-		// * turn on border in 40 column mode.
-		case 57:
-			if (g_vic.displayright == VICII_DISPLAY_RIGHT_1) {
-				g_vic.mainborder = true;
-			}
- 
-		break;
-		// * reset vcbase if rc == 7. handle display/idle.
-		case 58: 
-			
-			if (g_vic.rc == 7) {
-				g_vic.vcbase = g_vic.vc;
-				g_vic.idle = true;
-			}
-			if (g_vic.badline || !g_vic.idle) {
-				g_vic.idle = false;
-				g_vic.rc = (g_vic.rc + 1) & 0x7;
-			}
-
-		break;
-		case 59: 
-		break;
-		case 60: 
-		break;
-		case 61: 
-		break;
-		case 62: 
-		break;
-		// * turn on border. 
-		case 63:
-			if (g_vic.raster_y == g_vic.displaybottom) {
-				g_vic.vertborder = true;
-			} 
-			else if (g_vic.den && g_vic.raster_y == g_vic.displaytop) {
-				g_vic.vertborder = false;
-
-			}
-		break;
-		case 64: 
-		break;
-		case 65: 
-		break;
-		default: 
-		break;
+	if (g_vic.badline) {
+		g_vic.idle = false;
+		g_vic.rc = 0;
 	}
 }
+
+
+void vicii_cycle15() {
+
+	vicii_caccess();
+	vicii_gaccess();
+}
+void vicii_cycle16() {
+
+	vicii_caccess();
+	vicii_gaccess();
+}
+
+//
+// * border off?
+//
+void vicii_cycle17() {
+
+
+	// turn border off in 40 column display.
+	if (g_vic.displayleft == VICII_DISPLAY_LEFT_1) {
+		if (g_vic.raster_y == g_vic.displaybottom) {
+			g_vic.vertborder = true;
+		}
+		else if (g_vic.den) {
+			if (g_vic.raster_y == g_vic.displaytop) {
+				g_vic.mainborder = false;
+				g_vic.vertborder = false;
+			}
+			else if (g_vic.vertborder == false) {
+				g_vic.mainborder = false;
+			}
+		}
+		else if (g_vic.vertborder == false) {
+			g_vic.mainborder = false;
+		}
+	}
+
+
+	vicii_caccess();
+	vicii_gaccess();
+}
+
+void vicii_cyclemain() {
+
+	vicii_caccess();
+	vicii_gaccess();
+	printf("cycle %d\n",g_vic.cycle);
+}
+
+void vicii_cycle55() {
+	g_vic.balow = false;
+	
+}	
+
+void vicii_cycle56() {
+	
+}	
+
+void vicii_cycle57() {
+	
+}	
+
+void vicii_cycle58() {
+
+	// * reset vcbase if rc == 7. handle display/idle.
+
+	if (g_vic.rc == 7) {
+		g_vic.vcbase = g_vic.vc;
+		g_vic.idle = true;
+	}
+	if (g_vic.badline || !g_vic.idle) {
+		g_vic.idle = false;
+		g_vic.rc = (g_vic.rc + 1) & 0x7;
+	}
+
+}
+
+void vicii_cycleunused(){}
 
 void vicii_update() {
 
@@ -491,7 +516,9 @@ void vicii_update() {
 	int ticks = sysclock_getlastaddticks();
 
 	for (i = 0; i < ticks; i++) {
-		vicii_update_three();
+		g_vic.cycle++;										// update cycle count.
+		vicii_updateraster();								// update raster x and y and check for raster IRQ
+		g_vic.updatefns[g_vic.cycle]();
 	}
 }
 
@@ -548,8 +575,6 @@ byte vicii_peek(word address) {
 			rval = 0xff;
 		break;
 
-
-
 		default: rval = g_vic.regs[reg];
 	}
 
@@ -586,6 +611,7 @@ void vicii_poke(word address,byte val) {
 				g_vic.displayleft = VICII_DISPLAY_LEFT_0;
 				g_vic.displayright = VICII_DISPLAY_RIGHT_0;
 			}
+		break;
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
 		break;
