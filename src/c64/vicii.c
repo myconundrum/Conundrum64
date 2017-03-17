@@ -18,6 +18,15 @@
 #define VICII_DISPLAY_RIGHT_0 	 		0x14e
 #define VICII_DISPLAY_RIGHT_1  			0x157
 
+
+
+//
+// using frodo limits.
+//
+#define VICII_FIRST_DISPLAY_LINE 0x10
+#define VICII_LAST_DISPLAY_LINE  0xFB
+
+
 typedef struct {
 
 	byte data;
@@ -131,14 +140,15 @@ typedef struct {
 	word  displayright;
 	bool  mainborder;				// these are the two flip flops that control displaying the border.
 	bool  vertborder;
+	bool  displayline;				// if true, we are outside of vblanking lines.
 
 	byte cycle;						// internal cycle count per line.
 
 	//
 	// the current bitmap frame.
 	//
-	byte frame1[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS];	// frame buffers used to display pixel data
-	byte frame2[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS];	
+	byte frame1[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS * 8];	// frame buffers used to display pixel data
+	byte frame2[VICII_SCREEN_WIDTH_PIXELS * VICII_SCREEN_HEIGHT_PIXELS * 8];	
 	word curpixel;			// current index inside the image.
 	byte *curframe;			// current frame being rendered against
 	byte *lastframe;		// last frame rendered.
@@ -251,17 +261,26 @@ void vicii_caccess() {
 	g_vic.data[g_vic.vmli].color 	= vic_peekcolor(g_vic.vc);
 }
 
+
+
 void vicii_gaccess() {
+
 	byte i;
 	byte pixels = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
-
+	byte c;
 
 	for (i = BIT_7;i;i>>=1) {
 
-		g_vic.curframe[g_vic.curpixel] = (i & pixels) ? 
-			(g_vic.data[g_vic.vmli].color & 0xf): 
-			(g_vic.regs[VICII_BACKCOL] & 0xf);
-		g_vic.curpixel++;
+		if (g_vic.vertborder) {
+			c = g_vic.regs[VICII_BACKCOL] & 0xF;
+		}
+		else {
+			c = (i & pixels) ? (g_vic.data[g_vic.vmli].color & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf);
+		}
+		if (g_vic.displayline) {
+			g_vic.curframe[g_vic.curpixel] = c;
+			g_vic.curpixel++;
+		}
 	}
 
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
@@ -272,7 +291,7 @@ void vicii_gaccess() {
 //
 // turn border on/off as needed.
 //
-vicii_checkborder() {
+vicii_checkborderoff() {
 
 	if (g_vic.raster_y == g_vic.displaybottom) {
 		g_vic.vertborder = true;
@@ -304,7 +323,7 @@ void vicii_update_three() {
 		
 		// * various setup activities. 
 		case 1: 
-
+			
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
 			}
@@ -315,7 +334,15 @@ void vicii_update_three() {
 				vicii_flip(); // switch graphics frames.
 			}
 
+			//
+			// Check whether we should skip this line.
+			//
 
+			g_vic.displayline = g_vic.raster_y >= VICII_FIRST_DISPLAY_LINE && 
+				g_vic.raster_y <= VICII_LAST_DISPLAY_LINE;
+			
+
+			g_vic.displayline = true;
 
 			//
 			// check to see if this is a badline.
@@ -324,8 +351,12 @@ void vicii_update_three() {
 			// (3) between raster line 0x30 and 0xF7
 			// (4) bottom 3 bits of raster_y == the SCROLLY bits in VICII_CR1
 			//
+
 			g_vic.badline = g_vic.den && g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
 				(g_vic.raster_y & 0x7) == (g_vic.regs[VICII_CR1] & 0x7);
+
+	
+			
 		break;
 		case 2: 
 		break;
@@ -376,7 +407,7 @@ void vicii_update_three() {
 		// turn border off in 40 column display.
 		case 17:
 			if (g_vic.displayleft == VICII_DISPLAY_LEFT_1) {
-				vicii_checkborder();
+				vicii_checkborderoff();
 			}
 			vicii_caccess();
 			vicii_gaccess();
@@ -384,7 +415,7 @@ void vicii_update_three() {
 		// turn border off in 38 column display.
 		case 18:
 			if (g_vic.displayleft == VICII_DISPLAY_LEFT_0) {
-				vicii_checkborder();
+				vicii_checkborderoff();
 			}
 			vicii_caccess();
 			vicii_gaccess();
