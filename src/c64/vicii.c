@@ -375,6 +375,12 @@ void vicii_update_three() {
 			g_vic.badline = g_vic.den && g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
 				(g_vic.raster_y & 0x7) == (g_vic.regs[VICII_CR1] & 0x7);
 
+			if (g_vic.badline) {
+				g_vic.idle = false;
+			}
+
+
+
 	
 			
 		break;
@@ -426,7 +432,6 @@ void vicii_update_three() {
 			break;
 		// turn border off in 40 column display.
 		case 17:
-
 			vicii_caccess();
 			vicii_gaccess();
 		break;
