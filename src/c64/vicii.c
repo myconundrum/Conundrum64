@@ -152,6 +152,8 @@ typedef struct {
 	word curpixel;			// current index inside the image.
 	byte *curframe;			// current frame being rendered against
 	byte *lastframe;		// last frame rendered.
+	byte lastchar;			// ready to render char
+	byte lastcolor;			// ready to render color
 
 
 	byte frame1[VICII_NTSC_RENDERED_PIXELS_WIDTH * VICII_NTSC_RENDERED_RASTERLINES];	// frame buffers used to display pixel data
@@ -191,7 +193,6 @@ void vicii_updateraster() {
 		g_vic.cycle = 1;
 		g_vic.raster_y++;
 		
-
 		if (g_vic.raster_y == NTSC_LINES) {					//  End of screen, wrap to raster 0. 
 			g_vic.raster_y = 0;
 		}
@@ -257,6 +258,31 @@ byte vic_peekmem(word address) {
 	return mem_peek(g_vic.bank | g_vic.vidmembase | address);
 }
 
+void vicii_drawpixel(byte c) {
+
+	g_vic.curframe[g_vic.curpixel] = c;
+	g_vic.curpixel++;
+}
+
+void vicii_drawgraphics() {
+
+	byte i;
+	byte c;
+	for (i = BIT_7;i;i>>=1) {
+
+		if (g_vic.vertborder) {
+			c = g_vic.regs[VICII_BACKCOL] & 0xF;
+		}
+		else {
+			c = (i & g_vic.lastchar) ? (g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf);
+		} 
+
+		if (g_vic.displayline && g_vic.idle == false) {
+			vicii_drawpixel(c);
+		}
+	}
+
+}
 //
 // read data from memory into vic buffer.
 //
@@ -266,36 +292,19 @@ void vicii_caccess() {
 }
 
 
-
 void vicii_gaccess() {
 
-	byte i;
-	byte pixels = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
-	byte c;
+	if (g_vic.idle) {return;}
 
-	if (g_vic.idle) {
-		return;
-	}
-
-	for (i = BIT_7;i;i>>=1) {
-
-		if (g_vic.vertborder) {
-
-			c = g_vic.regs[VICII_BACKCOL] & 0xF;
-		}
-		else {
-
-			c = (i & pixels) ? (g_vic.data[g_vic.vmli].color & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf);
-
-		} if (g_vic.displayline) {
-			g_vic.curframe[g_vic.curpixel] = c;
-			g_vic.curpixel++;
-		}
-	}
+	g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
+	g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
 
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
 	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
+
 }
+
+
 
 
 //
@@ -329,30 +338,26 @@ vicii_checkborderflipflops() {
 //
 // I like the frodo method of a big switch by cycle. 
 //
-
 void vicii_update_three() {
 
 	g_vic.cycle++;										// update cycle count.
 	vicii_updateraster();								// update raster x and y and check for raster IRQ
 	vicii_checkborderflipflops();
+
 	switch(g_vic.cycle) {
-
-
 		
 		// * various setup activities. 
 		case 1: 
-			
+
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
 			}
 			
 
 			if (g_vic.raster_y == 1) {
-				g_vic.vcbase = 0;	// reset on line zero.
+				g_vic.vcbase = 0;			// reset on line zero.
 				g_vic.curpixel = 0;
-				
-				
-				vicii_flip(); // switch graphics frames.
+				vicii_flip(); 				// switch graphics frames.
 			}
 
 
@@ -378,11 +383,7 @@ void vicii_update_three() {
 			if (g_vic.badline) {
 				g_vic.idle = false;
 			}
-
-
-
-	
-			
+		
 		break;
 		case 2: 
 		break;
@@ -424,21 +425,22 @@ void vicii_update_three() {
 		// * start refreshing video matrix if balow.
 		case 15:
 			vicii_caccess();
-			vicii_gaccess();
+			
 			break;
 		case 16:
-			vicii_caccess();
 			vicii_gaccess();
+			vicii_caccess();
 			break;
 		// turn border off in 40 column display.
 		case 17:
-			vicii_caccess();
+			vicii_drawgraphics();
 			vicii_gaccess();
+			vicii_caccess();
 		break;
-		// turn border off in 38 column display.
 		case 18:
-			vicii_caccess();
+			vicii_drawgraphics();
 			vicii_gaccess();
+			vicii_caccess();
 		break;
 		case 19:
 		case 20:
@@ -475,16 +477,20 @@ void vicii_update_three() {
 		case 51:
 		case 52: 
 		case 53: 
-		case 54: 
-			vicii_caccess();
+		case 54: 			
+			vicii_drawgraphics();
 			vicii_gaccess();
+			vicii_caccess();
 		break;
 		// * turn off balow because of badline.
-		case 55: 
-			g_vic.balow = false;	
+		case 55:
+			g_vic.balow = false;
+			vicii_drawgraphics();
+			vicii_gaccess();	
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
+			vicii_drawgraphics();
 			
 		break;
 		// * turn on border in 40 column mode.
