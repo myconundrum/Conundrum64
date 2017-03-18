@@ -36,11 +36,6 @@ typedef struct {
 
 } VICII_VIDEODATA;
 
-
-
-
-
-
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
 	VICII_S0Y				=0x01,
@@ -115,6 +110,9 @@ typedef struct {
 									// member variables below. 
 	VICII_VIDEODATA data[40];		// copied during badlines.
 	
+	byte lastchar;
+	byte lastcolor;
+	
 	word raster_y;					// raster Y position -- CPU can get this through registers.
 	word raster_irq;				// raster irq compare -- CPU can set this through registers.
 	word raster_x;					// raster x position  -- VIC internal only. 
@@ -156,6 +154,8 @@ typedef struct {
 
 	byte frame1[VICII_NTSC_RENDERED_PIXELS_WIDTH * VICII_NTSC_RENDERED_RASTERLINES];	// frame buffers used to display pixel data
 	byte frame2[VICII_NTSC_RENDERED_PIXELS_WIDTH * VICII_NTSC_RENDERED_RASTERLINES];	
+
+	word linepixels;
 
 } VICII;
 
@@ -243,6 +243,13 @@ byte vic_peekchar(word address) {
 	return rval;
 }
 
+void vicii_drawpixel(byte c) {
+
+	g_vic.curframe[g_vic.curpixel] = c;
+	g_vic.curpixel++;
+	g_vic.linepixels++;
+}
+
 //
 // color always appears at VICII_COLOR_MEM_BASE in VIC space
 //
@@ -254,6 +261,15 @@ byte vic_peekcolor(word address) {
 // memory peeks are determined by the bankswitch in CIA2 and video memory base in the VIC MSR 
 //
 byte vic_peekmem(word address) {
+
+	/*
+	if (g_vic.raster_y>=26 && g_vic.raster_y <=0xf7) {
+	DEBUG_PRINT("scanline %d x %d cycle %d vc %d address %04x \n",
+		g_vic.raster_y,g_vic.raster_x,g_vic.cycle,g_vic.vc,
+		g_vic.bank | g_vic.vidmembase | address);
+
+	}
+	*/
 	return mem_peek(g_vic.bank | g_vic.vidmembase | address);
 }
 
@@ -265,33 +281,47 @@ void vicii_caccess() {
 	g_vic.data[g_vic.vmli].color 	= vic_peekcolor(g_vic.vc);
 }
 
+void vicii_drawborder() {
+/*
+	if (g_vic.displayline) {
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	}
+	*/
+}
 
-
-void vicii_gaccess() {
+void vicii_drawgraphics() {
 
 	byte i;
-	byte pixels = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
 	byte c;
-
-	if (g_vic.idle) {
-		return;
-	}
-
 	for (i = BIT_7;i;i>>=1) {
 
 		if (g_vic.vertborder) {
-
 			c = g_vic.regs[VICII_BACKCOL] & 0xF;
 		}
 		else {
+			c = (i & g_vic.lastchar) ? (g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf);
+		} 
 
-			c = (i & pixels) ? (g_vic.data[g_vic.vmli].color & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf);
-
-		} if (g_vic.displayline) {
-			g_vic.curframe[g_vic.curpixel] = c;
-			g_vic.curpixel++;
+		if (g_vic.displayline && g_vic.idle == false) {
+			vicii_drawpixel(c);
 		}
 	}
+
+}
+
+void vicii_gaccess() {
+
+	if (g_vic.idle) {return;}
+
+	g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
+	g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
 
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
 	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
@@ -325,7 +355,6 @@ vicii_checkborderflipflops() {
 	}
 }
 
-
 //
 // I like the frodo method of a big switch by cycle. 
 //
@@ -337,32 +366,33 @@ void vicii_update_three() {
 	vicii_checkborderflipflops();
 	switch(g_vic.cycle) {
 
-
-		
 		// * various setup activities. 
 		case 1: 
-			
+			g_vic.linepixels = 0;
+
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
 			}
 			
-
 			if (g_vic.raster_y == 1) {
 				g_vic.vcbase = 0;	// reset on line zero.
 				g_vic.curpixel = 0;
 				
-				
 				vicii_flip(); // switch graphics frames.
 			}
 
-
-			//
-			// Check whether we should skip this line.
-			//
-
 			g_vic.displayline = g_vic.raster_y >= VICII_FIRST_DISPLAY_LINE && 
 				g_vic.raster_y <= VICII_LAST_DISPLAY_LINE;
+			
 
+
+			//
+			// Display Enable is set on 0x30.
+			//
+			if (g_vic.raster_y == 0x30 && g_vic.regs[VICII_CR1] & BIT_4) {
+				g_vic.den = true;
+				g_vic.curpixel = 0;
+			}
 			
 			//
 			// check to see if this is a badline.
@@ -371,12 +401,12 @@ void vicii_update_three() {
 			// (3) between raster line 0x30 and 0xF7
 			// (4) bottom 3 bits of raster_y == the SCROLLY bits in VICII_CR1
 			//
+			g_vic.badline = g_vic.den && g_vic.raster_y >= 0x30 && g_vic.raster_y <=0xf7 &&
+				((g_vic.raster_y & 0x7) == (g_vic.regs[VICII_CR1] & 0x7));
 
-			g_vic.badline = g_vic.den && g_vic.raster_y >= 0x30 && g_vic.raster_y <= 0xF7 && 
-				(g_vic.raster_y & 0x7) == (g_vic.regs[VICII_CR1] & 0x7);
-
-	
-			
+			if (g_vic.badline) {
+				g_vic.idle = false;
+			}	
 		break;
 		case 2: 
 		break;
@@ -405,6 +435,7 @@ void vicii_update_three() {
 			} 
 		break;
 		case 13: 
+			vicii_drawborder();
 		break;
 		// * reset internal indices on cycle 14.
 		case 14: 
@@ -414,27 +445,26 @@ void vicii_update_three() {
 			if (g_vic.badline) {
 					g_vic.rc = 0;
 			}
+			vicii_drawborder();
+
 		break;
 		// * start refreshing video matrix if balow.
 		case 15:
+			vicii_drawborder();
 			vicii_caccess();
-			vicii_gaccess();
 			break;
 		case 16:
-			vicii_caccess();
+			vicii_drawborder();
 			vicii_gaccess();
+			vicii_caccess();
 			break;
-		// turn border off in 40 column display.
 		case 17:
-
-			vicii_caccess();
+			vicii_drawborder();
+			vicii_drawgraphics();
 			vicii_gaccess();
+			vicii_caccess();
 		break;
-		// turn border off in 38 column display.
 		case 18:
-			vicii_caccess();
-			vicii_gaccess();
-		break;
 		case 19:
 		case 20:
 		case 21:
@@ -471,23 +501,29 @@ void vicii_update_three() {
 		case 52: 
 		case 53: 
 		case 54: 
-			vicii_caccess();
+			vicii_drawgraphics();
 			vicii_gaccess();
+			vicii_caccess();
 		break;
 		// * turn off balow because of badline.
 		case 55: 
+			vicii_drawgraphics();
 			g_vic.balow = false;	
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
-			
+			vicii_drawborder();
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
+			vicii_drawborder();
 		
 		break;
 		// * reset vcbase if rc == 7. handle display/idle.
 		case 58: 
+
+
+			vicii_drawborder();
 			
 			if (g_vic.rc == 7) {
 				g_vic.vcbase = g_vic.vc;
@@ -500,8 +536,12 @@ void vicii_update_three() {
 
 		break;
 		case 59: 
+
+			vicii_drawborder();
 		break;
 		case 60: 
+
+			vicii_drawborder();
 		break;
 		case 61: 
 		break;

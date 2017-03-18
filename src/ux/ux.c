@@ -299,7 +299,7 @@ void ux_updateScreen() {
 	for (row = 0 ; row < VICII_NTSC_RENDERED_RASTERLINES ; row++) {
 
 		dst = (Uint32*) ((Uint8 *)pixels + row * pitch);
-		for (col = 0; col < VICII_NTSC_RENDERED_PIXELS_WIDTH; col++) {
+		for (col = 0; col < 320 /*VICII_NTSC_RENDERED_PIXELS_WIDTH*/; col++) {
 			*dst++ = (
 				(g_colors[*frame].a << 24)|
 				(g_colors[*frame].r << 16) | 
