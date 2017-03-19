@@ -26,6 +26,11 @@
 #define VICII_NTSC_HEIGHT 							263
 #define VICII_NTSC_RENDERED_RASTERLINES 			235
 
+typedef struct {
+	byte data[VICII_NTSC_HEIGHT][VICII_NTSC_WIDTH];
+} VICII_SCREENFRAME;
+
+
 
 void vicii_init();
 void vicii_update();
@@ -40,6 +45,6 @@ void vicii_poke(word address,byte val);
 
 bool vicii_badline();
 
-byte * vicii_getframe();
+VICII_SCREENFRAME * vicii_getframe();
 
 #endif

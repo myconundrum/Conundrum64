@@ -38,9 +38,6 @@ typedef struct {
 
 
 
-
-
-
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
 	VICII_S0Y				=0x01,
@@ -149,15 +146,12 @@ typedef struct {
 	//
 	// the current bitmap frame.
 	//
-	word curpixel;			// current index inside the image.
-	byte *curframe;			// current frame being rendered against
-	byte *lastframe;		// last frame rendered.
 	byte lastchar;			// ready to render char
 	byte lastcolor;			// ready to render color
 
+	VICII_SCREENFRAME out;
+	word xpos;
 
-	byte frame1[VICII_NTSC_RENDERED_PIXELS_WIDTH * VICII_NTSC_RENDERED_RASTERLINES];	// frame buffers used to display pixel data
-	byte frame2[VICII_NTSC_RENDERED_PIXELS_WIDTH * VICII_NTSC_RENDERED_RASTERLINES];	
 
 } VICII;
 
@@ -171,8 +165,6 @@ void vicii_init() {
 	// e.g. revision number, NTSC, PAL, etc.
 	//
 	g_vic.raster_x = VICII_NTSC_LINE_START_X; // starting X coordinate for an NTSC VICII.
-	g_vic.curframe = g_vic.frame1;
-	g_vic.lastframe = g_vic.frame2;
 
 	g_vic.displaytop 		= VICII_DISPLAY_TOP_0;
 	g_vic.displaybottom 	= VICII_DISPLAY_BOTTOM_0;
@@ -210,9 +202,11 @@ void vicii_updateraster() {
 }
 
 
-byte * vicii_getframe() {
-	return g_vic.lastframe;
+VICII_SCREENFRAME * vicii_getframe() {
+	return &g_vic.out;
 }
+
+/*
 void vicii_flip() {
 
 	byte * t;
@@ -220,6 +214,7 @@ void vicii_flip() {
 	g_vic.lastframe = g_vic.curframe;
 	g_vic.curframe = t;
 }
+*/
 
 
 
@@ -260,26 +255,43 @@ byte vic_peekmem(word address) {
 
 void vicii_drawpixel(byte c) {
 
-	g_vic.curframe[g_vic.curpixel] = c;
-	g_vic.curpixel++;
+	g_vic.out.data[g_vic.raster_y][g_vic.xpos] = c;
+	g_vic.xpos++;
 }
+
+
+void vicii_drawborder() {
+	if (g_vic.displayline) {
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	}
+	
+}
+
 
 void vicii_drawgraphics() {
 
 	byte i;
 	byte c;
+
+	if (!g_vic.displayline) {
+		return;
+	}
+
+	if (g_vic.idle) {
+		vicii_drawborder();
+		return;
+	}
+
 	for (i = BIT_7;i;i>>=1) {
-
-		if (g_vic.vertborder) {
-			c = g_vic.regs[VICII_BACKCOL] & 0xF;
-		}
-		else {
-			c = (i & g_vic.lastchar) ? (g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf);
-		} 
-
-		if (g_vic.displayline && g_vic.idle == false) {
-			vicii_drawpixel(c);
-		}
+		vicii_drawpixel((i & g_vic.lastchar) ? 
+			(g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
 	}
 
 }
@@ -352,12 +364,11 @@ void vicii_update_three() {
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
 			}
-			
+
+			g_vic.xpos = 0;
 
 			if (g_vic.raster_y == 1) {
 				g_vic.vcbase = 0;			// reset on line zero.
-				g_vic.curpixel = 0;
-				vicii_flip(); 				// switch graphics frames.
 			}
 
 
@@ -411,10 +422,12 @@ void vicii_update_three() {
 				g_vic.balow = true;
 			} 
 		break;
-		case 13: 
+		case 13:
+			vicii_drawborder(); 
 		break;
 		// * reset internal indices on cycle 14.
 		case 14: 
+			vicii_drawborder();
 			g_vic.vmli = 0;
 			g_vic.vc = g_vic.vcbase;
 
@@ -424,15 +437,18 @@ void vicii_update_three() {
 		break;
 		// * start refreshing video matrix if balow.
 		case 15:
+			vicii_drawborder();
 			vicii_caccess();
 			
 			break;
 		case 16:
+			vicii_drawborder();
 			vicii_gaccess();
 			vicii_caccess();
 			break;
 		// turn border off in 40 column display.
 		case 17:
+			vicii_drawborder();
 			vicii_drawgraphics();
 			vicii_gaccess();
 			vicii_caccess();
@@ -491,15 +507,17 @@ void vicii_update_three() {
 		// * turn on border in 38 column mode.
 		case 56: 
 			vicii_drawgraphics();
+			//vicii_drawborder();
 			
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
+			//vicii_drawborder();
 		
 		break;
 		// * reset vcbase if rc == 7. handle display/idle.
 		case 58: 
-			
+			//vicii_drawborder();
 			if (g_vic.rc == 7) {
 				g_vic.vcbase = g_vic.vc;
 				g_vic.idle = true;
@@ -511,6 +529,7 @@ void vicii_update_three() {
 
 		break;
 		case 59: 
+			//vicii_drawborder();
 		break;
 		case 60: 
 		break;

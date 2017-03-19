@@ -191,9 +191,9 @@ void ux_init() {
 
 
 	g_ux.wScreen = SDL_CreateWindow ("C64 Screen", 
-    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_SCREEN_WIDTH_PIXELS, VICII_SCREEN_HEIGHT_PIXELS, SDL_WINDOW_SHOWN);
+    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_NTSC_WIDTH, VICII_NTSC_HEIGHT, SDL_WINDOW_SHOWN);
    	g_ux.rScreen = SDL_CreateRenderer(g_ux.wScreen, -1, 0);
-   	g_ux.tScreen = SDL_CreateTexture(g_ux.rScreen, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, VICII_SCREEN_WIDTH_PIXELS, VICII_SCREEN_HEIGHT_PIXELS);
+   	g_ux.tScreen = SDL_CreateTexture(g_ux.rScreen, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, VICII_NTSC_WIDTH, VICII_NTSC_HEIGHT);
 
 	ux_fillDisassembly(cpu_getpc());
 
@@ -284,7 +284,7 @@ void ux_updateConsole() {
 
 void ux_updateScreen() {
 
-	byte * frame = vicii_getframe();
+	VICII_SCREENFRAME *frame = vicii_getframe();
 	void * pixels;
 	int    pitch;
 	Uint32 * dst;
@@ -296,16 +296,15 @@ void ux_updateScreen() {
 		return;
 	}
 
-	for (row = 0 ; row < VICII_NTSC_RENDERED_RASTERLINES ; row++) {
+	for (row = 0 ; row < VICII_NTSC_HEIGHT ; row++) {
 
 		dst = (Uint32*) ((Uint8 *)pixels + row * pitch);
-		for (col = 0; col < 320 /*VICII_NTSC_RENDERED_PIXELS_WIDTH*/; col++) {
+		for (col = 0; col < VICII_NTSC_WIDTH; col++) {
 			*dst++ = (
-				(g_colors[*frame].a << 24)|
-				(g_colors[*frame].r << 16) | 
-				(g_colors[*frame].g << 8) |
-				(g_colors[*frame].b));
-			frame++;
+				(g_colors[frame->data[row][col]].a << 24)|
+				(g_colors[frame->data[row][col]].r << 16) | 
+				(g_colors[frame->data[row][col]].g << 8) |
+				(g_colors[frame->data[row][col]].b));
 		}
 	}
 
