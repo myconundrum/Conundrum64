@@ -274,17 +274,15 @@ void vicii_drawborder() {
 	
 }
 
-
 void vicii_drawgraphics() {
 
 	byte i;
-	byte c;
-
+	
 	if (!g_vic.displayline) {
 		return;
 	}
 
-	if (g_vic.idle) {
+	if (g_vic.mainborder || g_vic.vertborder) {
 		vicii_drawborder();
 		return;
 	}
@@ -293,7 +291,6 @@ void vicii_drawgraphics() {
 		vicii_drawpixel((i & g_vic.lastchar) ? 
 			(g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
 	}
-
 }
 //
 // read data from memory into vic buffer.
@@ -330,7 +327,6 @@ vicii_checkborderflipflops() {
 	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaybottom) {
 		g_vic.vertborder = true;
 	}
-
 	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaytop && g_vic.regs[VICII_CR1] & BIT_4) {
 		g_vic.vertborder = false;
 	}
@@ -423,7 +419,6 @@ void vicii_update_three() {
 			} 
 		break;
 		case 13:
-			vicii_drawborder(); 
 		break;
 		// * reset internal indices on cycle 14.
 		case 14: 
@@ -507,17 +502,17 @@ void vicii_update_three() {
 		// * turn on border in 38 column mode.
 		case 56: 
 			vicii_drawgraphics();
-			//vicii_drawborder();
+			vicii_drawborder();
 			
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
-			//vicii_drawborder();
+			vicii_drawborder();
 		
 		break;
 		// * reset vcbase if rc == 7. handle display/idle.
 		case 58: 
-			//vicii_drawborder();
+			vicii_drawborder();
 			if (g_vic.rc == 7) {
 				g_vic.vcbase = g_vic.vc;
 				g_vic.idle = true;
@@ -529,7 +524,7 @@ void vicii_update_three() {
 
 		break;
 		case 59: 
-			//vicii_drawborder();
+			vicii_drawborder();
 		break;
 		case 60: 
 		break;
