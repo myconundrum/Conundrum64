@@ -9,14 +9,13 @@
 //
 // SCREEN is the 40X25 display grid, does not include border. 
 //
-#define VICII_SCREEN_WIDTH 		320
-#define VICII_SCREEN_HEIGHT 	200
-
-
-#define VICII_NTSC_VBLANK  		16 // 16 lines of vblank.
-
+#define VICII_SCREEN_WIDTH 			320
+#define VICII_SCREEN_HEIGHT 		200
+#define VICII_NTSC_VBLANK  			16 // 16 lines of vblank.
+#define VICII_NTSC_VBLANK_LEFT		96 // n cycles of no drawgraphics.
+#define VICII_NTSC_VBLANK_RIGHT		48
 #define VICII_SCREENFRAME_HEIGHT (VICII_NTSC_HEIGHT - VICII_NTSC_VBLANK)
-#define VICII_SCREENFRAME_WIDTH VICII_NTSC_WIDTH
+#define VICII_SCREENFRAME_WIDTH  (VICII_NTSC_WIDTH  - VICII_NTSC_VBLANK_LEFT - VICII_NTSC_VBLANK_RIGHT) 
 
 
 typedef struct {

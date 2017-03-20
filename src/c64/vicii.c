@@ -317,7 +317,7 @@ vicii_checkborderflipflops() {
 //
 // I like the frodo method of a big switch by cycle. 
 //
-void vicii_update_three() {
+void vicii_main_update() {
 
 	g_vic.cycle++;										// update cycle count.
 	vicii_updateraster();								// update raster x and y and check for raster IRQ
@@ -515,7 +515,7 @@ void vicii_update() {
 	int ticks = sysclock_getlastaddticks();
 
 	for (i = 0; i < ticks; i++) {
-		vicii_update_three();
+		vicii_main_update();
 	}
 }
 
