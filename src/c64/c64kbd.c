@@ -3,7 +3,7 @@ Conundrum 64: Commodore 64 Emulator
 
 MIT License
 
-Copyright (c) 2017 Marc R. Whitten
+Copyright (c) 2017 
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
