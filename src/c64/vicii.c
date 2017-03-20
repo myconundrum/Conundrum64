@@ -241,28 +241,9 @@ void vicii_drawpixel(byte c) {
 	g_vic.xpos++;
 }
 
-word g_fb 	= 0xffff;
-word g_fg 	= 0xffff;
-word g_lb 	= 0xffff;
-word g_lg 	= 0xffff;
-word g_rl 	= 0;
-bool g_lr   = false;
-
 void vicii_drawborder() {
 	
-	if (!g_vic.displayline) {
-		return;
-	}
-
-	if (g_fb == 0xFFFF) {
-		g_fb = g_vic.raster_y;
-	}
-	g_lb = g_vic.raster_y;
-	if (!g_lr) {
-		g_lr = true;
-		g_rl++;
-	}
-
+	if (!g_vic.displayline) {return;}
 	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
 	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
 	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
@@ -277,19 +258,10 @@ void vicii_drawgraphics() {
 
 	byte i;
 	
-	if (!g_vic.displayline) {
-		return;
-	}
-
-	if (g_vic.vertborder) {
-		vicii_drawborder();
-		return;
-	}
+	if (!g_vic.displayline) {return;}
+	if (g_vic.vertborder) {vicii_drawborder();return;}
+	if (g_vic.mainborder) {vicii_drawborder();return;}
 	
-	if (g_fg == 0xFFFF) {
-		g_fg = g_vic.raster_y;
-	}
-	g_lg = g_vic.raster_y;
 	for (i = BIT_7;i;i>>=1) {
 		
 		vicii_drawpixel((i & g_vic.lastchar) ? 
@@ -304,7 +276,6 @@ void vicii_caccess() {
 	g_vic.data[g_vic.vmli].color 	= vic_peekcolor(g_vic.vc);
 }
 
-
 void vicii_gaccess() {
 
 	if (g_vic.idle) {return;}
@@ -317,9 +288,6 @@ void vicii_gaccess() {
 
 }
 
-
-
-
 //
 // all border flip flop logic in this function. May need to be broken into cycles later. 
 //
@@ -329,14 +297,11 @@ vicii_checkborderflipflops() {
 		g_vic.mainborder =  true;
 	}
 	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaybottom) {
-		DEBUG_PRINT("display bottom. %d\n",g_vic.raster_y);
 		g_vic.vertborder = true;
 	}
 	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaytop && g_vic.regs[VICII_CR1] & BIT_4) {
-		DEBUG_PRINT("display top. %d\n",g_vic.raster_y);
 		g_vic.vertborder = false;
 	}
-
 	if (g_vic.raster_x == g_vic.displayleft && g_vic.raster_y == g_vic.displaybottom) {
 		g_vic.vertborder = true;
 	}
@@ -371,17 +336,7 @@ void vicii_update_three() {
 
 			if (g_vic.raster_y == 1) {
 				g_vic.vcbase = 0;			// reset on line zero.
-				DEBUG_PRINT("first border at %d first graphics at %d\n",g_fb,g_fg);
-				DEBUG_PRINT("last border at %d last graphics at %d\n",g_lb,g_lg);
-				DEBUG_PRINT("rendered lines is %d\n",g_rl);
-				g_fg = 0xffff;
-				g_fb = 0xffff;
-				g_lg = 0xffff;
-				g_lb = 0xffff;
-				g_rl = 0;
 			}
-
-			g_lr = false;
 
 			//
 			// Check whether we should skip this line.
@@ -433,10 +388,11 @@ void vicii_update_three() {
 			} 
 		break;
 		case 13:
+			vicii_drawgraphics();
 		break;
 		// * reset internal indices on cycle 14.
 		case 14: 
-			vicii_drawborder();
+			vicii_drawgraphics();
 			g_vic.vmli = 0;
 			g_vic.vc = g_vic.vcbase;
 
@@ -446,19 +402,15 @@ void vicii_update_three() {
 		break;
 		// * start refreshing video matrix if balow.
 		case 15:
-			vicii_drawborder();
+			vicii_drawgraphics();
 			vicii_caccess();
-			
 			break;
 		case 16:
-			vicii_drawborder();
+			vicii_drawgraphics();
 			vicii_gaccess();
 			vicii_caccess();
 			break;
 		case 17:
-			if (g_vic.displayleft == VICII_DISPLAY_LEFT_0) {
-				vicii_drawborder();
-			}
 			vicii_drawgraphics();
 			vicii_gaccess();
 			vicii_caccess();
@@ -517,19 +469,14 @@ void vicii_update_three() {
 		// * turn on border in 38 column mode.
 		case 56: 
 			vicii_drawgraphics();
-			if (g_vic.displayright == VICII_DISPLAY_RIGHT_0) {
-				vicii_drawborder();
-			}
-			
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
-			vicii_drawborder();
-		
+			vicii_drawgraphics();//vicii_drawborder();
 		break;
 		// * reset vcbase if rc == 7. handle display/idle.
 		case 58: 
-			vicii_drawborder();
+			vicii_drawgraphics();//vicii_drawborder();
 			if (g_vic.rc == 7) {
 				g_vic.vcbase = g_vic.vc;
 				g_vic.idle = true;
@@ -540,8 +487,8 @@ void vicii_update_three() {
 			}
 
 		break;
-		case 59: 
-			vicii_drawborder();
+		case 59:
+			vicii_drawgraphics(); 
 		break;
 		case 60: 
 		break;
