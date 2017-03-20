@@ -14,7 +14,7 @@ COMPILER_FLAGS = -w
 LINKER_FLAGS = -lSDL2 -lSDL2_TTF
 
 #OBJ_NAME specifies the name of our exectuable
-OBJ_NAME = emu
+OBJ_NAME = con64
 
 #This is the target that compiles our executable
 all : $(OBJS)

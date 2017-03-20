@@ -1,6 +1,3 @@
-/*
-Conundrum 64: Commodore 64 Emulator
-
 MIT License
 
 Copyright (c) 2017 Marc R. Whitten
@@ -22,24 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
--------------------------------------------------------------------------------
-MODULE: c64.h
-	Commodore 64 "system" source file. Manages initialiation/destruction/update of variouos
-	c64 components.
-
-
-WORK ITEMS:
-
-KNOWN BUGS:
-
-*/
-
-#ifndef C64_H
-#define C64_H
-
-void c64_init();
-void c64_update();
-void c64_destroy();
-
-#endif

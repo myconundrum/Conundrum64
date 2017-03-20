@@ -1,4 +1,45 @@
+/*
+Conundrum 64: Commodore 64 Emulator
+
+MIT License
+
+Copyright (c) 2017 Marc R. Whitten
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+MODULE: ux.c
+SDL based ux source.
+
+
+WORK ITEMS:
+
+KNOWN BUGS:
+
+*/
+
 #include "emu.h"
+#include "cpu.h"
+#include "ux.h"
+#include "vicii.h"
+#include "sysclock.h"
+#include "c64kbd.h"
 
 typedef struct {
 	word address;
@@ -61,14 +102,6 @@ VICII_COLOR g_colors[0x10] = {
 	{0x95, 0x95, 0x95, 0xFF}
 };
 
-
-
-
-
-
-
-
-
 typedef struct {
 
 	//
@@ -101,6 +134,8 @@ typedef struct {
 	bool		passthru;					// send input to c64 if true, otherwise monitor
 	
 	int 		cycles;						// track ux cycles (used for rendering perf)
+
+	char        nameString
 	
 } UX;
 
@@ -114,7 +149,7 @@ void ux_fillDisassembly(word address) {
 	int i;
 	g_ux.discur = 0;
 
-	for (i =0 ; i <  DISLINESCOUNT; i++) {
+	for (i =0 ; i < DISLINESCOUNT; i++) {
 		g_ux.dislines[i].address = address;
 		address += cpu_disassemble(g_ux.dislines[i].buf,address);
 	}
@@ -130,7 +165,7 @@ void ux_handlestep() {
 
 bool ux_running() {return g_ux.running;}
 bool ux_done() {return g_ux.done;}
-
+void ux_startemulator(){g_ux.running = true;}
 
 void ux_handlecommand() {
 
@@ -174,13 +209,16 @@ void ux_handlecommand() {
 
 void ux_init() {
 
+	char buf[255];
+
 	memset(&g_ux,0,sizeof(UX));
     if (SDL_Init (SDL_INIT_EVERYTHING) < 0 ) {
         DEBUG_PRINT( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return;
     }
 
-    g_ux.wMon = SDL_CreateWindow ("Emulator Console", 
+    sprintf(buf,"%s Monitor",emu_getname());
+    g_ux.wMon = SDL_CreateWindow (buf, 
     	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
    	g_ux.rMon = SDL_CreateRenderer(g_ux.wMon, -1, SDL_RENDERER_ACCELERATED);
    	g_ux.font =  FC_CreateFont();
@@ -189,8 +227,7 @@ void ux_init() {
 	SDL_SetRenderDrawColor (g_ux.rMon, 0, 0, 0, 255);
 	FC_LoadFont(g_ux.font, g_ux.rMon, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
 
-
-	g_ux.wScreen = SDL_CreateWindow ("C64 Screen", 
+	g_ux.wScreen = SDL_CreateWindow (emu_getname(), 
     	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT, SDL_WINDOW_SHOWN);
    	g_ux.rScreen = SDL_CreateRenderer(g_ux.wScreen, -1, 0);
    	g_ux.tScreen = SDL_CreateTexture(g_ux.rScreen, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT);
