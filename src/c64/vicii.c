@@ -20,13 +20,7 @@
 
 
 
-
-
-//
-// using frodo limits.
-//
-#define VICII_FIRST_DISPLAY_LINE 0x10
-#define VICII_LAST_DISPLAY_LINE  0xFB
+#define VICII_FIRST_DISPLAY_LINE 16
 
 
 typedef struct {
@@ -206,17 +200,6 @@ VICII_SCREENFRAME * vicii_getframe() {
 	return &g_vic.out;
 }
 
-/*
-void vicii_flip() {
-
-	byte * t;
-	t = g_vic.lastframe;
-	g_vic.lastframe = g_vic.curframe;
-	g_vic.curframe = t;
-}
-*/
-
-
 
 //
 // memory peeks are determined by the bankswitch in CIA2 and char memory base in the VIC MSR 
@@ -254,24 +237,40 @@ byte vic_peekmem(word address) {
 }
 
 void vicii_drawpixel(byte c) {
-
-	g_vic.out.data[g_vic.raster_y][g_vic.xpos] = c;
+	g_vic.out.data[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = c;
 	g_vic.xpos++;
 }
 
+word g_fb 	= 0xffff;
+word g_fg 	= 0xffff;
+word g_lb 	= 0xffff;
+word g_lg 	= 0xffff;
+word g_rl 	= 0;
+bool g_lr   = false;
 
 void vicii_drawborder() {
-	if (g_vic.displayline) {
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-		vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	}
 	
+	if (!g_vic.displayline) {
+		return;
+	}
+
+	if (g_fb == 0xFFFF) {
+		g_fb = g_vic.raster_y;
+	}
+	g_lb = g_vic.raster_y;
+	if (!g_lr) {
+		g_lr = true;
+		g_rl++;
+	}
+
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
 }
 
 void vicii_drawgraphics() {
@@ -282,12 +281,17 @@ void vicii_drawgraphics() {
 		return;
 	}
 
-	if (g_vic.mainborder || g_vic.vertborder) {
+	if (g_vic.vertborder) {
 		vicii_drawborder();
 		return;
 	}
-
+	
+	if (g_fg == 0xFFFF) {
+		g_fg = g_vic.raster_y;
+	}
+	g_lg = g_vic.raster_y;
 	for (i = BIT_7;i;i>>=1) {
+		
 		vicii_drawpixel((i & g_vic.lastchar) ? 
 			(g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
 	}
@@ -325,9 +329,11 @@ vicii_checkborderflipflops() {
 		g_vic.mainborder =  true;
 	}
 	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaybottom) {
+		DEBUG_PRINT("display bottom. %d\n",g_vic.raster_y);
 		g_vic.vertborder = true;
 	}
 	if (g_vic.cycle == 63 && g_vic.raster_y == g_vic.displaytop && g_vic.regs[VICII_CR1] & BIT_4) {
+		DEBUG_PRINT("display top. %d\n",g_vic.raster_y);
 		g_vic.vertborder = false;
 	}
 
@@ -365,17 +371,25 @@ void vicii_update_three() {
 
 			if (g_vic.raster_y == 1) {
 				g_vic.vcbase = 0;			// reset on line zero.
+				DEBUG_PRINT("first border at %d first graphics at %d\n",g_fb,g_fg);
+				DEBUG_PRINT("last border at %d last graphics at %d\n",g_lb,g_lg);
+				DEBUG_PRINT("rendered lines is %d\n",g_rl);
+				g_fg = 0xffff;
+				g_fb = 0xffff;
+				g_lg = 0xffff;
+				g_lb = 0xffff;
+				g_rl = 0;
 			}
 
+			g_lr = false;
 
 			//
 			// Check whether we should skip this line.
 			//
 
-			g_vic.displayline = g_vic.raster_y >= VICII_FIRST_DISPLAY_LINE && 
-				g_vic.raster_y <= VICII_LAST_DISPLAY_LINE;
+			g_vic.displayline = g_vic.raster_y >= VICII_NTSC_VBLANK && 
+				g_vic.raster_y <= NTSC_LINES;
 
-			
 			//
 			// check to see if this is a badline.
 			// (1) display is enabled
@@ -441,9 +455,10 @@ void vicii_update_three() {
 			vicii_gaccess();
 			vicii_caccess();
 			break;
-		// turn border off in 40 column display.
 		case 17:
-			vicii_drawborder();
+			if (g_vic.displayleft == VICII_DISPLAY_LEFT_0) {
+				vicii_drawborder();
+			}
 			vicii_drawgraphics();
 			vicii_gaccess();
 			vicii_caccess();
@@ -502,7 +517,9 @@ void vicii_update_three() {
 		// * turn on border in 38 column mode.
 		case 56: 
 			vicii_drawgraphics();
-			vicii_drawborder();
+			if (g_vic.displayright == VICII_DISPLAY_RIGHT_0) {
+				vicii_drawborder();
+			}
 			
 		break;
 		// * turn on border in 40 column mode.
@@ -649,6 +666,7 @@ void vicii_poke(word address,byte val) {
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
 		break;
+
 		case VICII_MEMSR: 
 			g_vic.regs[reg] = val;
 			g_vic.vidmembase = (val & (BIT_7 | BIT_6 | BIT_5 | BIT_4)) << 6;
