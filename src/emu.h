@@ -59,6 +59,8 @@ KNOWN BUGS:
 
 
 #define DEBUG 1
+#define EMU_DOUBLE_SCREEN 1
+
 
 #if defined(DEBUG) && DEBUG > 0
 

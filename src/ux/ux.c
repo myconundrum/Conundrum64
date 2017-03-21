@@ -239,10 +239,20 @@ ux_init_monitor() {
 }
 
 ux_init_screen() {
+
+	int width = VICII_SCREENFRAME_WIDTH;
+	int height = VICII_SCREENFRAME_HEIGHT;
+
+#ifdef EMU_DOUBLE_SCREEN
+	width *=2;
+	height *=2;
+#endif
+
 	g_ux.screen.window =  SDL_CreateWindow (emu_getname(), 
-    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT, SDL_WINDOW_SHOWN);
+    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
    	g_ux.screen.renderer = SDL_CreateRenderer(g_ux.screen.window, -1, 0);
-   	g_ux.screen.texture = SDL_CreateTexture(g_ux.screen.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT);
+   	g_ux.screen.texture = SDL_CreateTexture(g_ux.screen.renderer, SDL_PIXELFORMAT_ARGB8888, 
+   		SDL_TEXTUREACCESS_STREAMING, width, height);
    	g_ux.screen.id = SDL_GetWindowID(g_ux.screen.window);
 }
 
@@ -348,9 +358,13 @@ void ux_updateScreen() {
 	VICII_SCREENFRAME *frame = vicii_getframe();
 	void * pixels;
 	int    pitch;
-	Uint32 * dst;
 	int 	row;
 	int 	col;
+	Uint32 * dst;
+	Uint32  val;
+#ifdef EMU_DOUBLE_SCREEN
+	Uint32 * dst2;
+#endif 
 
 	if (SDL_LockTexture(g_ux.screen.texture, NULL, &pixels, &pitch) <0) {
 		DEBUG_PRINT("can't lock texure %s!\n",SDL_GetError());
@@ -359,13 +373,28 @@ void ux_updateScreen() {
 
 	for (row = 0 ; row < VICII_SCREENFRAME_HEIGHT ; row++) {
 
-		dst = (Uint32*) ((Uint8 *)pixels + row * pitch);
+#ifdef EMU_DOUBLE_SCREEN
+		dst = (Uint32*) ((Uint8 *)pixels + (row*2) * pitch);
+		dst2 = (Uint32*) ((Uint8 *)pixels + (row*2+1) * pitch);
+#else 
+		dst = (Uint32*) ((Uint8 *)pixels + (row) * pitch);
+#endif 
+
 		for (col = 0; col < VICII_SCREENFRAME_WIDTH; col++) {
-			*dst++ = (
+
+			val = (
 				(g_colors[frame->data[row][col]].a << 24)|
 				(g_colors[frame->data[row][col]].r << 16) | 
 				(g_colors[frame->data[row][col]].g << 8) |
 				(g_colors[frame->data[row][col]].b));
+			
+			*dst++ = val;
+#ifdef EMU_DOUBLE_SCREEN
+			*dst++ = val;
+			*dst2++ = val;
+			*dst2++ = val;
+#endif 
+
 		}
 	}
 
@@ -373,8 +402,6 @@ void ux_updateScreen() {
 	SDL_RenderClear(g_ux.screen.renderer);
 	SDL_RenderCopy(g_ux.screen.renderer, g_ux.screen.texture, NULL, NULL);
 	SDL_RenderPresent(g_ux.screen.renderer);
-
-
 }
 
 bool ux_allWindowsClosed() {
@@ -470,8 +497,6 @@ void ux_update() {
 		g_ux.done = true;
 	}
 }
-
-
 //
 // bugbug not handling shift keys yet.
 //

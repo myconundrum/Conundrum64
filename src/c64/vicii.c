@@ -44,8 +44,8 @@ KNOWN BUGS:
 #define VICII_ICR_SPRITE_SPRITE_INTERRUPT		0b00000100
 #define VICII_ICR_LIGHT_PEN_INTERRUPT			0b00001000 
 
-#define VICII_NTSC_LINE_START_X		0x1A0
-#define VICII_COLOR_MEM_BASE		0xD800
+#define VICII_NTSC_LINE_START_X			0x1A0
+#define VICII_COLOR_MEM_BASE			0xD800
 
 
 #define VICII_DISPLAY_TOP_0 			0x37
@@ -56,7 +56,6 @@ KNOWN BUGS:
 #define VICII_DISPLAY_LEFT_1 			0x20
 #define VICII_DISPLAY_RIGHT_0 	 		0x158
 #define VICII_DISPLAY_RIGHT_1  			0x160
-
 
 
 #define VICII_FIRST_DISPLAY_LINE 16
@@ -139,6 +138,25 @@ typedef enum {
 	VICII_LAST
 } VICII_REG;
 
+
+
+//
+// In this implementation, the three mode bits are combined into the low 3 bits of a mode value. 
+// in the order ECM|BMM|MCM 
+//
+typedef enum {
+
+	VICII_MODE_STANDARD_TEXT 		= 0x0,  		// 0 0 0 	
+	VICII_MODE_MULTICOLOR_TEXT 		= 0x1,  		// 0 0 1 
+	VICII_MODE_STANDARD_BITMAP 		= 0x2, 			// 0 1 0
+	VICII_MODE_MULTICOLOR_BITMAP 	= 0x3, 			// 0 1 1 
+	VICII_MODE_ECM_TEXT				= 0x4,			// 1 0 0 
+	VICII_MODE_INVALID_TEXT 		= 0x5, 			// 1 0 1
+	VICII_MODE_INVALID_BITMAP_1 	= 0x6, 			// 1 1 0
+	VICII_MODE_INVALID_BITMAP_2		= 0x7,			// 1 1 1 
+	VICII_MODE_LAST
+} VICII_GRAPHICS_MODES;
+
 typedef struct {
 
 	byte regs[0x30];				// note some reg read/writes fall through to 
@@ -166,6 +184,14 @@ typedef struct {
 	byte rc;						// (row counter)
 	byte vmli;						// (video matrix line index)
 
+
+	//
+	// graphics mode bits
+	//
+	byte mode;						// takes the BMM, MCM, and ECM bits and turns it into a number between 1 and 8.
+
+
+
 	word  displaytop;				// these are the dimensions of the display window. 
 	word  displaybottom; 			// they are slightly configurable (38 vs 40 columns, 24 vs 25 rows)
 	word  displayleft;				// using vic registers;
@@ -175,6 +201,7 @@ typedef struct {
 	bool  displayline;				// if true, we are outside of vblanking lines.
 
 	byte cycle;						// internal cycle count per line.
+
 
 	//
 	// the current bitmap frame.
@@ -189,6 +216,8 @@ typedef struct {
 } VICII;
 
 VICII g_vic = {0};
+
+
 
 bool vicii_stuncpu() 						{return g_vic.balow;}
 void vicii_init() {
@@ -311,20 +340,33 @@ void vicii_drawgraphics() {
 // read data from memory into vic buffer.
 //
 void vicii_caccess() {
-	g_vic.data[g_vic.vmli].data 	= vic_peekmem(g_vic.vc);
-	g_vic.data[g_vic.vmli].color 	= vic_peekcolor(g_vic.vc);
+
+	switch(g_vic.mode) {
+
+		case VICII_MODE_STANDARD_TEXT:
+			g_vic.data[g_vic.vmli].data 		= vic_peekmem(g_vic.vc);
+			g_vic.data[g_vic.vmli].color 		= vic_peekcolor(g_vic.vc);
+		break;
+		default: break;
+	}
 }
 
 void vicii_gaccess() {
 
 	if (g_vic.idle) {return;}
 
-	g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
-	g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
+	switch(g_vic.mode) {
 
-	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
-	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
-
+		case VICII_MODE_STANDARD_TEXT:
+			g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
+			g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
+			g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
+			g_vic.vc = (g_vic.vc + 1) & 0x3FF;
+		break;
+		case VICII_MODE_MULTICOLOR_TEXT:
+		break;
+		default: break;
+	}
 }
 
 //
@@ -637,6 +679,16 @@ void vicii_poke(word address,byte val) {
 				g_vic.displaytop = VICII_DISPLAY_TOP_0;
 				g_vic.displaybottom = VICII_DISPLAY_BOTTOM_0;
 			}
+
+			// update graphics mode bits.
+			g_vic.mode &= ~(BIT_3 | BIT_2);
+			if (val & BIT_5) {
+				g_vic.mode |= BIT_2;
+			}
+			if (val & BIT_6) {
+				g_vic.mode |= BIT_3;
+			}
+
 		break;
 		case VICII_CR2: 	
 			g_vic.regs[reg] = val;
@@ -649,6 +701,14 @@ void vicii_poke(word address,byte val) {
 				g_vic.displayleft = VICII_DISPLAY_LEFT_0;
 				g_vic.displayright = VICII_DISPLAY_RIGHT_0;
 			}
+
+			
+			g_vic.mode &= ~(BIT_1);
+			if (val & BIT_4) {
+				g_vic.mode |= BIT_1;
+			}
+
+
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
 		break;
