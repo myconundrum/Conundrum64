@@ -104,38 +104,43 @@ VICII_COLOR g_colors[0x10] = {
 
 typedef struct {
 
+	SDL_Window 		* window;
+	FC_Font  		* font;
+	SDL_Renderer    * renderer;
+	SDL_Texture 	* texture;
+	int  			  id;
+
+} UX_WINDOW;
+
+typedef struct {
+
+
 	//
-	// SDL Window structures
+	// window structures for each screen in the emulator.
 	//
-    SDL_Window  	* wMon; 
-    FC_Font 		* font;
-    SDL_Renderer	* rMon;
-    SDL_Window  	* wTextD; 
-    FC_Font 		* fTextD;
-    SDL_Renderer	* rTextD;
+	UX_WINDOW 		mon;
+	UX_WINDOW 		screen;
 
-    SDL_Renderer    * rScreen;
-    SDL_Window      * wScreen;
-    SDL_Texture 	* tScreen;
-
-
-	byte 		curpage;					// current page of memory in monitor.
-	DISLINE		dislines[DISLINESCOUNT];	// disassembled lines.
-	byte 		discur;						// current index of disassembly lines.
+    //
+    // UX state
+    //
+	byte 			curpage;					// current page of memory in monitor.
+	DISLINE			dislines[DISLINESCOUNT];	// disassembled lines.
+	byte 			discur;						// current index of disassembly lines.
 	
-	char 		buf[256];					// captures keyboard input
-	int 		bpos;						// keyboard input buffer position
+	char 			buf[256];					// captures keyboard input
+	int 			bpos;						// keyboard input buffer position
 
-	word		brk_address;				// breakpoint address if brk is set
-	bool		brk; 						// look for breakpoints.
+	word			brk_address;				// breakpoint address if brk is set
+	bool			brk; 						// look for breakpoints.
 	
-	bool 		running;					// c64 is running
-	bool 		done;						// user wishes to quit when true
-	bool		passthru;					// send input to c64 if true, otherwise monitor
+	bool 			running;					// c64 is running
+	bool 			done;						// user wishes to quit when true
+	bool			passthru;					// send input to c64 if true, otherwise monitor
 	
-	int 		cycles;						// track ux cycles (used for rendering perf)
+	int 			cycles;						// track ux cycles (used for rendering perf)
 
-	char        nameString
+	char        	nameString
 	
 } UX;
 
@@ -207,40 +212,59 @@ void ux_handlecommand() {
 }
 
 
+ux_init_monitor() {
+
+	char buf[256];
+
+	sprintf(buf,"%s Monitor",emu_getname());
+
+	g_ux.mon.window 	= SDL_CreateWindow (buf, 
+    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+	g_ux.mon.renderer 	= SDL_CreateRenderer(g_ux.mon.window, -1, SDL_RENDERER_ACCELERATED);
+	g_ux.mon.font 		= FC_CreateFont();
+   	g_ux.mon.id 		= SDL_GetWindowID(g_ux.mon.window);
+
+   	SDL_RenderSetLogicalSize (g_ux.mon.renderer, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT);
+	SDL_SetRenderDrawColor (g_ux.mon.renderer, 0, 0, 0, 255);
+	FC_LoadFont(g_ux.mon.font, g_ux.mon.renderer, 
+		"/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
+
+	//
+	// BUGBUG: When the window is created above with SDL_WINDOW_SHOWN something doesn't init right and
+	// when you later reveal the window it contains garbage. 
+	// Therefore, currently creating the window and then immediately hiding. Seems to work. b
+	//
+	SDL_HideWindow(g_ux.mon.window);
+
+}
+
+ux_init_screen() {
+	g_ux.screen.window =  SDL_CreateWindow (emu_getname(), 
+    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT, SDL_WINDOW_SHOWN);
+   	g_ux.screen.renderer = SDL_CreateRenderer(g_ux.screen.window, -1, 0);
+   	g_ux.screen.texture = SDL_CreateTexture(g_ux.screen.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT);
+   	g_ux.screen.id = SDL_GetWindowID(g_ux.screen.window);
+}
+
 void ux_init() {
 
 	char buf[255];
 
 	memset(&g_ux,0,sizeof(UX));
-    if (SDL_Init (SDL_INIT_EVERYTHING) < 0 ) {
-        DEBUG_PRINT( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return;
-    }
 
-    sprintf(buf,"%s Monitor",emu_getname());
-    g_ux.wMon = SDL_CreateWindow (buf, 
-    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-   	g_ux.rMon = SDL_CreateRenderer(g_ux.wMon, -1, SDL_RENDERER_ACCELERATED);
-   	g_ux.font =  FC_CreateFont();
-
-	SDL_RenderSetLogicalSize (g_ux.rMon, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT);
-	SDL_SetRenderDrawColor (g_ux.rMon, 0, 0, 0, 255);
-	FC_LoadFont(g_ux.font, g_ux.rMon, "/Library/Fonts/Andale Mono.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
-
-	g_ux.wScreen = SDL_CreateWindow (emu_getname(), 
-    	SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT, SDL_WINDOW_SHOWN);
-   	g_ux.rScreen = SDL_CreateRenderer(g_ux.wScreen, -1, 0);
-   	g_ux.tScreen = SDL_CreateTexture(g_ux.rScreen, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, VICII_SCREENFRAME_WIDTH, VICII_SCREENFRAME_HEIGHT);
-
+	ux_init_monitor();
+	ux_init_screen();
 	ux_fillDisassembly(cpu_getpc());
+
+	g_ux.passthru = true;
 
 }
 
 void ux_destroy() {
 
-	FC_FreeFont(g_ux.font);
-    SDL_DestroyWindow (g_ux.wMon);
-    SDL_DestroyWindow (g_ux.wScreen);
+	FC_FreeFont(g_ux.mon.font);
+    SDL_DestroyWindow (g_ux.mon.window);
+    SDL_DestroyWindow (g_ux.screen.window);
     SDL_Quit();
 }
 
@@ -251,7 +275,7 @@ void ux_updateMemory() {
 	char buf[255];
 
 	SDL_Rect r = {MON_SCREEN_WIDTH - 540,40,54*10,16*20};
-	SDL_RenderDrawRect(g_ux.rMon,&r);
+	SDL_RenderDrawRect(g_ux.mon.renderer,&r);
 	
 	for (int i = 0; i < 16; i++) {
 		sprintf(buf,"%02X:%02X:",g_ux.curpage,i*16);
@@ -259,7 +283,7 @@ void ux_updateMemory() {
 			sprintf(buf+6+(j*3)," %02X",
 				mem_peek((g_ux.curpage << 8) | (i*16+j)));
 		}
-		FC_Draw(g_ux.font,g_ux.rMon,MON_SCREEN_WIDTH - 540,40+i*20,buf);
+		FC_Draw(g_ux.mon.font,g_ux.mon.renderer,MON_SCREEN_WIDTH - 540,40+i*20,buf);
 	}
 }
 
@@ -269,18 +293,18 @@ void ux_updateRegisters() {
 	SDL_Rect r = {0,0,MON_SCREEN_WIDTH,40};
 	SDL_Color c = FC_MakeColor(102,255,51,255);
 
-	SDL_RenderDrawRect(g_ux.rMon,&r);
-	FC_Draw (g_ux.font, g_ux.rMon, 0, 0, 
+	SDL_RenderDrawRect(g_ux.mon.renderer,&r);
+	FC_Draw (g_ux.mon.font, g_ux.mon.renderer, 0, 0, 
 		" A:      X:      Y:      Stack:      PC:        Ticks:             Secs: ");
-	FC_Draw(g_ux.font,g_ux.rMon,0,20,"[N]  [V]  [X]  [B]  [D]  [I]  [Z]  [C]  ");
+	FC_Draw(g_ux.mon.font,g_ux.mon.renderer,0,20,"[N]  [V]  [X]  [B]  [D]  [I]  [Z]  [C]  ");
 
-	FC_DrawColor (g_ux.font, g_ux.rMon, 0, 0, c,
+	FC_DrawColor (g_ux.mon.font, g_ux.mon.renderer, 0, 0, c,
 		"   $%02X     $%02X     $%02X         $%02X      $%04X         %010d        %d",
 		cpu_geta(),cpu_getx(),cpu_gety(),cpu_getstack(),cpu_getpc(),
 		sysclock_getticks(),
 		sysclock_getticks() / NTSC_TICKS_PER_SECOND);	
 
-	FC_DrawColor(g_ux.font,g_ux.rMon,0,20,c,"   %d    %d    %d    %d    %d    %d    %d    %d ",
+	FC_DrawColor(g_ux.mon.font,g_ux.mon.renderer,0,20,c,"   %d    %d    %d    %d    %d    %d    %d    %d ",
 		((status & N_FLAG )!= 0),
 		((status & V_FLAG )!= 0),
 		((status & X_FLAG )!= 0),
@@ -296,14 +320,14 @@ void ux_updateDisassembly() {
  	
 	int i;
 	SDL_Rect r = {0,40,260,16*20};
-	SDL_RenderDrawRect(g_ux.rMon,&r);
+	SDL_RenderDrawRect(g_ux.mon.renderer,&r);
 
 	for (i = 0;i<DISLINESCOUNT;i++) {
 		if (g_ux.discur == i) {
-			FC_DrawColor(g_ux.font,g_ux.rMon,0,40+i*20,FC_MakeColor(102,255,51,255),"$%04X:    %s\n",
+			FC_DrawColor(g_ux.mon.font,g_ux.mon.renderer,0,40+i*20,FC_MakeColor(102,255,51,255),"$%04X:    %s\n",
 				g_ux.dislines[i].address,g_ux.dislines[i].buf);
 		} else {
-			FC_Draw(g_ux.font,g_ux.rMon,0,40+i*20,"$%04X:    %s\n",
+			FC_Draw(g_ux.mon.font,g_ux.mon.renderer,0,40+i*20,"$%04X:    %s\n",
 				g_ux.dislines[i].address,g_ux.dislines[i].buf);
 		}
 	}
@@ -313,8 +337,8 @@ void ux_updateDisassembly() {
 void ux_updateConsole() {
 
 	SDL_Rect r = {0,360,MON_SCREEN_WIDTH,20};
-	SDL_RenderDrawRect(g_ux.rMon,&r);
-	FC_Draw(g_ux.font,g_ux.rMon,0,360,g_ux.buf);
+	SDL_RenderDrawRect(g_ux.mon.renderer,&r);
+	FC_Draw(g_ux.mon.font,g_ux.mon.renderer,0,360,g_ux.buf);
 
 }
 
@@ -328,7 +352,7 @@ void ux_updateScreen() {
 	int 	row;
 	int 	col;
 
-	if (SDL_LockTexture(g_ux.tScreen, NULL, &pixels, &pitch) <0) {
+	if (SDL_LockTexture(g_ux.screen.texture, NULL, &pixels, &pitch) <0) {
 		DEBUG_PRINT("can't lock texure %s!\n",SDL_GetError());
 		return;
 	}
@@ -345,13 +369,58 @@ void ux_updateScreen() {
 		}
 	}
 
-	SDL_UnlockTexture(g_ux.tScreen);
-	SDL_RenderClear(g_ux.rScreen);
-	SDL_RenderCopy(g_ux.rScreen, g_ux.tScreen, NULL, NULL);
-	SDL_RenderPresent(g_ux.rScreen);
+	SDL_UnlockTexture(g_ux.screen.texture);
+	SDL_RenderClear(g_ux.screen.renderer);
+	SDL_RenderCopy(g_ux.screen.renderer, g_ux.screen.texture, NULL, NULL);
+	SDL_RenderPresent(g_ux.screen.renderer);
 
 
 }
+
+bool ux_allWindowsClosed() {
+
+	return ((SDL_GetWindowFlags(g_ux.mon.window) & SDL_WINDOW_HIDDEN) &&
+	(SDL_GetWindowFlags(g_ux.screen.window) & SDL_WINDOW_HIDDEN));
+
+}
+
+void ux_handleWindowEvent(SDL_Event * e) {
+
+	switch (e->window.event) {
+		case SDL_WINDOWEVENT_CLOSE:
+			if (e->window.windowID == g_ux.mon.id) {
+				SDL_HideWindow(g_ux.mon.window);
+			} else if (e->window.windowID == g_ux.screen.id) {
+				SDL_HideWindow(g_ux.screen.window);
+			}
+		break;
+		default:
+		break;
+	}
+}
+
+void ux_updateMonitorWindow() {
+
+	if (SDL_GetWindowFlags(g_ux.mon.window) & SDL_WINDOW_SHOWN) {
+		
+		SDL_SetRenderDrawColor (g_ux.mon.renderer, 0, 0, 0, 255);
+		SDL_RenderClear(g_ux.mon.renderer);
+		SDL_SetRenderDrawColor(g_ux.mon.renderer,255,255,255,255);
+		ux_updateRegisters();
+		ux_updateMemory();
+		ux_updateDisassembly();
+		ux_updateConsole();
+		SDL_RenderPresent(g_ux.mon.renderer);
+	}
+}
+
+void ux_updateScreenWindow() {
+
+	if (SDL_GetWindowFlags(g_ux.screen.window) & SDL_WINDOW_SHOWN) {
+		ux_updateScreen();
+	}
+}
+
 void ux_update() {
 
 	char ch;
@@ -370,22 +439,16 @@ void ux_update() {
 	}
 
 	SDL_Event e;
-	SDL_SetRenderDrawColor (g_ux.rMon, 0, 0, 0, 255);
 
-	SDL_RenderClear(g_ux.rMon);
-	SDL_SetRenderDrawColor(g_ux.rMon,255,255,255,255);
-	
-	ux_updateRegisters();
-	ux_updateMemory();
-	ux_updateDisassembly();
-	ux_updateConsole();
-	ux_updateScreen();
-
-	SDL_RenderPresent(g_ux.rMon);
+	ux_updateScreenWindow();
+	ux_updateMonitorWindow();
 
 	while (SDL_PollEvent (&e)) {
 	
 		switch (e.type) {
+			case SDL_WINDOWEVENT:
+				ux_handleWindowEvent(&e);
+				break;
 			case SDL_QUIT: 
 				g_ux.done = true;
 				break;
@@ -398,6 +461,13 @@ void ux_update() {
       		default:
         	break;
     	}
+	}
+
+	//
+	// if all windows have been closed, exit.
+	//
+	if (ux_allWindowsClosed()) {
+		g_ux.done = true;
 	}
 }
 
@@ -501,12 +571,21 @@ void ux_handlec64key(SDL_Event e) {
 	}
 }
 
-void ux_handlepassthru(SDL_Event e) {
+//
+// switch input from monitor to c64 and back, also, bring up monitor if it is not displayed
+//
+void ux_handleMetaCommands(SDL_Event e) {
 
 	if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-		memset(g_ux.buf,0,256);
-		g_ux.bpos = 0;	
-		g_ux.passthru = !g_ux.passthru;
+
+		if (e.key.keysym.mod == KMOD_RSHIFT || e.key.keysym.mod ==KMOD_LSHIFT) {
+			SDL_ShowWindow(g_ux.mon.window);
+		}
+		else {
+			memset(g_ux.buf,0,256);
+			g_ux.bpos = 0;	
+			g_ux.passthru = !g_ux.passthru;
+		}
 	}
 }
 
@@ -515,7 +594,7 @@ void ux_handleKeyPress(SDL_Event e) {
 	//
 	// check to see if we are switching modes between monitor and c64.
 	//
-	ux_handlepassthru(e);
+	ux_handleMetaCommands(e);
 
 	if (g_ux.passthru) {
 		ux_handlec64key(e);

@@ -148,15 +148,15 @@ byte * c64_init_rom(char * name) {
 	return where;
 }
 
-
-
 void c64_init() {
 
 	memset(&g_io,0,sizeof(C64_MAPPED_IO));
+	mem_init();									// init ram
 
-	mem_init();								// init ram
-								// init CIA1 chip for C64 emulator.
 
+	//
+	// Load ROMs and initialize memory maps
+	//
 	g_io.mBankSwitch 	= mem_map(0x0001,0x0001,c64_bankswitchpeek,c64_bankswitchpoke);
 	g_io.rKernal 		= c64_init_rom("asm/901227-03-kernal.bin");
 	g_io.rBasic 		= c64_init_rom("asm/901226-01-basic.bin");
@@ -202,8 +202,7 @@ void c64_update() {
 		//
 		vicii_update();
 		sysclock_addticks(1);
-	}
-	
+	}	
 }
 
 void c64_destroy() {

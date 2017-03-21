@@ -40,8 +40,6 @@ KNOWN BUGS:
 
 #include "emu.h"
 
-
-
 char g_nameString[255];
 char * emu_getname() {return g_nameString;}
 
@@ -56,6 +54,8 @@ int main(int argc, char**argv) {
 
 	c64_init();
 	ux_init();
+
+
 	ux_startemulator();
 	
 	do {
