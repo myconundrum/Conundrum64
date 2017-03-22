@@ -240,6 +240,11 @@ void ux_handlecommand() {
 		if (p) {
 			g_ux.curpage = strtoul(p,NULL,16);
 		}
+	} else if (!strcmp(p,"BAS")) {
+		p = strtok(NULL," ");
+		if (p) {
+			bas_loadfile(p);
+		}
 	}
 }
 

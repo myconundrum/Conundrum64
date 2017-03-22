@@ -358,12 +358,12 @@ void vicii_drawmulticolortext() {
 
 vicii_drawstandardbitmap() {
 
-	byte c0 = g_vic.lastcolor & 0xf;
-	byte c1 = (g_vic.lastcolor & 0xf0) >> 4;
+	byte c0 = g_vic.lastcolor;
+	byte c1 = g_vic.lastcolor  >> 4;
 
 	int i;
 	for (i = BIT_7;i;i>>=1) {	
-		vicii_drawpixel((i & g_vic.lastchar) ? c1 : c0);
+		vicii_drawpixel((i & g_vic.lastchar) ? c1 &0xf: c0 &0xf);
 	}	
 }
 
@@ -378,7 +378,6 @@ void vicii_drawgraphics() {
 		case VICII_MODE_MULTICOLOR_TEXT: 	vicii_drawmulticolortext(); 	break;
 		case VICII_MODE_STANDARD_BITMAP:	vicii_drawstandardbitmap();		break;
 	}
-	
 }
 //
 // read data from memory into vic buffer.
@@ -410,7 +409,7 @@ void vicii_gaccess() {
 			
 		break;
 		case VICII_MODE_STANDARD_BITMAP:
-			g_vic.lastcolor = g_vic.lastchar;
+			g_vic.lastcolor = g_vic.lastchar;  // the 8 bits at a character location describe the 0/1 color for bitmap mode.
 			g_vic.lastchar = vic_peekbitmap((word) g_vic.vc | g_vic.rc);
 		break;
 		default: break;
@@ -765,6 +764,7 @@ void vicii_poke(word address,byte val) {
 		break;
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
+			DEBUG_PRINT("Raster IRQ Set to %d\n",g_vic.raster_irq);
 		break;
 
 		case VICII_MEMSR: 
@@ -772,9 +772,9 @@ void vicii_poke(word address,byte val) {
 			g_vic.vidmembase = (val & (BIT_7 | BIT_6 | BIT_5 | BIT_4)) << 6;
 			g_vic.charmembase = (val & (BIT_1 | BIT_2 | BIT_3)) << 10; 
 			g_vic.bitmapmembase = (val & BIT_3) << 10;
-			DEBUG_PRINT("Video Memory Base: 0x%08X\n",g_vic.vidmembase);
-			DEBUG_PRINT("Character Memory Base: 0x%08X\n",g_vic.charmembase);
-			DEBUG_PRINT("Bitmap Memory Base: 0x%08X\n",g_vic.bitmapmembase);
+			DEBUG_PRINT("Video Memory Base:      0x%04X\n",g_vic.vidmembase);
+			DEBUG_PRINT("Character Memory Base:  0x%04X\n",g_vic.charmembase);
+			DEBUG_PRINT("Bitmap Memory Base:     0x%04X\n",g_vic.bitmapmembase);
 
 
 		break;
