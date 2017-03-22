@@ -173,6 +173,7 @@ typedef struct {
 	word bank;						// Base address for graphics addresses. 
 	word vidmembase;				// video memory offset relative to graphics bank
 	word charmembase;				// char memory offset relative to graphics bank
+	word bitmapmembase;				// Bitmap memory offset.
 
 	//
 	// internal vic counters, side effect of other regiser writes can effect, but not directly accesible.
@@ -288,6 +289,10 @@ byte vic_peekchar(word address) {
 	return rval;
 }
 
+byte vic_peekbitmap(word address) {
+	return mem_peek(g_vic.bank | g_vic.bitmapmembase | address);
+}
+
 //
 // color always appears at VICII_COLOR_MEM_BASE in VIC space
 //
@@ -334,7 +339,6 @@ void vicii_drawmulticolortext() {
 	byte c;
 
 	if (g_vic.lastcolor & BIT_3) { // MC bit is on. 2 bits per pixel mode.
-		printf("in this mode...\n");
 		for (i = 0; i < 4; i++) {
 			switch (g_vic.lastchar & 0b11000000) {
 				case 0b00000000: c = g_vic.regs[VICII_BACKCOL] & 0xf; break;
@@ -352,6 +356,17 @@ void vicii_drawmulticolortext() {
 	}
 }
 
+vicii_drawstandardbitmap() {
+
+	byte c0 = g_vic.lastcolor & 0xf;
+	byte c1 = (g_vic.lastcolor & 0xf0) >> 4;
+
+	int i;
+	for (i = BIT_7;i;i>>=1) {	
+		vicii_drawpixel((i & g_vic.lastchar) ? c1 : c0);
+	}	
+}
+
 void vicii_drawgraphics() {
 
 	if (!g_vic.displayline) {return;}
@@ -359,8 +374,9 @@ void vicii_drawgraphics() {
 	if (g_vic.mainborder) {vicii_drawborder();return;}
 	
 	switch(g_vic.mode) {
-		case VICII_MODE_STANDARD_TEXT: vicii_drawstandardtext(); break;
-		case VICII_MODE_MULTICOLOR_TEXT: vicii_drawmulticolortext(); break;
+		case VICII_MODE_STANDARD_TEXT: 		vicii_drawstandardtext(); 		break;
+		case VICII_MODE_MULTICOLOR_TEXT: 	vicii_drawmulticolortext(); 	break;
+		case VICII_MODE_STANDARD_BITMAP:	vicii_drawstandardbitmap();		break;
 	}
 	
 }
@@ -373,6 +389,7 @@ void vicii_caccess() {
 
 		case VICII_MODE_STANDARD_TEXT:
 		case VICII_MODE_MULTICOLOR_TEXT:
+		case VICII_MODE_STANDARD_BITMAP:
 			g_vic.data[g_vic.vmli].data 		= vic_peekmem(g_vic.vc);
 			g_vic.data[g_vic.vmli].color 		= vic_peekcolor(g_vic.vc);
 		break;
@@ -390,11 +407,16 @@ void vicii_gaccess() {
 		case VICII_MODE_MULTICOLOR_TEXT:
 			g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
 			g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
-			g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
-			g_vic.vc = (g_vic.vc + 1) & 0x3FF;
+			
+		break;
+		case VICII_MODE_STANDARD_BITMAP:
+			g_vic.lastcolor = g_vic.lastchar;
+			g_vic.lastchar = vic_peekbitmap((word) g_vic.vc | g_vic.rc);
 		break;
 		default: break;
 	}
+	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
+	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
 }
 
 //
@@ -749,6 +771,11 @@ void vicii_poke(word address,byte val) {
 			g_vic.regs[reg] = val;
 			g_vic.vidmembase = (val & (BIT_7 | BIT_6 | BIT_5 | BIT_4)) << 6;
 			g_vic.charmembase = (val & (BIT_1 | BIT_2 | BIT_3)) << 10; 
+			g_vic.bitmapmembase = (val & BIT_3) << 10;
+			DEBUG_PRINT("Video Memory Base: 0x%08X\n",g_vic.vidmembase);
+			DEBUG_PRINT("Character Memory Base: 0x%08X\n",g_vic.charmembase);
+			DEBUG_PRINT("Bitmap Memory Base: 0x%08X\n",g_vic.bitmapmembase);
+
 
 		break;
 		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // cannot write to collision registers
