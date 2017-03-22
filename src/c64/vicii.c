@@ -322,19 +322,49 @@ void vicii_drawborder() {
 	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
 }
 
+void vicii_drawstandardtext() {
+	int i;
+	for (i = BIT_7;i;i>>=1) {	
+		vicii_drawpixel((i & g_vic.lastchar) ? 
+			(g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
+	}
+}
+
+void vicii_drawmulticolortext() {
+
+	int i;
+	byte c;
+
+	if (g_vic.lastcolor & BIT_3) { // MC bit is on. 2 bits per pixel mode.
+		
+		for (i = 0; i < 4; i++) {
+			switch (g_vic.lastchar & 0b11000000) {
+				case 0b00000000: c = g_vic.regs[VICII_BACKCOL] & 0xf; break;
+				case 0b01000000: c = g_vic.regs[VICII_EBACKCOL1] & 0xf; break;
+				case 0b10000000: c = g_vic.regs[VICII_EBACKCOL2] & 0xf; break;
+				case 0b11000000: c = g_vic.lastcolor & 0xf; break;
+			}
+			g_vic.lastchar <<= 2;
+			vicii_drawpixel(c);
+			vicii_drawpixel(c);
+		}
+	}
+	else { // MC bit is off, treat like standard text. 1 bit per pixel, with color nibble. 
+		vicii_drawstandardtext();
+	}
+}
+
 void vicii_drawgraphics() {
 
-	byte i;
-	
 	if (!g_vic.displayline) {return;}
 	if (g_vic.vertborder) {vicii_drawborder();return;}
 	if (g_vic.mainborder) {vicii_drawborder();return;}
 	
-	for (i = BIT_7;i;i>>=1) {
-		
-		vicii_drawpixel((i & g_vic.lastchar) ? 
-			(g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
+	switch(g_vic.mode) {
+		case VICII_MODE_STANDARD_TEXT: vicii_drawstandardtext(); break;
+		case VICII_MODE_MULTICOLOR_TEXT: vicii_drawmulticolortext(); break;
 	}
+	
 }
 //
 // read data from memory into vic buffer.
@@ -344,6 +374,7 @@ void vicii_caccess() {
 	switch(g_vic.mode) {
 
 		case VICII_MODE_STANDARD_TEXT:
+		case VICII_MODE_MULTICOLOR_TEXT:
 			g_vic.data[g_vic.vmli].data 		= vic_peekmem(g_vic.vc);
 			g_vic.data[g_vic.vmli].color 		= vic_peekcolor(g_vic.vc);
 		break;
@@ -358,12 +389,11 @@ void vicii_gaccess() {
 	switch(g_vic.mode) {
 
 		case VICII_MODE_STANDARD_TEXT:
+		case VICII_MODE_MULTICOLOR_TEXT:
 			g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
 			g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
 			g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
 			g_vic.vc = (g_vic.vc + 1) & 0x3FF;
-		break;
-		case VICII_MODE_MULTICOLOR_TEXT:
 		break;
 		default: break;
 	}
@@ -702,12 +732,11 @@ void vicii_poke(word address,byte val) {
 				g_vic.displayright = VICII_DISPLAY_RIGHT_0;
 			}
 
-			
 			g_vic.mode &= ~(BIT_1);
 			if (val & BIT_4) {
 				g_vic.mode |= BIT_1;
+				DEBUG_PRINT("Set MCM bit.\n");
 			}
-
 
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 

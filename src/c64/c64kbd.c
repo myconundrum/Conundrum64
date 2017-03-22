@@ -65,9 +65,17 @@ void c64kbd_InitChar(byte ch, byte col, byte row) {
 
 void c64kbd_destroy() {}
 
+void c64kbd_reset() {
+	int i;
+	for (i = 0; i < 8; i++) {
+		g_c64kbd[i] = 0xff;
+	}
+}
+
+
 void c64kbd_init() {
 
-	int i;
+
 
 	c64kbd_InitChar(C64KEY_RUNSTOP,7,ROW_7); // STOP KEY NOT IMPL
 	c64kbd_InitChar('/',6,ROW_7);
@@ -143,9 +151,7 @@ void c64kbd_init() {
 
 	c64kbd_InitChar(0xFF,0,0);
 
-	for (i = 0; i < 8; i++) {
-		g_c64kbd[i] = 0xff;
-	}
+	c64kbd_reset();
 }
 
 
@@ -153,6 +159,7 @@ void c64kbd_init() {
 
 void c64kbd_keyup(byte ch) {
 	g_c64kbd[g_c64KeyboardTable[ch].column] |= g_c64KeyboardTable[ch].row;
+
 }
 void c64kbd_keydown(byte ch) {
 
@@ -163,6 +170,6 @@ void c64kbd_keydown(byte ch) {
 		cpu_nmi();
 	}
 	g_c64kbd[g_c64KeyboardTable[ch].column] &= (~g_c64KeyboardTable[ch].row);
-}
 
+}
 

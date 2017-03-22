@@ -41,6 +41,18 @@ KNOWN BUGS:
 #include "sysclock.h"
 #include "c64kbd.h"
 
+
+
+typedef struct {
+	bool shift;
+	bool control;
+	char ch;
+} UX_C64KEYSTATE;
+
+UX_C64KEYSTATE g_c64keymapping[2000] = {0};
+
+
+
 typedef struct {
 	word address;
 	char buf[32];
@@ -168,6 +180,26 @@ void ux_handlestep() {
 	}
 }
 
+//
+// BUGBUG: Terrible, terrible hack to deal with big numbers in SDLK enum.
+//
+word ux_getcompressedkey(unsigned int key) {
+
+	if (key > 0xFF) {
+		key = 0x100 | (key & 0xFF);
+	}
+	return key;
+}
+
+void ux_mapkey(unsigned int key, char c64key, bool shift, bool control) {
+
+	key = ux_getcompressedkey(key);
+
+	g_c64keymapping[key].ch = c64key;
+	g_c64keymapping[key].shift = shift;
+	g_c64keymapping[key].control = control;
+}
+
 bool ux_running() {return g_ux.running;}
 bool ux_done() {return g_ux.done;}
 void ux_startemulator(){g_ux.running = true;}
@@ -256,6 +288,161 @@ ux_init_screen() {
    	g_ux.screen.id = SDL_GetWindowID(g_ux.screen.window);
 }
 
+void ux_init_c64keymapping() {
+
+	int i; 
+	for (i = 0; i < 2000; i++) {
+		ux_mapkey(i,C64KEY_UNUSED,false,false);
+	}
+
+	// unshifted keys
+	ux_mapkey(SDLK_F12,C64KEY_RUNSTOP,false,false); 
+	ux_mapkey(SDLK_SLASH,'/',false,false);
+	ux_mapkey(SDLK_COMMA,',',false,false);
+	ux_mapkey(SDLK_n,'N',false,false);
+	ux_mapkey(SDLK_v,'V',false,false);
+	ux_mapkey(SDLK_x,'X',false,false);
+	ux_mapkey(SDLK_LSHIFT,C64KEY_LSHIFT,false,false);
+	ux_mapkey(SDLK_DOWN,C64KEY_CURDOWN,false,false);
+
+	ux_mapkey(SDLK_q,'Q',false,false); 
+	ux_mapkey(SDLK_CARET,'^',false,false);
+	ux_mapkey(SDLK_AT,'@',false,false);
+	ux_mapkey(SDLK_o,'O',false,false);
+	ux_mapkey(SDLK_u,'U',false,false);
+	ux_mapkey(SDLK_t,'T',false,false);
+	ux_mapkey(SDLK_e,'E',false,false);
+	ux_mapkey(SDLK_F5,C64KEY_F5,false,false);
+
+	ux_mapkey(SDLK_LALT,C64KEY_C64,false,false); 
+	ux_mapkey(SDLK_EQUALS,'=',false,false);
+	ux_mapkey(SDLK_COLON,':',false,false);
+	ux_mapkey(SDLK_k,'K',false,false);
+	ux_mapkey(SDLK_h,'H',false,false);
+	ux_mapkey(SDLK_f,'F',false,false);
+	ux_mapkey(SDLK_s,'S',false,false);
+	ux_mapkey(SDLK_F3,C64KEY_F3,false,false);
+
+	ux_mapkey(SDLK_SPACE,' ',false,false); 
+	ux_mapkey(SDLK_RSHIFT,C64KEY_RSHIFT,false,false);
+	ux_mapkey(SDLK_PERIOD,'.',false,false);
+	ux_mapkey(SDLK_m,'M',false,false);
+	ux_mapkey(SDLK_b,'B',false,false);
+	ux_mapkey(SDLK_c,'C',false,false);
+	ux_mapkey(SDLK_z,'Z',false,false);
+	ux_mapkey(SDLK_F1,C64KEY_F1,false,false);
+
+	ux_mapkey(SDLK_2,'2',false,false); 
+	ux_mapkey(SDLK_HOME,C64KEY_HOME,false,false);
+	ux_mapkey(SDLK_MINUS,'-',false,false);
+	ux_mapkey(SDLK_0,'0',false,false);
+	ux_mapkey(SDLK_8,'8',false,false);
+	ux_mapkey(SDLK_6,'6',false,false);
+	ux_mapkey(SDLK_4,'4',false,false);
+	ux_mapkey(SDLK_F7,C64KEY_F7,false,false);
+
+	ux_mapkey(SDLK_LCTRL,C64KEY_CTRL,false,false);
+	ux_mapkey(SDLK_SEMICOLON,';',false,false);
+	ux_mapkey(SDLK_l,'L',false,false);
+	ux_mapkey(SDLK_j,'J',false,false);
+	ux_mapkey(SDLK_g,'G',false,false);
+	ux_mapkey(SDLK_d,'D',false,false);
+	ux_mapkey(SDLK_a,'A',false,false);
+	ux_mapkey(SDLK_RIGHT,C64KEY_CURRIGHT,false,false);
+
+	ux_mapkey(SDLK_BACKSPACE,C64KEY_BACK,false,false); 
+	ux_mapkey(SDLK_ASTERISK,'*',false,false);
+	ux_mapkey(SDLK_p,'P',false,false);
+	ux_mapkey(SDLK_i,'I',false,false);
+	ux_mapkey(SDLK_y,'Y',false,false);
+	ux_mapkey(SDLK_r,'R',false,false);
+	ux_mapkey(SDLK_w,'W',false,false);
+	ux_mapkey(SDLK_RETURN,'\n',false,false);
+
+	ux_mapkey(SDLK_1,'1',false,false); 
+	// unmapped. ux_mapkey(C64KEY_POUND,false,false);
+	ux_mapkey(SDLK_PLUS,'+',false,false);
+	ux_mapkey(SDLK_9,'9',false,false);
+	ux_mapkey(SDLK_7,'7',false,false);
+	ux_mapkey(SDLK_5,'5',false,false);
+	ux_mapkey(SDLK_3,'3',false,false);
+	ux_mapkey(SDLK_BACKSPACE,C64KEY_DELETE,false,false);
+
+	// shifted keys
+	ux_mapkey(SDLK_F12,C64KEY_RUNSTOP,true,false); 
+	ux_mapkey(SDLK_QUESTION,'/',true,false);
+	ux_mapkey(SDLK_LESS,',',true,false);
+	//ux_mapkey(SDLK_n,'N',true,false);  GFX
+	//ux_mapkey(SDLK_v,'V',true,false);  GFX
+	//ux_mapkey(SDLK_x,'X',true,false);  GFX
+	//ux_mapkey(SDLK_LSHIFT,C64KEY_LSHIFT,true,false);
+	//ux_mapkey(SDLK_DOWN,C64KEY_CURDOWN,true,false);
+
+	//ux_mapkey(SDLK_q,'Q',true,false); 
+	//ux_mapkey(SDLK_CARET,'^',true,false);
+	//ux_mapkey(SDLK_AT,'@',true,false);
+	//ux_mapkey(SDLK_o,'O',true,false);
+	//ux_mapkey(SDLK_u,'U',true,false);
+	//ux_mapkey(SDLK_t,'T',true,false);
+	//ux_mapkey(SDLK_e,'E',true,false);
+	ux_mapkey(SDLK_F6,C64KEY_F5,true,false);
+
+	//ux_mapkey(SDLK_LALT,C64KEY_C64,true,false); 
+	//ux_mapkey(SDLK_EQUALS,'=',true,false);
+	ux_mapkey(SDLK_LEFTBRACKET,':',true,false);
+	//ux_mapkey(SDLK_k,'K',true,false);
+	//ux_mapkey(SDLK_h,'H',true,false);
+	//ux_mapkey(SDLK_f,'F',true,false);
+	//ux_mapkey(SDLK_s,'S',true,false);
+	ux_mapkey(SDLK_F4,C64KEY_F3,true,false);
+
+	//ux_mapkey(SDLK_SPACE,' ',true,false); 
+	//ux_mapkey(SDLK_RSHIFT,C64KEY_RSHIFT,true,false);
+	ux_mapkey(SDLK_GREATER,'.',true,false);
+	//ux_mapkey(SDLK_m,'M',true,false);
+	//ux_mapkey(SDLK_b,'B',true,false);
+	//ux_mapkey(SDLK_c,'C',true,false);
+	//ux_mapkey(SDLK_z,'Z',true,false);
+	ux_mapkey(SDLK_F2,C64KEY_F1,true,false);
+
+	ux_mapkey(SDLK_QUOTEDBL,'2',true,false); 
+	//ux_mapkey(SDLK_HOME,C64KEY_HOME,true,false);
+	//ux_mapkey(SDLK_MINUS,'-',true,false);
+	//ux_mapkey(SDLK_0,'0',true,false);
+	ux_mapkey(SDLK_LEFTPAREN,'8',true,false);
+	ux_mapkey(SDLK_AMPERSAND,'6',true,false);
+	ux_mapkey(SDLK_DOLLAR,'4',true,false);
+	ux_mapkey(SDLK_F8,C64KEY_F7,true,false);
+
+	//ux_mapkey(SDLK_LCTRL,C64KEY_CTRL,true,false);
+	ux_mapkey(SDLK_RIGHTBRACKET,';',true,false);
+	//ux_mapkey(SDLK_l,'L',true,false);
+	//ux_mapkey(SDLK_j,'J',true,false);
+	//ux_mapkey(SDLK_g,'G',true,false);
+	//ux_mapkey(SDLK_d,'D',true,false);
+	//ux_mapkey(SDLK_a,'A',true,false);
+	ux_mapkey(SDLK_LEFT,C64KEY_CURRIGHT,true,false);
+
+	//ux_mapkey(SDLK_BACKSPACE,C64KEY_BACK,true,false); 
+	//ux_mapkey(SDLK_ASTERISK,'*',true,false);
+	//ux_mapkey(SDLK_p,'P',true,false);
+	//ux_mapkey(SDLK_i,'I',true,false);
+	//ux_mapkey(SDLK_y,'Y',true,false);
+	//ux_mapkey(SDLK_r,'R',true,false);
+	//ux_mapkey(SDLK_w,'W',true,false);
+	//ux_mapkey(SDLK_RETURN,'\n',true,false);
+
+	ux_mapkey(SDLK_EXCLAIM,'1',true,false); 
+	// unmapped. ux_mapkey(C64KEY_POUND,true,false);
+	ux_mapkey(SDLK_PLUS,'+',true,false);
+	ux_mapkey(SDLK_RIGHTPAREN,'9',true,false);
+	ux_mapkey(SDLK_QUOTE,'7',true,false);
+	ux_mapkey(SDLK_PERCENT,'5',true,false);
+	ux_mapkey(SDLK_HASH,'3',true,false);
+	//ux_mapkey(SDLK_DELETE,C64KEY_DELETE,true,false);
+}
+
+
 void ux_init() {
 
 	char buf[255];
@@ -263,7 +450,9 @@ void ux_init() {
 	memset(&g_ux,0,sizeof(UX));
 
 	ux_init_monitor();
-	ux_init_screen();
+	ux_init_screen();	
+	ux_init_c64keymapping();
+
 	ux_fillDisassembly(cpu_getpc());
 
 	g_ux.passthru = true;
@@ -561,38 +750,90 @@ char ux_getasciich(SDL_Keycode code) {
 	return ch;
 }
 
-void ux_handlec64key(SDL_Event e) {
+
+/*
+BUGBUG: Terrible Hack. Should move to textinput events to get correct mapping.
+*/ 
+unsigned int ux_checkshiftedkey(SDL_Event e) {
+
+	unsigned int key = e.key.keysym.sym;
+
+	//
+	// BUGBUG: this shouldn't be necessary, but periodically, SDL is getting
+	// confused on the state of the shift key when hitting shift - '
+	// I don't see other cases of this right now, so hard coding to double quotes
+	// should get fixed at some point.
+	//
+	if (key == SDLK_QUOTE) {
+		key = SDLK_QUOTEDBL;
+	}
 
 
-	char ch = ux_getasciich(e.key.keysym.sym);
-	char oldch;
-	if (!ch) {
-		switch(e.key.keysym.sym) {
-
-		case SDLK_RIGHT: 		ch = C64KEY_CURRIGHT;break;
-		case SDLK_DOWN:  		ch = C64KEY_CURDOWN;break;
-		case SDLK_LEFT:  		ch = C64KEY_CURRIGHT;break;
-		case SDLK_UP:    		ch = C64KEY_CURUP;break;
-		case SDLK_LCTRL: 		ch = C64KEY_CTRL;break;
-		case SDLK_LSHIFT: 		ch = C64KEY_LSHIFT;break;
-		case SDLK_RSHIFT: 		ch = C64KEY_RSHIFT;break;	
-		case SDLK_BACKSPACE: 	ch = C64KEY_DELETE;break;	
-		default:break;
-		}
-	}	
-
-	if (e.key.keysym.mod == KMOD_RSHIFT || e.key.keysym.mod ==KMOD_LSHIFT) {
-		oldch = ch;
-		switch(oldch) {
-			case '\'': ch = '2';break;
-			default:break;
+	if (e.key.keysym.mod & KMOD_SHIFT) {
+		switch(key) {
+			case SDLK_1: 			key = SDLK_EXCLAIM;				break;
+			case SDLK_2: 			key = SDLK_AT;					break;
+			case SDLK_3: 			key = SDLK_HASH;				break;
+			case SDLK_4: 			key = SDLK_DOLLAR;				break;
+			case SDLK_5:	 		key = SDLK_PERCENT;				break;
+			case SDLK_6: 			key = SDLK_CARET;				break;
+			case SDLK_7: 			key = SDLK_AMPERSAND;			break;
+			case SDLK_8: 			key = SDLK_ASTERISK;			break;
+			case SDLK_9: 			key = SDLK_LEFTPAREN;			break;
+			case SDLK_0: 			key = SDLK_RIGHTPAREN;			break;
+			case SDLK_MINUS: 		key = SDLK_UNDERSCORE;			break;
+			case SDLK_EQUALS: 		key = SDLK_PLUS;				break;
+			case SDLK_SEMICOLON: 	key = SDLK_COLON;				break;
+			case SDLK_QUOTE: 		key = SDLK_QUOTEDBL;			break;
+			case SDLK_COMMA: 		key = SDLK_LESS;				break;
+			case SDLK_PERIOD: 		key = SDLK_GREATER;				break;
+			case SDLK_BACKSLASH: 	key = SDLK_QUESTION;			break;
+			
+			default:
+			break;
 		}
 	}
 
-	if (e.type == SDL_KEYDOWN) {
-		c64kbd_keydown(ch);
-	} else {
-		c64kbd_keyup(ch);
+	return key;
+}
+
+void ux_handlec64key(SDL_Event e) {
+
+	unsigned int key = e.key.keysym.sym;
+
+	switch(key) {
+
+		//
+		// ignoring shifts and ctrl for now. These are simulated. 
+		//
+		case SDLK_LCTRL: break;
+		case SDLK_LSHIFT: break;
+		case SDLK_RSHIFT: break;
+		default: 
+			key = ux_checkshiftedkey(e);
+			key = ux_getcompressedkey(key);
+			if (g_c64keymapping[key].ch != C64KEY_UNUSED) {
+
+				if (e.type == SDL_KEYDOWN) {
+					if (g_c64keymapping[key].shift) {
+						c64kbd_keydown(C64KEY_LSHIFT);
+					}
+					if (g_c64keymapping[key].control) {
+						c64kbd_keydown(C64KEY_CTRL);
+					}
+					c64kbd_keydown(g_c64keymapping[key].ch);
+				} else {
+					
+					if (g_c64keymapping[key].shift) {
+						c64kbd_keyup(C64KEY_LSHIFT);
+					}
+					if (g_c64keymapping[key].control) {
+						c64kbd_keyup(C64KEY_CTRL);
+					}
+					c64kbd_keyup(g_c64keymapping[key].ch);
+				}
+			}
+		break;
 	}
 }
 

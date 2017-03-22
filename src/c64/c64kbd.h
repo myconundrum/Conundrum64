@@ -70,6 +70,7 @@ void c64kbd_keydown	(byte ch);
 #define C64KEY_POUND	0xDD
 #define C64KEY_DELETE   0xDE
 #define C64KEY_RESTORE  0xDF
+#define C64KEY_UNUSED   0xFF
 
 
 
