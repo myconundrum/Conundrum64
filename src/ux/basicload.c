@@ -141,11 +141,10 @@ BASICOPCODE g_basicopcodes[] =
 };
 
 
-
-
 word bas_getlinenumber(char *line) {
 
 	char numstr[20];
+	char outline[256];
 	char *p = numstr;
 	int linenum;
 	int i;
@@ -155,8 +154,8 @@ word bas_getlinenumber(char *line) {
 	}
 	*p = 0;
 	linenum = atoi(numstr);
-	strcpy(line,line+strlen(numstr));
-
+	strcpy(outline,line+strlen(numstr));
+	strcpy(line,outline);
 	return linenum;
 }
 
@@ -178,23 +177,39 @@ bool bas_inquotes(char *line,char *substr) {
 	return  false;
 }
 
+void bas_replacesubstrwithop(char * line, char *substrstart, byte length,byte op) {
+
+	char outline[256] = "";
+	char *out = outline;
+	char *in  = line;
+
+	while (in != substrstart) {
+		*out++ = *in++;
+	}
+
+	*out++ = op;
+	in +=  length;
+
+	while (*in) {
+		*out++ = *in++;
+	}
+
+	strcpy(line,outline);
+}
+
 void bas_tokenizeline(char * line) {
 
-	char * start = line;
 	int i = 0; 
 	char * cur;
-	char * p;
 
 	while (g_basicopcodes[i].opcode != 0xCD) {
-		cur = start;
 		do {
-			cur = strstr(cur,g_basicopcodes[i].name);
+			cur = strstr(line,g_basicopcodes[i].name);
 			if (cur) {
 				if(!bas_inquotes(line,cur)) {
-					*cur = g_basicopcodes[i].opcode;
-					strcpy(cur+1,cur+strlen(g_basicopcodes[i].name));
+					bas_replacesubstrwithop(line,cur,strlen(g_basicopcodes[i].name),
+						g_basicopcodes[i].opcode & 0xff );
 				}
-				cur++;
 			}
 		} while (cur);
 		i++;
@@ -209,6 +224,7 @@ void bas_loadfile(char * string) {
 
 	FILE * f;
 	char line[256];
+	char outputline[256];
 	word mem = 0x0800;
 	word link;
 	int i;
@@ -228,6 +244,8 @@ void bas_loadfile(char * string) {
  		if (line[strlen(line)-1] == '\n') {
  			line[strlen(line)-1] = 0;
  		} 
+
+ 		DEBUG_PRINT("tokenizing line: %s\n",line);
  		
  		//
  		// leave room for next record lnk
@@ -238,8 +256,12 @@ void bas_loadfile(char * string) {
  		mem_pokeword(mem,bas_getlinenumber(line));
  		mem+=2;
 
+ 		DEBUG_PRINT("After line number its %s\n",line);
+
  		bas_tokenizeline(line);
+ 		//DEBUG_PRINT("line: %s\n",line);
  		for (i = 0; i < strlen(line);i++) {
+ 			//DEBUG_PRINT("%02x \n",line[i]);
  			mem_poke(mem++,line[i]);
  		}
  		//
