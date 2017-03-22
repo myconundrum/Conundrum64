@@ -69,7 +69,7 @@ FILE * g_debug;
 char * emu_getname();
 
  #define DEBUG_INIT(log) g_debug = fopen(log,"w+")
- #define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "DEBUG: %s:%d:%s(): " fmt, \
+ #define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[%s@%d] %s(): " fmt, \
     __FILE__, __LINE__, __func__, ##args)
  #define DEBUG_DESTROY() fclose(g_debug)
 #else

@@ -43,6 +43,7 @@ KNOWN BUGS:
 byte c64kbd_getrow(byte);
 void c64kbd_init();
 void c64kbd_destroy();
+void c64kbd_reset();
 void c64kbd_keyup	(byte ch);
 void c64kbd_keydown	(byte ch);
 

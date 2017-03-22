@@ -296,7 +296,7 @@ void ux_init_c64keymapping() {
 	}
 
 	// unshifted keys
-	ux_mapkey(SDLK_F12,C64KEY_RUNSTOP,false,false); 
+	ux_mapkey(SDLK_BACKQUOTE,C64KEY_RUNSTOP,false,false); 
 	ux_mapkey(SDLK_SLASH,'/',false,false);
 	ux_mapkey(SDLK_COMMA,',',false,false);
 	ux_mapkey(SDLK_n,'N',false,false);
@@ -434,7 +434,7 @@ void ux_init_c64keymapping() {
 
 	ux_mapkey(SDLK_EXCLAIM,'1',true,false); 
 	// unmapped. ux_mapkey(C64KEY_POUND,true,false);
-	ux_mapkey(SDLK_PLUS,'+',true,false);
+	//ux_mapkey(SDLK_PLUS,'+',true,false);
 	ux_mapkey(SDLK_RIGHTPAREN,'9',true,false);
 	ux_mapkey(SDLK_QUOTE,'7',true,false);
 	ux_mapkey(SDLK_PERCENT,'5',true,false);
@@ -758,17 +758,6 @@ unsigned int ux_checkshiftedkey(SDL_Event e) {
 
 	unsigned int key = e.key.keysym.sym;
 
-	//
-	// BUGBUG: this shouldn't be necessary, but periodically, SDL is getting
-	// confused on the state of the shift key when hitting shift - '
-	// I don't see other cases of this right now, so hard coding to double quotes
-	// should get fixed at some point.
-	//
-	if (key == SDLK_QUOTE) {
-		key = SDLK_QUOTEDBL;
-	}
-
-
 	if (e.key.keysym.mod & KMOD_SHIFT) {
 		switch(key) {
 			case SDLK_1: 			key = SDLK_EXCLAIM;				break;
@@ -797,6 +786,7 @@ unsigned int ux_checkshiftedkey(SDL_Event e) {
 	return key;
 }
 
+
 void ux_handlec64key(SDL_Event e) {
 
 	unsigned int key = e.key.keysym.sym;
@@ -815,6 +805,7 @@ void ux_handlec64key(SDL_Event e) {
 			if (g_c64keymapping[key].ch != C64KEY_UNUSED) {
 
 				if (e.type == SDL_KEYDOWN) {
+
 					if (g_c64keymapping[key].shift) {
 						c64kbd_keydown(C64KEY_LSHIFT);
 					}
@@ -823,6 +814,7 @@ void ux_handlec64key(SDL_Event e) {
 					}
 					c64kbd_keydown(g_c64keymapping[key].ch);
 				} else {
+					/*
 					
 					if (g_c64keymapping[key].shift) {
 						c64kbd_keyup(C64KEY_LSHIFT);
@@ -831,6 +823,12 @@ void ux_handlec64key(SDL_Event e) {
 						c64kbd_keyup(C64KEY_CTRL);
 					}
 					c64kbd_keyup(g_c64keymapping[key].ch);
+					*/
+					//
+					// BUGBUG: terrible hack. But SDL keeps losing shift state every once and a while, and it 
+					// kills the C64 keyboard. Fix this.
+					//
+					c64kbd_reset();
 				}
 			}
 		break;

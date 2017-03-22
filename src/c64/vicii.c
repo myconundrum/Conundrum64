@@ -68,8 +68,6 @@ typedef struct {
 
 } VICII_VIDEODATA;
 
-
-
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
 	VICII_S0Y				=0x01,
@@ -336,7 +334,7 @@ void vicii_drawmulticolortext() {
 	byte c;
 
 	if (g_vic.lastcolor & BIT_3) { // MC bit is on. 2 bits per pixel mode.
-		
+		printf("in this mode...\n");
 		for (i = 0; i < 4; i++) {
 			switch (g_vic.lastchar & 0b11000000) {
 				case 0b00000000: c = g_vic.regs[VICII_BACKCOL] & 0xf; break;
@@ -702,42 +700,47 @@ void vicii_poke(word address,byte val) {
 			g_vic.raster_irq = (g_vic.raster_irq & 0xFF) | (((word) val & BIT_7)<<1) ;
 			// set the vertical screen height
 			if (val & BIT_3) {
+				DEBUG_PRINT("Screen Height is 1\n");
 				g_vic.displaytop = VICII_DISPLAY_TOP_1;
 				g_vic.displaybottom = VICII_DISPLAY_BOTTOM_1;
 			}
 			else {
+				DEBUG_PRINT("Screen Height is 0\n");
 				g_vic.displaytop = VICII_DISPLAY_TOP_0;
 				g_vic.displaybottom = VICII_DISPLAY_BOTTOM_0;
 			}
 
 			// update graphics mode bits.
-			g_vic.mode &= ~(BIT_3 | BIT_2);
+			g_vic.mode &= ~(BIT_2 | BIT_1);
 			if (val & BIT_5) {
-				g_vic.mode |= BIT_2;
+				g_vic.mode |= BIT_1;
 			}
 			if (val & BIT_6) {
-				g_vic.mode |= BIT_3;
+				g_vic.mode |= BIT_2;
 			}
-
+			DEBUG_PRINT("CR1: Graphics Mode is %d\n",g_vic.mode);
 		break;
 		case VICII_CR2: 	
 			g_vic.regs[reg] = val;
 			// set the horizaontal screen width
 			if (val & BIT_3) {
+				DEBUG_PRINT("Screen Width is 1\n");
 				g_vic.displayleft = VICII_DISPLAY_LEFT_1;
 				g_vic.displayright = VICII_DISPLAY_RIGHT_1;
 			}
 			else {
+				DEBUG_PRINT("Screen Width is 0\n");
 				g_vic.displayleft = VICII_DISPLAY_LEFT_0;
 				g_vic.displayright = VICII_DISPLAY_RIGHT_0;
 			}
 
-			g_vic.mode &= ~(BIT_1);
+			g_vic.mode &= ~(BIT_0);
 			if (val & BIT_4) {
-				g_vic.mode |= BIT_1;
-				DEBUG_PRINT("Set MCM bit.\n");
+				g_vic.mode |= BIT_0;
+				
 			}
-
+			DEBUG_PRINT("CR2: Graphics Mode is %d\n",g_vic.mode);
+		break;
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
 		break;
