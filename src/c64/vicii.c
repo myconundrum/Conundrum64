@@ -268,15 +268,9 @@ VICII_SCREENFRAME * vicii_getframe() {
 }
 
 
-//
-// memory peeks are determined by the bankswitch in CIA2 and char memory base in the VIC MSR 
-//
-byte vic_peekchar(word address) {
-
-	word real_address = g_vic.bank | g_vic.charmembase | address;
+byte vic_realpeek(word address) {
 	byte rval;
-
-	switch(real_address & 0xF000) {
+	switch(address & 0xF000) {
 		case 0x1000: // character rom in bank 0
 			rval = c64_charpeek(address & 0xFFF);
 		break;
@@ -284,13 +278,20 @@ byte vic_peekchar(word address) {
 			rval = c64_charpeek(address & 0xFFF);
 		break;
 		default:
-			rval = mem_peek(real_address); 
+			rval = mem_peek(address); 
 	}
 	return rval;
 }
 
+
+
+//
+// memory peeks are determined by the bankswitch in CIA2 and char memory base in the VIC MSR 
+//
+byte vic_peekchar(word address) {return vic_realpeek(g_vic.bank | g_vic.charmembase | address);}
+
 byte vic_peekbitmap(word address) {
-	return mem_peek(g_vic.bank | g_vic.bitmapmembase | address);
+	return vic_realpeek(g_vic.bank | g_vic.bitmapmembase | address);
 }
 
 //
@@ -304,7 +305,7 @@ byte vic_peekcolor(word address) {
 // memory peeks are determined by the bankswitch in CIA2 and video memory base in the VIC MSR 
 //
 byte vic_peekmem(word address) {
-	return mem_peek(g_vic.bank | g_vic.vidmembase | address);
+	return vic_realpeek(g_vic.bank | g_vic.vidmembase | address);
 }
 
 void vicii_drawpixel(byte c) {
