@@ -14,3 +14,11 @@ emu.sublime-workspace
 emu.sublime-project
 
 con64
+
+dasm
+
+asm/raster
+
+asm/rasterlines.asm
+
+a.out

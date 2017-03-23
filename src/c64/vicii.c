@@ -205,8 +205,9 @@ typedef struct {
 	//
 	// the current bitmap frame.
 	//
-	byte lastchar;			// ready to render char
+	byte lastchar;			// ready to render char (or extracolors in bitmap modes)
 	byte lastcolor;			// ready to render color
+	byte lastdata;			// ready to render data pattern
 
 	VICII_SCREENFRAME out;
 	word xpos;
@@ -269,6 +270,7 @@ VICII_SCREENFRAME * vicii_getframe() {
 
 
 byte vic_realpeek(word address) {
+
 	byte rval;
 	switch(address & 0xF000) {
 		case 0x1000: // character rom in bank 0
@@ -288,7 +290,14 @@ byte vic_realpeek(word address) {
 //
 // memory peeks are determined by the bankswitch in CIA2 and char memory base in the VIC MSR 
 //
-byte vic_peekchar(word address) {return vic_realpeek(g_vic.bank | g_vic.charmembase | address);}
+byte vic_peekchar(word address) {
+	if (g_vic.mode != 0x4) {
+		return vic_realpeek(g_vic.bank | g_vic.charmembase | address);
+	}
+	else {
+		return vic_realpeek((g_vic.bank | g_vic.charmembase | address) & 0xF9FF);
+	}
+}
 
 byte vic_peekbitmap(word address) {
 	return vic_realpeek(g_vic.bank | g_vic.bitmapmembase | address);
@@ -357,16 +366,67 @@ void vicii_drawmulticolortext() {
 	}
 }
 
+void vicii_drawmulticolorbitmap() {
+
+	byte c00 = g_vic.regs[VICII_BACKCOL] & 0xf;
+	byte c01 = g_vic.lastchar & 0xf;
+	byte c10 = g_vic.lastchar >> 4;
+	byte c11 = g_vic.lastcolor & 0xf;
+	byte i;
+	byte c;
+
+	for (i = 0; i < 4; i++) {
+		switch (g_vic.lastdata & 0b11000000) {
+			case 0b00000000: c = c00;break;
+			case 0b01000000: c = c01;break;
+			case 0b10000000: c = c10;break;
+			case 0b11000000: c = c11;break;
+		}
+		g_vic.lastdata <<= 2;
+		vicii_drawpixel(c);
+		vicii_drawpixel(c);
+	}
+}
+
 void vicii_drawstandardbitmap() {
 
-	byte c0 = g_vic.lastcolor;
-	byte c1 = g_vic.lastcolor  >> 4;
+	byte c0 = g_vic.lastchar;
+	byte c1 = g_vic.lastchar  >> 4;
 
 	int i;
 	for (i = BIT_7;i;i>>=1) {	
-		vicii_drawpixel((i & g_vic.lastchar) ? c1 &0xf: c0 &0xf);
+		vicii_drawpixel((i & g_vic.lastdata) ? c1 &0xf: c0 &0xf);
 	}	
 }
+
+void vicii_drawecmtext() {
+
+	byte c100 = g_vic.lastcolor & 0xf;
+	byte c000 = g_vic.regs[VICII_BACKCOL] & 0xf; 
+	byte c001 = g_vic.regs[VICII_EBACKCOL1] & 0xf;
+	byte c010 = g_vic.regs[VICII_EBACKCOL2] & 0xf;
+	byte c011 = g_vic.regs[VICII_EBACKCOL3] & 0xf; 
+	byte c;
+	int i;
+
+
+	for (i = BIT_7;i;i>>=1) {	
+		if (i & g_vic.lastchar) { 
+			c = c100;
+		} else {
+			switch (g_vic.lastdata) {
+				case 0x00: c = c000;break;
+				case 0x01: c = c001;break;
+				case 0x10: c = c010;break;
+				case 0x11: c = c011;break;
+			}
+		}
+
+		vicii_drawpixel(c);
+	}
+}
+
+
 
 void vicii_drawgraphics() {
 
@@ -378,11 +438,23 @@ void vicii_drawgraphics() {
 		case VICII_MODE_STANDARD_TEXT: 		vicii_drawstandardtext(); 		break;
 		case VICII_MODE_MULTICOLOR_TEXT: 	vicii_drawmulticolortext(); 	break;
 		case VICII_MODE_STANDARD_BITMAP:	vicii_drawstandardbitmap();		break;
+		case VICII_MODE_MULTICOLOR_BITMAP:	vicii_drawmulticolorbitmap();	break;
+		case VICII_MODE_ECM_TEXT:			vicii_drawecmtext();			break;
 	}
+
+	// BUGBUG: ECM Text not working correctly. 
+	// BUGBUG: Have not implemented "invalid" modes.
+
+
 }
+
+
 //
 // read data from memory into vic buffer.
 //
+
+
+
 void vicii_caccess() {
 
 	switch(g_vic.mode) {
@@ -390,12 +462,16 @@ void vicii_caccess() {
 		case VICII_MODE_STANDARD_TEXT:
 		case VICII_MODE_MULTICOLOR_TEXT:
 		case VICII_MODE_STANDARD_BITMAP:
+		case VICII_MODE_MULTICOLOR_BITMAP:
 			g_vic.data[g_vic.vmli].data 		= vic_peekmem(g_vic.vc);
 			g_vic.data[g_vic.vmli].color 		= vic_peekcolor(g_vic.vc);
 		break;
 		default: break;
 	}
 }
+
+
+
 
 void vicii_gaccess() {
 
@@ -405,18 +481,23 @@ void vicii_gaccess() {
 
 		case VICII_MODE_STANDARD_TEXT:
 		case VICII_MODE_MULTICOLOR_TEXT:
+		case VICII_MODE_ECM_TEXT:
 			g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
 			g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
+			g_vic.lastdata = g_vic.data[g_vic.vmli].data >> 6; // used in ECM mode
 			
 		break;
 		case VICII_MODE_STANDARD_BITMAP:
-			g_vic.lastcolor = g_vic.data[g_vic.vmli].data;  // the 8 bits at a character location describe the 0/1 color for bitmap mode.
-			g_vic.lastchar = vic_peekbitmap(((word) g_vic.vc << 3)| g_vic.rc);
+		case VICII_MODE_MULTICOLOR_BITMAP:
+			g_vic.lastcolor = g_vic.data[g_vic.vmli].color;  
+			g_vic.lastchar = g_vic.data[g_vic.vmli].data;
+			g_vic.lastdata = vic_peekbitmap(((word) g_vic.vc << 3)| g_vic.rc);
 		break;
 		default: break;
 	}
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
 	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
+
 }
 
 //
@@ -445,9 +526,6 @@ vicii_checkborderflipflops() {
 }
 
 
-//
-// I like the frodo method of a big switch by cycle. 
-//
 void vicii_main_update() {
 
 	g_vic.cycle++;										// update cycle count.
