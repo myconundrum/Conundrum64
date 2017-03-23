@@ -159,10 +159,13 @@ typedef enum {
 typedef struct {
 
 	byte pointer;  		// fetched in paccess 	for sprite.
-	byte data;  		// fetched in saccesses for sprite.
-
+	byte data[3];  		// fetched in saccesses for sprite.
+	byte idata;			// index of data byte.
 	byte mc;		
 	byte mcbase;
+
+	bool on;			// if on, we are displaying this sprite.
+	bool dma; 			// if true, we are loading data for this sprite.
 	bool yexpand;	
 
 } VICII_SPRITE;
@@ -174,8 +177,7 @@ typedef struct {
 									// member variables below. 
 
 	VICII_SPRITE sprites[8];		// per sprite data.
-
-
+	
 	VICII_VIDEODATA data[40];		// copied during badlines.
 	
 	word raster_y;					// raster Y position -- CPU can get this through registers.
@@ -349,6 +351,12 @@ void vicii_drawpixel(byte c) {
 	g_vic.xpos++;
 }
 
+
+void vicii_drawpixelat(word row, word col, byte c) {
+	g_vic.out.data[row][col] = c;
+
+}
+
 void vicii_drawborder() {
 	
 	if (!g_vic.displayline) {return;}
@@ -453,6 +461,44 @@ void vicii_drawecmtext() {
 	}
 }
 
+void vicii_drawspritebyte(byte sprite, byte b) {
+
+	byte data = g_vic.sprites[sprite].data[b];
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		vicii_drawpixel((data & 0x80) ?
+		 (g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
+		data <<= 1;
+	}
+}
+
+void vicii_drawsprites() {
+
+	int sprite;
+	int i;
+	int j;
+	byte data;
+	int x; 
+
+	if (!g_vic.displayline) {return;}
+	for (sprite = 0; sprite < 8; sprite++) {
+		
+		if (g_vic.sprites[sprite].on) {
+			for (i = 0; i < 3; i++) {
+				data = g_vic.sprites[sprite].data[i];
+				x = g_vic.regs[VICII_S0X + i*2];
+				for (i = 0; i < 8; i++) {
+					vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
+						(data & 0x80) ?
+		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
+					data <<= 1;
+				}
+			}
+		}
+	}
+}
+
 
 
 void vicii_drawgraphics() {
@@ -478,9 +524,6 @@ void vicii_drawgraphics() {
 //
 // read data from memory into vic buffer.
 //
-
-
-
 void vicii_caccess() {
 
 	g_vic.data[g_vic.vmli].data 		= vicii_peekmem(g_vic.vc);
@@ -517,26 +560,102 @@ void vicii_gaccess() {
 }
 
 //
-// sprite pointer access.
+// sprite pointer access. Always done, even if sprite DMA isn't on.
 //
-void vicii_paccess(byte num) {
-	if (g_vic.regs[VICII_SPRITEEN] & (BIT_0 << num)) {
-		g_vic.sprites[num].pointer = vicii_peekspritepointer(num);
-	}
-} 
+void vicii_paccess(byte num) {g_vic.sprites[num].pointer = vicii_peekspritepointer(num);} 
 
 
 void vicii_saccess(byte num) {
-	if (g_vic.regs[VICII_SPRITEEN] & (BIT_0 << num)) {
-		g_vic.sprites[num].data = vicii_peekspritedata(num);
+	if (g_vic.sprites[num].dma) {
+		g_vic.sprites[num].data[g_vic.sprites[num].idata] = vicii_peekspritedata(num);
 	}
+	g_vic.sprites[num].mc++;
+	g_vic.sprites[num].mc &= 0x3F;
 }	
+
+
+//
+// check to see which sprites should be enabled for this raster line.
+//
+void vicii_checkspritesdma() {
+
+	int i;
+
+	for (i = 0; i < 7; i++) {
+		
+		if (g_vic.sprites[i].on) {
+			continue;
+		}
+
+		if ((g_vic.regs[VICII_SPRITEEN] & (0x1 << i)) && 
+			g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
+			g_vic.sprites[i].dma = true;
+			g_vic.sprites[i].mcbase = 0;
+			//
+			// BUGBUG also handle Y expansion here.
+			//
+		}
+	}
+}
+
+/* 
+
+This debuggging addendum supercedes rules 7 and 8 from the text. Pulled from vice source.
+
+
+-------------
+Rules 7 and 8 in the article section 3.8.1 do not cover sprite crunch in full.
+A more accurate replacement for both rules:
+
+7. In the first phase of cycle 16, it is checked if the expansion flip flop
+   is set. If so, MCBASE load from MC (MC->MCBASE), unless the CPU cleared
+   the Y expansion bit in $d017 in the second phase of cycle 15, in which case
+   MCBASE is set to X = (101010 & (MCBASE & MC)) | (010101 & (MCBASE | MC)).
+   After the MCBASE update, the VIC checks if MCBASE is equal to 63 and turns
+   off the DMA of the sprite if it is.
+
+Note: The original rule 8 mentions turning the display of the sprite off
+if MCBASE is equal to 63. If this were true, then the last line of the sprite
+would not be displayed beyond coordinates corresponsing to cycle 16.
+The above rewritten rule corrects this. The actual disabling of sprite display
+is likely handled during the first phase of cycle 58 (see rule 4).
+
+
+*/
+
+//
+// BUGBUG: Not handling the cpu clear in the second phase of cycle 15 yet.
+//
+
+void vicii_checkspritesdmaoff() {
+
+ 	int i;
+
+ 	for (i = 0; i < 8; i++) {
+ 		if (g_vic.regs[VICII_SPRITEDH] & (0x1 << i)) {
+ 			g_vic.sprites[i].mcbase = g_vic.sprites[i].mc;
+ 		}
+ 		if (g_vic.sprites[i].mcbase = 63) {
+ 			g_vic.sprites[i].dma = false;
+ 		}
+ 	}
+}
+
+void vicii_checkspriteson() {
+
+ 	int i;
+
+ 	for (i = 0; i < 8; i++) {
+ 		g_vic.sprites[i].mc = g_vic.sprites[i].mcbase;
+ 		g_vic.sprites[i].on = g_vic.sprites[i].dma && g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF); 
+ 	}
+}
 
 
 //
 // all border flip flop logic in this function. May need to be broken into cycles later. 
 //
-vicii_checkborderflipflops() {
+void vicii_checkborderflipflops() {
 
 	if (g_vic.raster_x == g_vic.displayright)  {
 		g_vic.mainborder =  true;
@@ -727,18 +846,20 @@ void vicii_main_update() {
 			g_vic.balow = false;
 			vicii_drawgraphics();
 			vicii_gaccess();	
+			vicii_checkspritesdma();
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
 			vicii_drawgraphics();
+			vicii_checkspritesdma();
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
-			vicii_drawgraphics();//vicii_drawborder();
+			vicii_drawgraphics();
 		break;
 		// * reset vcbase if rc == 7. handle display/idle.
 		case 58: 
-			vicii_drawgraphics();//vicii_drawborder();
+			vicii_drawgraphics();
 			if (g_vic.rc == 7) {
 				g_vic.vcbase = g_vic.vc;
 				g_vic.idle = true;
@@ -747,12 +868,14 @@ void vicii_main_update() {
 				g_vic.idle = false;
 				g_vic.rc = (g_vic.rc + 1) & 0x7;
 			}
+			vicii_checkspriteson();
 
 		break;
 		case 59:
 			vicii_drawgraphics(); 
 		break;
 		case 60: 
+			vicii_drawsprites();
 			vicii_paccess(0);
 			vicii_saccess(0);
 		break;
@@ -918,8 +1041,17 @@ void vicii_poke(word address,byte val) {
 			DEBUG_PRINT("Video Memory Base:      0x%04X\n",g_vic.vidmembase);
 			DEBUG_PRINT("Character Memory Base:  0x%04X\n",g_vic.charmembase);
 			DEBUG_PRINT("Bitmap Memory Base:     0x%04X\n",g_vic.bitmapmembase);
-
-
+		break;
+		case VICII_SPRITEEN:
+			g_vic.regs[reg] = val;
+			DEBUG_PRINTIF(val & 0x01,"Sprite 0 enabled.\n");
+			DEBUG_PRINTIF(val & 0x02,"Sprite 1 enabled.\n");
+			DEBUG_PRINTIF(val & 0x04,"Sprite 2 enabled.\n");
+			DEBUG_PRINTIF(val & 0x08,"Sprite 3 enabled.\n");
+			DEBUG_PRINTIF(val & 0x10,"Sprite 4 enabled.\n");
+			DEBUG_PRINTIF(val & 0x20,"Sprite 5 enabled.\n");
+			DEBUG_PRINTIF(val & 0x40,"Sprite 6 enabled.\n");
+			DEBUG_PRINTIF(val & 0x80,"Sprite 7 enabled.\n");
 		break;
 		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // cannot write to collision registers
 		break;
