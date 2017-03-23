@@ -90,7 +90,7 @@ typedef enum {
 	VICII_RASTER			=0x12, // Current Raster position / Also latches Raster Interrupt Compare
 	VICII_PENX				=0x13, // Light Pen X
 	VICII_PENY				=0x14, // Light Pen Y
-	VICII_SPRITEN			=0x15, // Sprite Enabled bit by bit
+	VICII_SPRITEEN			=0x15, // Sprite Enabled bit by bit
 	VICII_CR2				=0x16, // Screen Control Register #2 
 	VICII_SPRITEDH			=0x17, // Double Sprite Height, bit by bit 
 	VICII_MEMSR				=0x18, // Memory Setup Register
@@ -155,10 +155,27 @@ typedef enum {
 	VICII_MODE_LAST
 } VICII_GRAPHICS_MODES;
 
+
+typedef struct {
+
+	byte pointer;  		// fetched in paccess 	for sprite.
+	byte data;  		// fetched in saccesses for sprite.
+
+	byte mc;		
+	byte mcbase;
+	bool yexpand;	
+
+} VICII_SPRITE;
+
+
 typedef struct {
 
 	byte regs[0x30];				// note some reg read/writes fall through to 
 									// member variables below. 
+
+	VICII_SPRITE sprites[8];		// per sprite data.
+
+
 	VICII_VIDEODATA data[40];		// copied during badlines.
 	
 	word raster_y;					// raster Y position -- CPU can get this through registers.
@@ -269,7 +286,7 @@ VICII_SCREENFRAME * vicii_getframe() {
 }
 
 
-byte vic_realpeek(word address) {
+byte vicii_realpeek(word address) {
 
 	byte rval;
 	switch(address & 0xF000) {
@@ -290,31 +307,41 @@ byte vic_realpeek(word address) {
 //
 // memory peeks are determined by the bankswitch in CIA2 and char memory base in the VIC MSR 
 //
-byte vic_peekchar(word address) {
+byte vicii_peekchar(word address) {
 	if (g_vic.mode != 0x4) {
-		return vic_realpeek(g_vic.bank | g_vic.charmembase | address);
+		return vicii_realpeek(g_vic.bank | g_vic.charmembase | address);
 	}
 	else {
-		return vic_realpeek((g_vic.bank | g_vic.charmembase | address) & 0xF9FF);
+		return vicii_realpeek((g_vic.bank | g_vic.charmembase | address) & 0xF9FF);
 	}
 }
 
-byte vic_peekbitmap(word address) {
-	return vic_realpeek(g_vic.bank | g_vic.bitmapmembase | address);
+byte vicii_peekbitmap(word address) {
+	return vicii_realpeek(g_vic.bank | g_vic.bitmapmembase | address);
 }
 
 //
 // color always appears at VICII_COLOR_MEM_BASE in VIC space
 //
-byte vic_peekcolor(word address) {
+byte vicii_peekcolor(word address) {
 	return mem_peek(VICII_COLOR_MEM_BASE | address);	
+}
+
+byte vicii_peekspritepointer(word address) {
+
+	return vicii_realpeek(g_vic.bank | g_vic.vidmembase | address | 0x3F8);
+}
+
+byte vicii_peekspritedata(word address) {
+
+	return vicii_realpeek(g_vic.bank | ((word)g_vic.sprites[address].pointer) << 6 | address);
 }
 
 //
 // memory peeks are determined by the bankswitch in CIA2 and video memory base in the VIC MSR 
 //
-byte vic_peekmem(word address) {
-	return vic_realpeek(g_vic.bank | g_vic.vidmembase | address);
+byte vicii_peekmem(word address) {
+	return vicii_realpeek(g_vic.bank | g_vic.vidmembase | address);
 }
 
 void vicii_drawpixel(byte c) {
@@ -444,8 +471,7 @@ void vicii_drawgraphics() {
 
 	// BUGBUG: ECM Text not working correctly. 
 	// BUGBUG: Have not implemented "invalid" modes.
-
-
+	// BUGBUG: Not properly handling idle access gfx.
 }
 
 
@@ -457,20 +483,10 @@ void vicii_drawgraphics() {
 
 void vicii_caccess() {
 
-	switch(g_vic.mode) {
-
-		case VICII_MODE_STANDARD_TEXT:
-		case VICII_MODE_MULTICOLOR_TEXT:
-		case VICII_MODE_STANDARD_BITMAP:
-		case VICII_MODE_MULTICOLOR_BITMAP:
-			g_vic.data[g_vic.vmli].data 		= vic_peekmem(g_vic.vc);
-			g_vic.data[g_vic.vmli].color 		= vic_peekcolor(g_vic.vc);
-		break;
-		default: break;
-	}
+	g_vic.data[g_vic.vmli].data 		= vicii_peekmem(g_vic.vc);
+	g_vic.data[g_vic.vmli].color 		= vicii_peekcolor(g_vic.vc);
+		
 }
-
-
 
 
 void vicii_gaccess() {
@@ -482,7 +498,7 @@ void vicii_gaccess() {
 		case VICII_MODE_STANDARD_TEXT:
 		case VICII_MODE_MULTICOLOR_TEXT:
 		case VICII_MODE_ECM_TEXT:
-			g_vic.lastchar = vic_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
+			g_vic.lastchar = vicii_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
 			g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
 			g_vic.lastdata = g_vic.data[g_vic.vmli].data >> 6; // used in ECM mode
 			
@@ -491,7 +507,7 @@ void vicii_gaccess() {
 		case VICII_MODE_MULTICOLOR_BITMAP:
 			g_vic.lastcolor = g_vic.data[g_vic.vmli].color;  
 			g_vic.lastchar = g_vic.data[g_vic.vmli].data;
-			g_vic.lastdata = vic_peekbitmap(((word) g_vic.vc << 3)| g_vic.rc);
+			g_vic.lastdata = vicii_peekbitmap(((word) g_vic.vc << 3)| g_vic.rc);
 		break;
 		default: break;
 	}
@@ -499,6 +515,23 @@ void vicii_gaccess() {
 	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
 
 }
+
+//
+// sprite pointer access.
+//
+void vicii_paccess(byte num) {
+	if (g_vic.regs[VICII_SPRITEEN] & (BIT_0 << num)) {
+		g_vic.sprites[num].pointer = vicii_peekspritepointer(num);
+	}
+} 
+
+
+void vicii_saccess(byte num) {
+	if (g_vic.regs[VICII_SPRITEEN] & (BIT_0 << num)) {
+		g_vic.sprites[num].data = vicii_peekspritedata(num);
+	}
+}	
+
 
 //
 // all border flip flop logic in this function. May need to be broken into cycles later. 
@@ -568,25 +601,45 @@ void vicii_main_update() {
 			if (g_vic.badline) {
 				g_vic.idle = false;
 			}
-		
+
+			vicii_paccess(3);
+			vicii_saccess(3);
 		break;
 		case 2: 
+			vicii_saccess(3);
+			vicii_saccess(3);
 		break;
 		case 3: 
+			vicii_paccess(4);
+			vicii_saccess(4);
 		break;
 		case 4: 
+			vicii_saccess(4);
+			vicii_saccess(4);
 		break;
 		case 5: 
+			vicii_paccess(5);
+			vicii_saccess(5);
 		break;
 		case 6: 
+			vicii_saccess(5);
+			vicii_saccess(5);
 		break;
 		case 7: 
+			vicii_paccess(6);
+			vicii_saccess(6);
 		break;
-		case 8: 
+		case 8:
+			vicii_saccess(6);
+			vicii_saccess(6); 
 		break;
 		case 9: 
+			vicii_paccess(7);
+			vicii_saccess(7);
 		break;
 		case 10: 
+			vicii_saccess(7);
+			vicii_saccess(7);
 		break;
 		case 11:
 		break;
@@ -700,18 +753,29 @@ void vicii_main_update() {
 			vicii_drawgraphics(); 
 		break;
 		case 60: 
+			vicii_paccess(0);
+			vicii_saccess(0);
 		break;
 		case 61: 
+			vicii_saccess(0);
+			vicii_saccess(0);
 		break;
 		case 62: 
+			vicii_paccess(1);
+			vicii_saccess(1);
 		break;
 		// * turn on border. 
 		case 63:
-
+			vicii_saccess(1);
+			vicii_saccess(1);
 		break;
 		case 64: 
+			vicii_paccess(2);
+			vicii_saccess(2);
 		break;
 		case 65: 
+			vicii_saccess(2);
+			vicii_saccess(2);
 		break;
 		default: 
 		break;
