@@ -297,7 +297,7 @@ byte vic_peekbitmap(word address) {
 // color always appears at VICII_COLOR_MEM_BASE in VIC space
 //
 byte vic_peekcolor(word address) {
-	return mem_peek(VICII_COLOR_MEM_BASE | g_vic.vc);	
+	return mem_peek(VICII_COLOR_MEM_BASE | address);	
 }
 
 //
@@ -356,7 +356,7 @@ void vicii_drawmulticolortext() {
 	}
 }
 
-vicii_drawstandardbitmap() {
+void vicii_drawstandardbitmap() {
 
 	byte c0 = g_vic.lastcolor;
 	byte c1 = g_vic.lastcolor  >> 4;
@@ -409,8 +409,8 @@ void vicii_gaccess() {
 			
 		break;
 		case VICII_MODE_STANDARD_BITMAP:
-			g_vic.lastcolor = g_vic.lastchar;  // the 8 bits at a character location describe the 0/1 color for bitmap mode.
-			g_vic.lastchar = vic_peekbitmap((word) g_vic.vc | g_vic.rc);
+			g_vic.lastcolor = g_vic.data[g_vic.vmli].data;  // the 8 bits at a character location describe the 0/1 color for bitmap mode.
+			g_vic.lastchar = vic_peekbitmap(((word) g_vic.vc << 3)| g_vic.rc);
 		break;
 		default: break;
 	}
