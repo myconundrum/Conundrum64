@@ -256,12 +256,8 @@ void bas_loadfile(char * string) {
  		mem_pokeword(mem,bas_getlinenumber(line));
  		mem+=2;
 
- 		DEBUG_PRINT("After line number its %s\n",line);
-
  		bas_tokenizeline(line);
- 		//DEBUG_PRINT("line: %s\n",line);
  		for (i = 0; i < strlen(line);i++) {
- 			//DEBUG_PRINT("%02x \n",line[i]);
  			mem_poke(mem++,line[i]);
  		}
  		//

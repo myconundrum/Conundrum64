@@ -161,12 +161,13 @@ typedef struct {
 	byte pointer;  		// fetched in paccess 	for sprite.
 	byte data[3];  		// fetched in saccesses for sprite.
 	byte idata;			// index of data byte.
+
 	byte mc;		
 	byte mcbase;
 
 	bool on;			// if on, we are displaying this sprite.
 	bool dma; 			// if true, we are loading data for this sprite.
-	bool yexpand;	
+	bool yex;			// y expansion flip flop logic.		
 
 } VICII_SPRITE;
 
@@ -354,7 +355,6 @@ void vicii_drawpixel(byte c) {
 
 void vicii_drawpixelat(word row, word col, byte c) {
 	g_vic.out.data[row][col] = c;
-
 }
 
 void vicii_drawborder() {
@@ -473,6 +473,21 @@ void vicii_drawspritebyte(byte sprite, byte b) {
 	}
 }
 
+/*
+6. If the sprite display for a sprite is turned on, the shift register is
+   shifted left by one bit with every pixel as soon as the current X
+   coordinate of the raster beam matches the X coordinate of the sprite
+   (even registers $d000-$d00e), and the bits that "fall off" are
+   displayed. If the MxXE bit belonging to the sprite in register $d01d is
+   set, the shift is done only every second pixel and the sprite appears
+   twice as wide. If the sprite is in multicolor mode, every two adjacent
+   bits form one pixel.
+ */
+
+//
+// BUGBUG: No Multicolor mode yet.
+//
+
 void vicii_drawsprites() {
 
 	int sprite;
@@ -489,6 +504,11 @@ void vicii_drawsprites() {
 				data = g_vic.sprites[sprite].data[i];
 				x = g_vic.regs[VICII_S0X + i*2];
 				for (i = 0; i < 8; i++) {
+					if (g_vic.regs[VICII_SPRITEDW] & (0x1 << i)) {
+						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
+						(data & 0x80) ?
+		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
+					}
 					vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
 						(data & 0x80) ?
 		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
@@ -567,16 +587,25 @@ void vicii_paccess(byte num) {g_vic.sprites[num].pointer = vicii_peekspritepoint
 
 void vicii_saccess(byte num) {
 	if (g_vic.sprites[num].dma) {
-		g_vic.sprites[num].data[g_vic.sprites[num].idata] = vicii_peekspritedata(num);
+		g_vic.sprites[num].data[g_vic.sprites[num].idata++] = vicii_peekspritedata(num);
+	}
+	if (g_vic.sprites[num].idata == 3) {
+		g_vic.sprites[num].idata =0;
 	}
 	g_vic.sprites[num].mc++;
 	g_vic.sprites[num].mc &= 0x3F;
 }	
 
 
-//
-// check to see which sprites should be enabled for this raster line.
-//
+/*
+3. In the first phases of cycle 55 and 56, the VIC checks for every sprite
+   if the corresponding MxE bit in register $d015 is set and the Y
+   coordinate of the sprite (odd registers $d001-$d00f) match the lower 8
+   bits of RASTER. If this is the case and the DMA for the sprite is still
+   off, the DMA is switched on, MCBASE is cleared, and if the MxYE bit is
+   set the expansion flip flip is reset.
+*/
+
 void vicii_checkspritesdma() {
 
 	int i;
@@ -589,14 +618,18 @@ void vicii_checkspritesdma() {
 
 		if ((g_vic.regs[VICII_SPRITEEN] & (0x1 << i)) && 
 			g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
-			g_vic.sprites[i].dma = true;
-			g_vic.sprites[i].mcbase = 0;
-			//
-			// BUGBUG also handle Y expansion here.
-			//
+			if (!g_vic.sprites[i].dma) {
+				g_vic.sprites[i].dma = true;
+				g_vic.sprites[i].mcbase = 0;
+
+				if (g_vic.regs[VICII_SPRITEDH] & (0x1 << i)) {
+					g_vic.sprites[i].yex = false;
+				}
+			}
 		}
 	}
 }
+
 
 /* 
 
@@ -632,14 +665,25 @@ void vicii_checkspritesdmaoff() {
  	int i;
 
  	for (i = 0; i < 8; i++) {
- 		if (g_vic.regs[VICII_SPRITEDH] & (0x1 << i)) {
+ 		if (g_vic.sprites[i].yex) {
+
  			g_vic.sprites[i].mcbase = g_vic.sprites[i].mc;
- 		}
- 		if (g_vic.sprites[i].mcbase = 63) {
- 			g_vic.sprites[i].dma = false;
+ 			if (g_vic.sprites[i].mcbase = 63) {
+ 				g_vic.sprites[i].dma = false;
+ 			}
  		}
  	}
 }
+
+
+/*
+4. In the first phase of cycle 58, the MC of every sprite is loaded from
+   its belonging MCBASE (MCBASE->MC) and it is checked if the DMA for the
+   sprite is turned on and the Y coordinate of the sprite matches the lower
+   8 bits of RASTER. If this is the case, the display of the sprite is
+   turned on.
+
+*/
 
 void vicii_checkspriteson() {
 
@@ -647,7 +691,9 @@ void vicii_checkspriteson() {
 
  	for (i = 0; i < 8; i++) {
  		g_vic.sprites[i].mc = g_vic.sprites[i].mcbase;
- 		g_vic.sprites[i].on = g_vic.sprites[i].dma && g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF); 
+ 		if (g_vic.sprites[i].dma && g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
+ 			g_vic.sprites[i].on = true;
+ 		}
  	}
 }
 
@@ -677,6 +723,8 @@ void vicii_checkborderflipflops() {
 	}
 }
 
+bool g_dmaon = false;
+bool g_spriteon = false;
 
 void vicii_main_update() {
 
@@ -688,6 +736,30 @@ void vicii_main_update() {
 		
 		// * various setup activities. 
 		case 1: 
+
+
+
+
+			//
+			// BUGBUG: Sprite debugging.
+			//
+			if (g_vic.sprites[0].dma != g_dmaon) {
+				DEBUG_PRINT("sprite **dma** changed in line %d. dma is %s.\n",g_vic.raster_y,
+					g_vic.sprites[0].dma ? "on":"off");
+				g_dmaon = !g_dmaon;
+			}
+			if (g_vic.sprites[0].on != g_spriteon) {
+				DEBUG_PRINT("sprite on changed in line %d. sprite is %s.\n",g_vic.raster_y,
+					g_vic.sprites[0].on ? "on":"off");
+				g_spriteon = !g_spriteon;
+			}
+			
+			DEBUG_PRINTIF(g_vic.sprites[0].on,"yex is %s. mcbase %d mc %d \n",
+				g_vic.sprites[0].yex ? "true":"false",
+				g_vic.sprites[0].mcbase,
+				g_vic.sprites[0].mc);
+			
+
 
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
@@ -780,13 +852,29 @@ void vicii_main_update() {
 			if (g_vic.badline) {
 					g_vic.rc = 0;
 			}
+
 		break;
 		// * start refreshing video matrix if balow.
 		case 15:
 			vicii_drawgraphics();
 			vicii_caccess();
+
+			
 			break;
 		case 16:
+			vicii_checkspritesdmaoff();
+
+
+			for (int i=0; i<8; i++) {
+				if (g_vic.sprites[i].yex) {
+					g_vic.sprites[i].mcbase++;
+					if (g_vic.sprites[i].mcbase >= 63) {
+						DEBUG_PRINT("DMA off at line %d\n",g_vic.raster_y);
+						g_vic.sprites[i].dma = false;
+					}
+				}
+			}
+
 			vicii_drawgraphics();
 			vicii_gaccess();
 			vicii_caccess();
@@ -846,11 +934,30 @@ void vicii_main_update() {
 			g_vic.balow = false;
 			vicii_drawgraphics();
 			vicii_gaccess();	
+
+			/*
+				2. If the MxYE bit is set in the first phase of cycle 55, the expansion
+   				flip flop is inverted.
+   			*/
+			for (int i = 0; i < 8; i++) {
+
+				if (g_vic.regs[VICII_SPRITEDH] & (0x1 << 8)) {
+					g_vic.sprites[i].yex = !g_vic.sprites[i].yex;
+				}
+			}
+
+
+	
+
+
+
 			vicii_checkspritesdma();
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
 			vicii_drawgraphics();
+			
+				
 			vicii_checkspritesdma();
 		break;
 		// * turn on border in 40 column mode.
@@ -1041,6 +1148,20 @@ void vicii_poke(word address,byte val) {
 			DEBUG_PRINT("Video Memory Base:      0x%04X\n",g_vic.vidmembase);
 			DEBUG_PRINT("Character Memory Base:  0x%04X\n",g_vic.charmembase);
 			DEBUG_PRINT("Bitmap Memory Base:     0x%04X\n",g_vic.bitmapmembase);
+		break;
+
+		case VICII_SPRITEDH: 
+
+
+			g_vic.regs[reg] = val;
+
+			/*
+				1. The expansion flip flip is set as long as the bit in MxYE in register
+	 		  $d017 corresponding to the sprite is cleared.
+			*/
+			for(int i = 0; i < 8; i++) {
+				g_vic.sprites[i].yex = (val & (0x1 << i)) == 0;
+			}
 		break;
 		case VICII_SPRITEEN:
 			g_vic.regs[reg] = val;

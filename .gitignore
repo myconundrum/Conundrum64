@@ -22,3 +22,5 @@ asm/raster
 asm/rasterlines.asm
 
 a.out
+
+basic/sprite1.bas
