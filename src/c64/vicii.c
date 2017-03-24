@@ -586,6 +586,9 @@ void vicii_paccess(byte num) {g_vic.sprites[num].pointer = vicii_peekspritepoint
 
 
 void vicii_saccess(byte num) {
+
+
+
 	if (g_vic.sprites[num].dma) {
 		g_vic.sprites[num].data[g_vic.sprites[num].idata++] = vicii_peekspritedata(num);
 	}
@@ -594,6 +597,7 @@ void vicii_saccess(byte num) {
 	}
 	g_vic.sprites[num].mc++;
 	g_vic.sprites[num].mc &= 0x3F;
+
 }	
 
 
@@ -604,17 +608,18 @@ void vicii_saccess(byte num) {
    bits of RASTER. If this is the case and the DMA for the sprite is still
    off, the DMA is switched on, MCBASE is cleared, and if the MxYE bit is
    set the expansion flip flip is reset.
+
 */
 
-void vicii_checkspritesdma() {
+void vicii_checkspritesdmaon() {
 
 	int i;
 
-	for (i = 0; i < 7; i++) {
+	for (i = 0; i < 8; i++) {
 		
-		if (g_vic.sprites[i].on) {
-			continue;
-		}
+		//if (g_vic.sprites[i].on) {
+		//	continue;
+		//}
 
 		if ((g_vic.regs[VICII_SPRITEEN] & (0x1 << i)) && 
 			g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
@@ -660,6 +665,8 @@ is likely handled during the first phase of cycle 58 (see rule 4).
 // BUGBUG: Not handling the cpu clear in the second phase of cycle 15 yet.
 //
 
+
+
 void vicii_checkspritesdmaoff() {
 
  	int i;
@@ -668,7 +675,7 @@ void vicii_checkspritesdmaoff() {
  		if (g_vic.sprites[i].yex) {
 
  			g_vic.sprites[i].mcbase = g_vic.sprites[i].mc;
- 			if (g_vic.sprites[i].mcbase = 63) {
+ 			if (g_vic.sprites[i].mcbase == 63) {
  				g_vic.sprites[i].dma = false;
  			}
  		}
@@ -693,6 +700,9 @@ void vicii_checkspriteson() {
  		g_vic.sprites[i].mc = g_vic.sprites[i].mcbase;
  		if (g_vic.sprites[i].dma && g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
  			g_vic.sprites[i].on = true;
+ 		}
+ 		if (!g_vic.sprites[i].dma) {
+ 			g_vic.sprites[i].on = false;
  		}
  	}
 }
@@ -723,8 +733,6 @@ void vicii_checkborderflipflops() {
 	}
 }
 
-bool g_dmaon = false;
-bool g_spriteon = false;
 
 void vicii_main_update() {
 
@@ -736,30 +744,6 @@ void vicii_main_update() {
 		
 		// * various setup activities. 
 		case 1: 
-
-
-
-
-			//
-			// BUGBUG: Sprite debugging.
-			//
-			if (g_vic.sprites[0].dma != g_dmaon) {
-				DEBUG_PRINT("sprite **dma** changed in line %d. dma is %s.\n",g_vic.raster_y,
-					g_vic.sprites[0].dma ? "on":"off");
-				g_dmaon = !g_dmaon;
-			}
-			if (g_vic.sprites[0].on != g_spriteon) {
-				DEBUG_PRINT("sprite on changed in line %d. sprite is %s.\n",g_vic.raster_y,
-					g_vic.sprites[0].on ? "on":"off");
-				g_spriteon = !g_spriteon;
-			}
-			
-			DEBUG_PRINTIF(g_vic.sprites[0].on,"yex is %s. mcbase %d mc %d \n",
-				g_vic.sprites[0].yex ? "true":"false",
-				g_vic.sprites[0].mcbase,
-				g_vic.sprites[0].mc);
-			
-
 
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
@@ -858,22 +842,10 @@ void vicii_main_update() {
 		case 15:
 			vicii_drawgraphics();
 			vicii_caccess();
-
 			
 			break;
 		case 16:
 			vicii_checkspritesdmaoff();
-
-
-			for (int i=0; i<8; i++) {
-				if (g_vic.sprites[i].yex) {
-					g_vic.sprites[i].mcbase++;
-					if (g_vic.sprites[i].mcbase >= 63) {
-						DEBUG_PRINT("DMA off at line %d\n",g_vic.raster_y);
-						g_vic.sprites[i].dma = false;
-					}
-				}
-			}
 
 			vicii_drawgraphics();
 			vicii_gaccess();
@@ -947,18 +919,15 @@ void vicii_main_update() {
 			}
 
 
-	
 
-
-
-			vicii_checkspritesdma();
+			vicii_checkspritesdmaon();
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
 			vicii_drawgraphics();
 			
 				
-			vicii_checkspritesdma();
+			vicii_checkspritesdmaon();
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
