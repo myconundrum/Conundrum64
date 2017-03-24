@@ -216,7 +216,38 @@ void bas_tokenizeline(char * line) {
 	}
 }
 
+void asm_loadfile(char *name) {
 
+	word len;
+	byte* cur;
+	word loc;
+	FILE * f;
+	byte * where;
+	f = fopen(name,"rb");
+	
+	if (f) {
+
+		fseek(f, 0, SEEK_END);          
+    	len = ftell(f);            
+    	rewind(f);
+    	DEBUG_PRINT("loading assembled file %s size %d\n",name,len);
+
+    	where = (byte *) malloc(sizeof(byte) * len);   
+		fread(where,1,len,f);
+
+		loc = where[0] | (where[1] << 8);
+
+		cur = where + 2;
+		while (cur < where + len) {
+			mem_poke(loc++,*cur++);
+		}
+
+
+		free(where);
+		fclose(f);
+	}
+
+}
 
 
 
@@ -239,6 +270,8 @@ void bas_loadfile(char * string) {
 	// basic starts with zero byte before first line.
 	//
 	mem_poke(mem++,0);
+
+
 
  	while (fgets(line, 256, f)) {
  		if (line[strlen(line)-1] == '\n') {

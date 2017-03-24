@@ -245,7 +245,13 @@ void ux_handlecommand() {
 		if (p) {
 			bas_loadfile(p);
 		}
+	}  else if (!strcmp(p,"ASM")) {
+		p = strtok(NULL," ");
+		if (p) {
+			asm_loadfile(p);
+		}
 	}
+
 }
 
 

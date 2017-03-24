@@ -3,5 +3,6 @@
 
 
 void bas_loadfile(char * string);
+void asm_loadfile(char * string);
 
 #endif
