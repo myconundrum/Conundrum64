@@ -509,7 +509,7 @@ void vicii_drawsprites() {
 				
 				for (i = 0; i < 8; i++) {
 
-					if (g_vic.regs[VICII_SPRITEDW] & (0x1 << i)) {
+					if (g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite)) {
 						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
 						(data & 0x80) ?
 		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
@@ -1114,6 +1114,21 @@ void vicii_poke(word address,byte val) {
 			DEBUG_PRINT("Bitmap Memory Base:     0x%04X\n",g_vic.bitmapmembase);
 		break;
 
+		case VICII_SPRITEDW:
+
+			g_vic.regs[reg] = val;
+
+			DEBUG_PRINTIF(val & 0x01,"Sprite 0 double width.\n");
+			DEBUG_PRINTIF(val & 0x02,"Sprite 1 double width.\n");
+			DEBUG_PRINTIF(val & 0x04,"Sprite 2 double width.\n");
+			DEBUG_PRINTIF(val & 0x08,"Sprite 3 double width.\n");
+			DEBUG_PRINTIF(val & 0x10,"Sprite 4 double width.\n");
+			DEBUG_PRINTIF(val & 0x20,"Sprite 5 double width.\n");
+			DEBUG_PRINTIF(val & 0x40,"Sprite 6 double width.\n");
+			DEBUG_PRINTIF(val & 0x80,"Sprite 7 double width.\n");
+
+		break;
+
 		case VICII_SPRITEDH: 
 
 
@@ -1123,9 +1138,20 @@ void vicii_poke(word address,byte val) {
 				1. The expansion flip flip is set as long as the bit in MxYE in register
 	 		  $d017 corresponding to the sprite is cleared.
 			*/
+
 			for(int i = 0; i < 8; i++) {
 				g_vic.sprites[i].yex = (val & (0x1 << i)) == 0;
 			}
+
+			DEBUG_PRINTIF(val & 0x01,"Sprite 0 double height.\n");
+			DEBUG_PRINTIF(val & 0x02,"Sprite 1 double height.\n");
+			DEBUG_PRINTIF(val & 0x04,"Sprite 2 double height.\n");
+			DEBUG_PRINTIF(val & 0x08,"Sprite 3 double height.\n");
+			DEBUG_PRINTIF(val & 0x10,"Sprite 4 double height.\n");
+			DEBUG_PRINTIF(val & 0x20,"Sprite 5 double height.\n");
+			DEBUG_PRINTIF(val & 0x40,"Sprite 6 double height.\n");
+			DEBUG_PRINTIF(val & 0x80,"Sprite 7 double height.\n");
+
 		break;
 		case VICII_SPRITEEN:
 			g_vic.regs[reg] = val;
