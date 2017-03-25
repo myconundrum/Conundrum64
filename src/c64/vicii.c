@@ -501,9 +501,10 @@ void vicii_drawsprites() {
 		
 		if (g_vic.sprites[sprite].on) {
 
+			x = g_vic.regs[VICII_S0X + sprite*2];
 			for (b = 0; b < 3; b++) {
 				data = g_vic.sprites[sprite].data[b];
-				x = g_vic.regs[VICII_S0X + b*2];
+				
 
 
 				for (i = 0; i < 8; i++) {
@@ -518,13 +519,12 @@ void vicii_drawsprites() {
 						(data & 0x80) ?
 		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
 					data <<= 1;
+
 				}
 			}
 		}
 	}
 }
-
-
 
 void vicii_drawgraphics() {
 
@@ -545,17 +545,14 @@ void vicii_drawgraphics() {
 	// BUGBUG: Not properly handling idle access gfx.
 }
 
-
 //
 // read data from memory into vic buffer.
 //
 void vicii_caccess() {
 
 	g_vic.data[g_vic.vmli].data 		= vicii_peekmem(g_vic.vc);
-	g_vic.data[g_vic.vmli].color 		= vicii_peekcolor(g_vic.vc);
-		
+	g_vic.data[g_vic.vmli].color 		= vicii_peekcolor(g_vic.vc);		
 }
-
 
 void vicii_gaccess() {
 
@@ -589,22 +586,18 @@ void vicii_gaccess() {
 //
 void vicii_paccess(byte num) {g_vic.sprites[num].pointer = vicii_peekspritepointer(num);} 
 
-
 void vicii_saccess(byte num) {
-
-
 
 	if (g_vic.sprites[num].dma) {
 		g_vic.sprites[num].data[g_vic.sprites[num].idata++] = vicii_peekspritedata(num);
+		DEBUG_PRINT("read byte..\n");
 	}
 	if (g_vic.sprites[num].idata == 3) {
 		g_vic.sprites[num].idata =0;
 	}
 	g_vic.sprites[num].mc++;
 	g_vic.sprites[num].mc &= 0x3F;
-
 }	
-
 
 /*
 3. In the first phases of cycle 55 and 56, the VIC checks for every sprite
@@ -613,7 +606,6 @@ void vicii_saccess(byte num) {
    bits of RASTER. If this is the case and the DMA for the sprite is still
    off, the DMA is switched on, MCBASE is cleared, and if the MxYE bit is
    set the expansion flip flip is reset.
-
 */
 
 void vicii_checkspritesdmaon() {
@@ -629,6 +621,7 @@ void vicii_checkspritesdmaon() {
 		if ((g_vic.regs[VICII_SPRITEEN] & (0x1 << i)) && 
 			g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
 			if (!g_vic.sprites[i].dma) {
+				DEBUG_PRINT("**** DMA On\n");
 				g_vic.sprites[i].dma = true;
 				g_vic.sprites[i].mcbase = 0;
 
@@ -669,9 +662,6 @@ is likely handled during the first phase of cycle 58 (see rule 4).
 //
 // BUGBUG: Not handling the cpu clear in the second phase of cycle 15 yet.
 //
-
-
-
 void vicii_checkspritesdmaoff() {
 
  	int i;
@@ -681,8 +671,9 @@ void vicii_checkspritesdmaoff() {
 
  			g_vic.sprites[i].mcbase = g_vic.sprites[i].mc;
  			if (g_vic.sprites[i].mcbase == 63) {
-
+ 				DEBUG_PRINTIF(g_vic.sprites[i].dma,"*******DMA OFF");
  				g_vic.sprites[i].dma = false;
+
  			}
  		}
  	}
@@ -690,6 +681,7 @@ void vicii_checkspritesdmaoff() {
 
 
 /*
+
 4. In the first phase of cycle 58, the MC of every sprite is loaded from
    its belonging MCBASE (MCBASE->MC) and it is checked if the DMA for the
    sprite is turned on and the Y coordinate of the sprite matches the lower
@@ -712,7 +704,6 @@ void vicii_checkspriteson() {
  		}
  	}
 }
-
 
 //
 // all border flip flop logic in this function. May need to be broken into cycles later. 
