@@ -335,9 +335,10 @@ byte vicii_peekspritepointer(word address) {
 	return vicii_realpeek(g_vic.bank | g_vic.vidmembase | address | 0x3F8);
 }
 
-byte vicii_peekspritedata(word address) {
+byte vicii_peekspritedata(word sprite) {
 
-	return vicii_realpeek(g_vic.bank | ((word)g_vic.sprites[address].pointer) << 6 | address);
+	return vicii_realpeek(g_vic.bank | ((word)g_vic.sprites[sprite].pointer) << 6 | 
+		g_vic.sprites[sprite].mc);
 }
 
 //
@@ -503,10 +504,9 @@ void vicii_drawsprites() {
 
 			x = g_vic.regs[VICII_S0X + sprite*2];
 			for (b = 0; b < 3; b++) {
+				
 				data = g_vic.sprites[sprite].data[b];
 				
-
-
 				for (i = 0; i < 8; i++) {
 
 					if (g_vic.regs[VICII_SPRITEDW] & (0x1 << i)) {
@@ -590,11 +590,11 @@ void vicii_saccess(byte num) {
 
 	if (g_vic.sprites[num].dma) {
 		g_vic.sprites[num].data[g_vic.sprites[num].idata++] = vicii_peekspritedata(num);
-		DEBUG_PRINT("read byte..\n");
 	}
 	if (g_vic.sprites[num].idata == 3) {
-		g_vic.sprites[num].idata =0;
+		g_vic.sprites[num].idata = 0;
 	}
+
 	g_vic.sprites[num].mc++;
 	g_vic.sprites[num].mc &= 0x3F;
 }	
@@ -621,7 +621,6 @@ void vicii_checkspritesdmaon() {
 		if ((g_vic.regs[VICII_SPRITEEN] & (0x1 << i)) && 
 			g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
 			if (!g_vic.sprites[i].dma) {
-				DEBUG_PRINT("**** DMA On\n");
 				g_vic.sprites[i].dma = true;
 				g_vic.sprites[i].mcbase = 0;
 
@@ -671,7 +670,6 @@ void vicii_checkspritesdmaoff() {
 
  			g_vic.sprites[i].mcbase = g_vic.sprites[i].mc;
  			if (g_vic.sprites[i].mcbase == 63) {
- 				DEBUG_PRINTIF(g_vic.sprites[i].dma,"*******DMA OFF");
  				g_vic.sprites[i].dma = false;
 
  			}
