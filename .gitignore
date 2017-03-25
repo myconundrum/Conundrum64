@@ -24,3 +24,11 @@ asm/rasterlines.asm
 a.out
 
 basic/sprite1.bas
+
+*.asm
+
+*.asm
+
+asm/test.asm
+
+*.out

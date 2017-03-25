@@ -492,7 +492,7 @@ void vicii_drawsprites() {
 
 	int sprite;
 	int i;
-	int j;
+	int b;
 	byte data;
 	int x; 
 
@@ -500,15 +500,20 @@ void vicii_drawsprites() {
 	for (sprite = 0; sprite < 8; sprite++) {
 		
 		if (g_vic.sprites[sprite].on) {
-			for (i = 0; i < 3; i++) {
-				data = g_vic.sprites[sprite].data[i];
-				x = g_vic.regs[VICII_S0X + i*2];
+
+			for (b = 0; b < 3; b++) {
+				data = g_vic.sprites[sprite].data[b];
+				x = g_vic.regs[VICII_S0X + b*2];
+
+
 				for (i = 0; i < 8; i++) {
+
 					if (g_vic.regs[VICII_SPRITEDW] & (0x1 << i)) {
 						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
 						(data & 0x80) ?
 		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
 					}
+
 					vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
 						(data & 0x80) ?
 		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
@@ -676,6 +681,7 @@ void vicii_checkspritesdmaoff() {
 
  			g_vic.sprites[i].mcbase = g_vic.sprites[i].mc;
  			if (g_vic.sprites[i].mcbase == 63) {
+
  				g_vic.sprites[i].dma = false;
  			}
  		}
