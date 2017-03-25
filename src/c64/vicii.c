@@ -489,6 +489,7 @@ void vicii_drawspritebyte(byte sprite, byte b) {
 // BUGBUG: No Multicolor mode yet.
 //
 
+
 void vicii_drawsprites() {
 
 	int sprite;
@@ -496,6 +497,12 @@ void vicii_drawsprites() {
 	int b;
 	byte data;
 	int x; 
+	byte c;		// standard sprite color for his sparite
+	byte ec1;	// extra sprite color 1 for MCM mode sprites
+	byte ec2; 	// extra sprite color 2 for MCM mode sprites
+	byte dw;	// double width
+	byte mcm;	// multicolor modde
+	byte uc;    // used color (which color to use for multicolor mode)
 
 	if (!g_vic.displayline) {return;}
 	for (sprite = 0; sprite < 8; sprite++) {
@@ -503,23 +510,58 @@ void vicii_drawsprites() {
 		if (g_vic.sprites[sprite].on) {
 
 			x = g_vic.regs[VICII_S0X + sprite*2];
+			c = g_vic.regs[VICII_S0C+sprite] & 0xf;
+			dw = g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite);
+			mcm = g_vic.regs[VICII_SPRITEMCM] & (0x1 << sprite);
+
+			if (mcm) {
+				ec1 = g_vic.regs[VICII_ESPRITECOL1];
+				ec2 = g_vic.regs[VICII_ESPRITECOL2];
+			}
+
 			for (b = 0; b < 3; b++) {
 				
 				data = g_vic.sprites[sprite].data[b];
-				
-				for (i = 0; i < 8; i++) {
 
-					if (g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite)) {
-						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
-						(data & 0x80) ?
-		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
+				if (mcm) {  // MULTICOLOR MODE
+					for (i = 0; i < 4; i++) {
+						switch(data & 0xC0) {
+							case 0x00:/*transparent*/ 
+								x+=2;
+								data <<=2;
+								continue;
+								break;
+							case 0x01:uc = ec1;			break;
+							case 0x10:uc = c;			break;
+							case 0x11:uc = ec2; 		break;
+						}
+
+						if (dw) {
+							vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
+							x++;
+							vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
+							x++;
+						}
+
+						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
+						x++;
+						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
+						x++;
+
+						data <<=2;
+
 					}
 
-					vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK,x++,
-						(data & 0x80) ?
-		 				(g_vic.regs[VICII_S0C+sprite] & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
-					data <<= 1;
-
+				} else {  // STANDARD MODE 
+					for (i = 0; i < 8; i++) {
+						if (dw) {
+							if (data & 0x80) {vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, c);}
+							x++;
+						}
+						if (data & 0x80) {vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, c);}
+						x++;
+						data <<= 1;
+					}
 				}
 			}
 		}
@@ -1112,6 +1154,21 @@ void vicii_poke(word address,byte val) {
 			DEBUG_PRINT("Video Memory Base:      0x%04X\n",g_vic.vidmembase);
 			DEBUG_PRINT("Character Memory Base:  0x%04X\n",g_vic.charmembase);
 			DEBUG_PRINT("Bitmap Memory Base:     0x%04X\n",g_vic.bitmapmembase);
+		break;
+
+		case VICII_SPRITEMCM: 
+
+			g_vic.regs[reg] = val;
+
+			DEBUG_PRINTIF(val & 0x01,"Sprite 0 MCM enabled.\n");
+			DEBUG_PRINTIF(val & 0x02,"Sprite 1 MCM enabled.\n");
+			DEBUG_PRINTIF(val & 0x04,"Sprite 2 MCM enabled.\n");
+			DEBUG_PRINTIF(val & 0x08,"Sprite 3 MCM enabled.\n");
+			DEBUG_PRINTIF(val & 0x10,"Sprite 4 MCM enabled.\n");
+			DEBUG_PRINTIF(val & 0x20,"Sprite 5 MCM enabled.\n");
+			DEBUG_PRINTIF(val & 0x40,"Sprite 6 MCM enabled.\n");
+			DEBUG_PRINTIF(val & 0x80,"Sprite 7 MCM enabled.\n");
+
 		break;
 
 		case VICII_SPRITEDW:
