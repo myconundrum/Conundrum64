@@ -165,6 +165,8 @@ typedef struct {
 	byte mc;		
 	byte mcbase;
 
+	byte curx;			// where to draw next pixel
+
 	bool on;			// if on, we are displaying this sprite.
 	bool dma; 			// if true, we are loading data for this sprite.
 	bool yex;			// y expansion flip flop logic.		
@@ -488,83 +490,102 @@ void vicii_drawspritebyte(byte sprite, byte b) {
 //
 // BUGBUG: No Multicolor mode yet.
 //
+void vicii_drawstandardspritebyte(byte sprite) {
+
+	int i;
+	byte dw = g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite);
+	byte data = g_vic.sprites[sprite].data[g_vic.sprites[sprite].idata++];
+	byte c = g_vic.regs[VICII_S0C+sprite] & 0xf;
+
+	for (i = 0; i < 8; i++) {
+		if (dw) {
+			if (data & 0x80) {
+				vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, 
+				g_vic.sprites[sprite].curx, c);
+			}
+			g_vic.sprites[sprite].curx++;
+		}
+		if (data & 0x80) {
+			vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, 
+				g_vic.sprites[sprite].curx, c);
+		}
+		g_vic.sprites[sprite].curx++;
+		data <<= 1;
+	}
+
+
+	if (g_vic.sprites[sprite].idata == 3) {
+		g_vic.sprites[sprite].idata = 0;
+	}
+}
+
+void vicii_drawmulticolorsprite(byte sprite) {
+
+	int i;
+	byte data;
+	byte c 		= g_vic.regs[VICII_S0C+sprite] & 0xf;
+	byte dw 	= g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite);
+	byte ec1 	= g_vic.regs[VICII_ESPRITECOL1];
+	byte ec2 	= g_vic.regs[VICII_ESPRITECOL2];
+	byte uc;    // used color (which color to use for multicolor mode)
+	
+	for (i = 0; i < 4; i++) {
+		switch(data & 0xC0) {
+			case 0x00:/*transparent*/ 
+				g_vic.sprites[sprite].curx+=2;
+				data <<=2;
+				continue;
+				break;
+			case 0x01:uc = ec1;			break;
+			case 0x10:uc = c;			break;
+			case 0x11:uc = ec2; 		break;
+		}
+
+		if (dw) {
+			vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+			g_vic.sprites[sprite].curx++;
+			vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+			g_vic.sprites[sprite].curx++;
+		}
+
+		vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+		g_vic.sprites[sprite].curx++;
+		vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+		g_vic.sprites[sprite].curx++;
+
+		data <<=2;
+	}
+}
 
 
 void vicii_drawsprites() {
 
 	int sprite;
-	int i;
-	int b;
-	byte data;
-	int x; 
-	byte c;		// standard sprite color for his sparite
-	byte ec1;	// extra sprite color 1 for MCM mode sprites
-	byte ec2; 	// extra sprite color 2 for MCM mode sprites
-	byte dw;	// double width
-	byte mcm;	// multicolor modde
-	byte uc;    // used color (which color to use for multicolor mode)
-
+	byte mcm;
+	
 	if (!g_vic.displayline) {return;}
+	
 	for (sprite = 0; sprite < 8; sprite++) {
 		
-		if (g_vic.sprites[sprite].on) {
-
-			x = g_vic.regs[VICII_S0X + sprite*2];
-			c = g_vic.regs[VICII_S0C+sprite] & 0xf;
-			dw = g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite);
-			mcm = g_vic.regs[VICII_SPRITEMCM] & (0x1 << sprite);
-
-			if (mcm) {
-				ec1 = g_vic.regs[VICII_ESPRITECOL1];
-				ec2 = g_vic.regs[VICII_ESPRITECOL2];
-			}
-
-			for (b = 0; b < 3; b++) {
-				
-				data = g_vic.sprites[sprite].data[b];
-
-				if (mcm) {  // MULTICOLOR MODE
-					for (i = 0; i < 4; i++) {
-						switch(data & 0xC0) {
-							case 0x00:/*transparent*/ 
-								x+=2;
-								data <<=2;
-								continue;
-								break;
-							case 0x01:uc = ec1;			break;
-							case 0x10:uc = c;			break;
-							case 0x11:uc = ec2; 		break;
-						}
-
-						if (dw) {
-							vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
-							x++;
-							vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
-							x++;
-						}
-
-						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
-						x++;
-						vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, uc);
-						x++;
-
-						data <<=2;
-
-					}
-
-				} else {  // STANDARD MODE 
-					for (i = 0; i < 8; i++) {
-						if (dw) {
-							if (data & 0x80) {vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, c);}
-							x++;
-						}
-						if (data & 0x80) {vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, x, c);}
-						x++;
-						data <<= 1;
-					}
-				}
-			}
+		if (g_vic.sprites[sprite].on == false) {
+			continue;
 		}
+
+		g_vic.sprites[sprite].curx = g_vic.regs[VICII_S0X + sprite*2];
+		mcm = g_vic.regs[VICII_SPRITEMCM] & (0x1 << sprite);
+
+		//
+		// three bytes of data per sprite line.
+		// 
+		if (mcm) {
+			vicii_drawmulticolorsprite(sprite);
+			vicii_drawmulticolorsprite(sprite);
+			vicii_drawmulticolorsprite(sprite);
+		} else {  
+			vicii_drawstandardspritebyte(sprite); 
+			vicii_drawstandardspritebyte(sprite); 
+			vicii_drawstandardspritebyte(sprite); 
+		}		
 	}
 }
 
@@ -620,7 +641,6 @@ void vicii_gaccess() {
 	}
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
 	g_vic.vc = (g_vic.vc + 1) & 0x3FF;
-
 }
 
 //
