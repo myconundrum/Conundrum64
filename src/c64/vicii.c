@@ -180,7 +180,6 @@ typedef struct {
 									// member variables below. 
 
 	VICII_SPRITE sprites[8];		// per sprite data.
-	
 	VICII_VIDEODATA data[40];		// copied during badlines.
 	
 	word raster_y;					// raster Y position -- CPU can get this through registers.
@@ -205,13 +204,10 @@ typedef struct {
 	byte rc;						// (row counter)
 	byte vmli;						// (video matrix line index)
 
-
 	//
 	// graphics mode bits
 	//
 	byte mode;						// takes the BMM, MCM, and ECM bits and turns it into a number between 1 and 8.
-
-
 
 	word  displaytop;				// these are the dimensions of the display window. 
 	word  displaybottom; 			// they are slightly configurable (38 vs 40 columns, 24 vs 25 rows)
@@ -223,7 +219,6 @@ typedef struct {
 
 	byte cycle;						// internal cycle count per line.
 
-
 	//
 	// the current bitmap frame.
 	//
@@ -233,7 +228,6 @@ typedef struct {
 
 	VICII_SCREENFRAME out;
 	word xpos;
-
 
 } VICII;
 
@@ -350,33 +344,36 @@ byte vicii_peekmem(word address) {
 	return vicii_realpeek(g_vic.bank | g_vic.vidmembase | address);
 }
 
-void vicii_drawpixel(byte c) {
+void vicii_drawpixel(byte c,bool fg) {
 	g_vic.out.data[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = c;
+	g_vic.out.isforeground[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = fg;
 	g_vic.xpos++;
 }
 
 void vicii_drawpixelat(word row, word col, byte c) {
 	g_vic.out.data[row][col] = c;
+	g_vic.out.isforeground[row][col] = false;
 }
 
 void vicii_drawborder() {
 	
 	if (!g_vic.displayline) {return;}
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
-	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL]);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
+	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],false);
 }
 
 void vicii_drawstandardtext() {
 	int i;
-	for (i = BIT_7;i;i>>=1) {	
-		vicii_drawpixel((i & g_vic.lastchar) ? 
-			(g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf));
+	bool set;
+	for (i = BIT_7;i;i>>=1) {
+		set = (i & g_vic.lastchar);	
+		vicii_drawpixel(set ? (g_vic.lastcolor & 0xf) : (g_vic.regs[VICII_BACKCOL] & 0xf),set);
 	}
 }
 
@@ -384,18 +381,20 @@ void vicii_drawmulticolortext() {
 
 	int i;
 	byte c;
+	bool fg;
 
 	if (g_vic.lastcolor & BIT_3) { // MC bit is on. 2 bits per pixel mode.
 		for (i = 0; i < 4; i++) {
+			fg = true;
 			switch (g_vic.lastchar & 0b11000000) {
-				case 0b00000000: c = g_vic.regs[VICII_BACKCOL] & 0xf; break;
-				case 0b01000000: c = g_vic.regs[VICII_EBACKCOL1] & 0xf; break;
+				case 0b00000000: c = g_vic.regs[VICII_BACKCOL] & 0xf; 	fg = false; break;
+				case 0b01000000: c = g_vic.regs[VICII_EBACKCOL1] & 0xf;	fg = false; break;
 				case 0b10000000: c = g_vic.regs[VICII_EBACKCOL2] & 0xf; break;
 				case 0b11000000: c = g_vic.lastcolor & 0xf; break;
 			}
 			g_vic.lastchar <<= 2;
-			vicii_drawpixel(c);
-			vicii_drawpixel(c);
+			vicii_drawpixel(c,fg);
+			vicii_drawpixel(c,fg);
 		}
 	}
 	else { // MC bit is off, treat like standard text. 1 bit per pixel, with color nibble. 
@@ -411,17 +410,21 @@ void vicii_drawmulticolorbitmap() {
 	byte c11 = g_vic.lastcolor & 0xf;
 	byte i;
 	byte c;
+	byte fg;
 
 	for (i = 0; i < 4; i++) {
+
+		fg = true;
+
 		switch (g_vic.lastdata & 0b11000000) {
-			case 0b00000000: c = c00;break;
-			case 0b01000000: c = c01;break;
+			case 0b00000000: c = c00; fg = false; break;
+			case 0b01000000: c = c01; fg = false; break;
 			case 0b10000000: c = c10;break;
 			case 0b11000000: c = c11;break;
 		}
 		g_vic.lastdata <<= 2;
-		vicii_drawpixel(c);
-		vicii_drawpixel(c);
+		vicii_drawpixel(c,fg);
+		vicii_drawpixel(c,fg);
 	}
 }
 
@@ -429,10 +432,12 @@ void vicii_drawstandardbitmap() {
 
 	byte c0 = g_vic.lastchar;
 	byte c1 = g_vic.lastchar  >> 4;
+	bool fg; 
 
 	int i;
-	for (i = BIT_7;i;i>>=1) {	
-		vicii_drawpixel((i & g_vic.lastdata) ? c1 &0xf: c0 &0xf);
+	for (i = BIT_7;i;i>>=1) {
+		fg = i & g_vic.lastdata;	
+		vicii_drawpixel( fg ? c1 &0xf: c0 &0xf,fg );
 	}	
 }
 
@@ -445,19 +450,21 @@ void vicii_drawecmtext() {
 	byte c011 = g_vic.regs[VICII_EBACKCOL3] & 0xf; 
 	byte c;
 	int i;
+	bool fg;
 
 	for (i = BIT_7;i;i>>=1) {	
 		if (i & g_vic.lastchar) { 
 			c = c100;
 		} else {
+			fg = true;
 			switch (g_vic.lastdata) {
-				case 0x00: c = c000;break;
-				case 0x01: c = c001;break;
+				case 0x00: c = c000; fg = false; break;
+				case 0x01: c = c001; fg = false; break;
 				case 0x10: c = c010;break;
 				case 0x11: c = c011;break;
 			}
 		}
-		vicii_drawpixel(c);
+		vicii_drawpixel(c,fg);
 	}
 }
 
@@ -475,35 +482,50 @@ void vicii_drawecmtext() {
 //
 // BUGBUG: No Multicolor mode yet.
 //
+
+
+bool vicii_shoulddisplayspritepixel(byte sprite, byte row, byte col) {
+
+	//
+	// Sprite has priority
+	//
+	if (!g_vic.regs[VICII_SPRITEPRI] & (0x1 << sprite)) {
+		return true;
+	}
+
+	return !g_vic.out.isforeground[row][col];
+}
+
 void vicii_drawstandardspritebyte(byte sprite) {
 
 	int i;
 	byte dw = g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite);
 	byte data = g_vic.sprites[sprite].data[g_vic.sprites[sprite].idata++];
 	byte c = g_vic.regs[VICII_S0C+sprite] & 0xf;
-
+	word x = g_vic.sprites[sprite].curx;
+	word y = g_vic.raster_y - VICII_NTSC_VBLANK;
+	
 	for (i = 0; i < 8; i++) {
 		if (dw) {
-			if (data & 0x80) {
-				vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, 
-				g_vic.sprites[sprite].curx, c);
+			if ((data & 0x80) &&  vicii_shoulddisplayspritepixel(sprite,y,x)) {
+				vicii_drawpixelat(y,x,c);
 			}
-			g_vic.sprites[sprite].curx++;
+			x++;
 		}
-		if (data & 0x80) {
-			vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, 
-				g_vic.sprites[sprite].curx, c);
+		if ((data & 0x80) &&  vicii_shoulddisplayspritepixel(sprite,y,x)) {
+			vicii_drawpixelat(y,x,c);
 		}
-		g_vic.sprites[sprite].curx++;
+		x++;
 		data <<= 1;
 	}
+	g_vic.sprites[sprite].curx = x;
 
 	if (g_vic.sprites[sprite].idata == 3) {
 		g_vic.sprites[sprite].idata = 0;
 	}
 }
 
-void vicii_drawmulticolorsprite(byte sprite) {
+void vicii_drawmulticolorspritebyte(byte sprite) {
 
 	int i;
 	byte data = g_vic.sprites[sprite].data[g_vic.sprites[sprite].idata++];
@@ -512,6 +534,8 @@ void vicii_drawmulticolorsprite(byte sprite) {
 	byte ec1 	= g_vic.regs[VICII_ESPRITECOL1] & 0xf;
 	byte ec2 	= g_vic.regs[VICII_ESPRITECOL2] & 0xf;
 	int uc;  // used color (which color to use for multicolor mode)
+	word x = g_vic.sprites[sprite].curx;
+	word y = g_vic.raster_y - VICII_NTSC_VBLANK;
 	
 
 	for (i = 0; i < 4; i++) {
@@ -524,24 +548,24 @@ void vicii_drawmulticolorsprite(byte sprite) {
 		}
 
 		if (dw) {
-			if (uc != -1) {
-				vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+			if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
+				vicii_drawpixelat(y,x, uc);
 			}
-			g_vic.sprites[sprite].curx++;
-			if (uc != -1) {
-				vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+			x++;
+			if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
+				vicii_drawpixelat(y,x, uc);
 			}
-			g_vic.sprites[sprite].curx++;
+			x++;
 		}
 
-		if (uc != -1) {
-			vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+		if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
+			vicii_drawpixelat(y,x, uc);
 		}
-		g_vic.sprites[sprite].curx++;
-		if (uc != -1) {
-			vicii_drawpixelat(g_vic.raster_y - VICII_NTSC_VBLANK, g_vic.sprites[sprite].curx, uc);
+		x++;
+		if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
+				vicii_drawpixelat(y,x, uc);
 		}
-		g_vic.sprites[sprite].curx++;
+		x++;
 
 		data <<=2;
 	}
@@ -549,6 +573,8 @@ void vicii_drawmulticolorsprite(byte sprite) {
 	if (g_vic.sprites[sprite].idata == 3) {
 		g_vic.sprites[sprite].idata = 0;
 	}
+
+	g_vic.sprites[sprite].curx = x;
 }
 
 void vicii_drawsprites() {
@@ -558,7 +584,11 @@ void vicii_drawsprites() {
 	
 	if (!g_vic.displayline) {return;}
 	
-	for (sprite = 0; sprite < 8; sprite++) {
+	//
+	// count down sprites from high to low. Lower sprite numbers have higher visibility priority.
+	// so this will ensure that the highest priority sprite are drawn in the case where they overlap.
+	//
+	for (sprite = 7; sprite >= 0; sprite--) {
 		
 		if (g_vic.sprites[sprite].on == false) {
 			continue;
@@ -571,9 +601,9 @@ void vicii_drawsprites() {
 		// three bytes of data per sprite line.
 		// 
 		if (mcm) {
-			vicii_drawmulticolorsprite(sprite);
-			vicii_drawmulticolorsprite(sprite);
-			vicii_drawmulticolorsprite(sprite);
+			vicii_drawmulticolorspritebyte(sprite);
+			vicii_drawmulticolorspritebyte(sprite);
+			vicii_drawmulticolorspritebyte(sprite);
 		} else {  
 			vicii_drawstandardspritebyte(sprite); 
 			vicii_drawstandardspritebyte(sprite); 
