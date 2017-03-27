@@ -200,6 +200,9 @@ typedef struct {
 	bool den;						// is display enabled? 
 	bool idle; 						// idle or display state. 
 
+	bool irqsprite;					// sprite-sprite collision irq is allowed.
+	bool irqbackground;				// sprite-background collision irq is allowed.
+
 	word bank;						// Base address for graphics addresses. 
 	word vidmembase;				// video memory offset relative to graphics bank
 	word charmembase;				// char memory offset relative to graphics bank
@@ -360,13 +363,42 @@ void vicii_drawpixel(byte c,VICII_PIXELTYPE type) {
 	g_vic.xpos++;
 }
 
+void vicii_checkcollisioninterrupt(byte bit,bool *cantrigger) {
+	g_vic.regs[VICII_ISR] |= BIT_7;
+	g_vic.regs[VICII_ISR] |= bit;
+
+	if ((g_vic.regs[VICII_ICR] & bit) && *cantrigger) {
+		*cantrigger = false;
+		cpu_irq();
+	}
+
+}
+
 void vicii_drawspritepixel(byte sprite,word row, byte c,bool shown) {
 
 	VICII_SPRITE * s = &g_vic.sprites[sprite];
 
-	if (shown && (!s->fgpri || g_vic.type.data[row][s->curx] != VICII_FG_PIXEL)) {
-		g_vic.out.data[row][s->curx] = c;
-		g_vic.type.data[row][s->curx] = VICII_SPRITE_PIXEL;
+	if (shown) {
+
+		//
+		// sprite pixels can cause collision detection with other pixel types.
+		// if enabled, this may cause an interrupt.
+		//
+		if (g_vic.type.data[row][s->curx] == VICII_FG_PIXEL) {
+			g_vic.regs[VICII_SBCOLLIDE] |= (1 << sprite);
+			vicii_checkcollisioninterrupt(BIT_1,&g_vic.irqbackground);
+		} else if (g_vic.type.data[row][s->curx] == VICII_SPRITE_PIXEL) {
+			g_vic.regs[VICII_SSCOLLIDE] |= (1 << sprite);
+			vicii_checkcollisioninterrupt(BIT_2,&g_vic.irqsprite);
+		}
+	
+		if (!s->fgpri || g_vic.type.data[row][s->curx] != VICII_FG_PIXEL) {
+			g_vic.out.data[row][s->curx] = c;
+			g_vic.type.data[row][s->curx] = VICII_SPRITE_PIXEL;
+
+		}
+
+
 	}
 
 	s->curx++;
@@ -1080,13 +1112,23 @@ byte vicii_peek(word address) {
 			rval = BIT_7 | BIT_6 | BIT_5 | BIT_4 |  g_vic.regs[reg]; 
 		break;
 
-		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // these registers are cleared on reading.
+		case VICII_SBCOLLIDE: // this register is cleared on reading.
 			//
 			// BUGBUG: Monitor will destroy these values.
 			//
 			rval = g_vic.regs[reg];
 			g_vic.regs[reg] = 0;
+			g_vic.irqbackground = true;
 		break;
+		case VICII_SSCOLLIDE: // this register is cleared on reading.
+			//
+			// BUGBUG: Monitor will destroy these values.
+			//
+			rval = g_vic.regs[reg];
+			g_vic.regs[reg] = 0;
+			g_vic.irqsprite = true;
+		break;
+
 
 		case VICII_BORDERCOL: case VICII_BACKCOL: case VICII_EBACKCOL1:		
 		case VICII_EBACKCOL2: case VICII_EBACKCOL3: case VICII_ESPRITECOL1: case VICII_ESPRITECOL2:		
