@@ -150,6 +150,10 @@ byte * c64_init_rom(char * name) {
 
 void c64_init() {
 
+
+
+	EMU_CONFIGURATION * cfg = emu_getconfig();
+
 	memset(&g_io,0,sizeof(C64_MAPPED_IO));
 	mem_init();									// init ram
 
@@ -158,9 +162,9 @@ void c64_init() {
 	// Load ROMs and initialize memory maps
 	//
 	g_io.mBankSwitch 	= mem_map(0x0001,0x0001,c64_bankswitchpeek,c64_bankswitchpoke);
-	g_io.rKernal 		= c64_init_rom("asm/901227-03-kernal.bin");
-	g_io.rBasic 		= c64_init_rom("asm/901226-01-basic.bin");
-	g_io.rChar 			= c64_init_rom("asm/901225-01-char.bin");
+	g_io.rKernal 		= c64_init_rom(cfg->kernalpath);
+	g_io.rBasic 		= c64_init_rom(cfg->basicpath);
+	g_io.rChar 			= c64_init_rom(cfg->charpath);
 	g_io.mKernal 		= mem_map(KERNAL_ROM_LOW_ADDRESS,KERNAL_ROM_HIGH_ADDRESS,c64_kernalpeek,c64_rompoke);
 	g_io.mBasic 		= mem_map(BASIC_ROM_LOW_ADDRESS,BASIC_ROM_HIGH_ADDRESS,c64_basicpeek,c64_rompoke);
 	g_io.mChar 			= mem_map(CHAR_ROM_LOW_ADDRESS,CHAR_ROM_HIGH_ADDRESS,c64_charpeek,c64_rompoke);
@@ -168,6 +172,11 @@ void c64_init() {
 	g_io.mCia2			= mem_map(CIA2_AREA_LOW_ADDRESS,CIA2_AREA_HIGH_ADDRESS,cia2_peek,cia2_poke);
 	g_io.mVicii			= mem_map(VICII_AREA_LOW_ADDRESS,VICII_AREA_HIGH_ADDRESS,vicii_peek,vicii_poke);
 
+
+	if (!g_io.rKernal || !g_io.rBasic || !g_io.rChar) {
+		printf("%s: failed to load roms. exiting.\n",emu_getname());
+		abort();
+	}
 	//
 	// Bankswitching is always active. Determines which other memory locations are currently mapped. 
 	//

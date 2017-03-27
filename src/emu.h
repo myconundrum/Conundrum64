@@ -40,26 +40,35 @@ KNOWN BUGS:
 #include <ctype.h>
 #include <stdio.h>
 #include <stdbool.h>
-/*
-#include <ncurses.h>
-#include "cpu.h"
-#include "c64kbd.h"
-#include "cia.h"
-#include "mem.h"
-#include "ux.h"
-#include "stdint.h"
-#include "sysclock.h"
-#include "c64.h"
-#include "vicii.h"
 
-*/
 #define EMU_NAME 				"Conundrum 64"
 #define EMU_VERSION_MINOR		1
 #define EMU_VERSION_MAJOR		0
 
+typedef struct {
+    
+    const char* kernalpath;
+    const char* charpath;
+    const char* basicpath;
+    const char* asmload;
+
+} EMU_CONFIGURATION;
+
+
+EMU_CONFIGURATION * emu_getconfig();
+
+
+
 
 #define DEBUG 1
 #define EMU_DOUBLE_SCREEN 1
+
+
+
+
+
+
+
 
 
 #if defined(DEBUG) && DEBUG > 0

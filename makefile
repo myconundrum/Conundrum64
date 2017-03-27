@@ -1,7 +1,7 @@
 
 
 #OBJS specifies which files to compile as part of the project
-OBJS = SRC/*.c SRC/C64/*.c SRC/UX/*.c
+OBJS = SRC/*.c SRC/C64/*.c SRC/UX/*.c SRC/INIH/*.c
 
 #CC specifies which compiler we're using
 CC = gcc
@@ -18,4 +18,4 @@ OBJ_NAME = con64
 
 #This is the target that compiles our executable
 all : $(OBJS)
-	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME) -I./src/ux -I./src/c64 -I./src/
+	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME) -I./src/ux -I./src/c64 -I./src/ -I./src/inih

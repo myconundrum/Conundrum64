@@ -32,3 +32,17 @@ basic/sprite1.bas
 asm/test.asm
 
 *.out
+
+roms/char.bin
+
+roms/basic.bin
+
+roms/kernal.bin
+
+asm/901225-01-char.bin
+
+asm/901226-01-basic.bin
+
+asm/901227-03-kernal.bin
+
+src/inih/
