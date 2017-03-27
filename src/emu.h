@@ -50,7 +50,7 @@ typedef struct {
     const char* kernalpath;
     const char* charpath;
     const char* basicpath;
-    const char* asmload;
+    const char* binload;
 
 } EMU_CONFIGURATION;
 

@@ -457,6 +457,7 @@ void ux_init_c64keymapping() {
 void ux_init() {
 
 	char buf[255];
+	EMU_CONFIGURATION *cfg = emu_getconfig();
 
 	memset(&g_ux,0,sizeof(UX));
 
@@ -465,6 +466,10 @@ void ux_init() {
 	ux_init_c64keymapping();
 
 	ux_fillDisassembly(cpu_getpc());
+
+	if (cfg->binload != NULL) {
+		asm_loadfile(cfg->binload);
+	}
 
 	g_ux.passthru = true;
 

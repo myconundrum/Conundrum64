@@ -70,8 +70,8 @@ static int config_handler(
         c->basicpath = strdup(value);
         DEBUG_PRINT("basic path is %s\n",c->basicpath);
     } else if (MATCH("bin", "load")) {
-        c->asmload = strdup(value);
-        DEBUG_PRINT("asm load file is %s\n",c->asmload);
+        c->binload = strdup(value);
+        DEBUG_PRINT("bin load file is %s\n",c->binload);
     } else {
         return 0;  
     }
