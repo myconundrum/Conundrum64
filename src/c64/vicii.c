@@ -170,6 +170,8 @@ typedef struct {
 	bool on;			// if on, we are displaying this sprite.
 	bool dma; 			// if true, we are loading data for this sprite.
 	bool yex;			// y expansion flip flop logic.		
+	bool fgpri;			// if true, foreground has priority over this sprite.
+	bool dw;			// if true, this sprite is double width.
 
 } VICII_SPRITE;
 
@@ -350,6 +352,18 @@ void vicii_drawpixel(byte c,bool fg) {
 	g_vic.xpos++;
 }
 
+void vicii_drawspritepixel(byte sprite,word row, byte c,bool shown) {
+
+	VICII_SPRITE * s = &g_vic.sprites[sprite];
+
+	if (shown && (!s->fgpri || !g_vic.out.isforeground[row][s->curx])) {
+		g_vic.out.data[row][s->curx] = c;
+		g_vic.out.isforeground[row][s->curx] = false;
+	}
+
+	s->curx++;
+}
+
 void vicii_drawpixelat(word row, word col, byte c) {
 	g_vic.out.data[row][col] = c;
 	g_vic.out.isforeground[row][col] = false;
@@ -499,27 +513,20 @@ bool vicii_shoulddisplayspritepixel(byte sprite, byte row, byte col) {
 void vicii_drawstandardspritebyte(byte sprite) {
 
 	int i;
-	byte dw = g_vic.regs[VICII_SPRITEDW] & (0x1 << sprite);
 	byte data = g_vic.sprites[sprite].data[g_vic.sprites[sprite].idata++];
 	byte c = g_vic.regs[VICII_S0C+sprite] & 0xf;
-	word x = g_vic.sprites[sprite].curx;
 	word y = g_vic.raster_y - VICII_NTSC_VBLANK;
 	
 	for (i = 0; i < 8; i++) {
-		if (dw) {
-			if ((data & 0x80) &&  vicii_shoulddisplayspritepixel(sprite,y,x)) {
-				vicii_drawpixelat(y,x,c);
-			}
-			x++;
+
+		if (g_vic.sprites[sprite].dw) {
+			vicii_drawspritepixel(sprite,y,c,data&0x80);
 		}
-		if ((data & 0x80) &&  vicii_shoulddisplayspritepixel(sprite,y,x)) {
-			vicii_drawpixelat(y,x,c);
-		}
-		x++;
+		vicii_drawspritepixel(sprite,y,c,data&0x80);
+
 		data <<= 1;
 	}
-	g_vic.sprites[sprite].curx = x;
-
+	
 	if (g_vic.sprites[sprite].idata == 3) {
 		g_vic.sprites[sprite].idata = 0;
 	}
@@ -530,11 +537,9 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 	int i;
 	byte data = g_vic.sprites[sprite].data[g_vic.sprites[sprite].idata++];
 	byte c 		= g_vic.regs[VICII_S0C+sprite] 	& 0xf;
-	byte dw 	= g_vic.regs[VICII_SPRITEDW] 	& (0x1 << sprite);
 	byte ec1 	= g_vic.regs[VICII_ESPRITECOL1] & 0xf;
 	byte ec2 	= g_vic.regs[VICII_ESPRITECOL2] & 0xf;
 	int uc;  // used color (which color to use for multicolor mode)
-	word x = g_vic.sprites[sprite].curx;
 	word y = g_vic.raster_y - VICII_NTSC_VBLANK;
 	
 
@@ -547,25 +552,13 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 			case 0b11000000:	uc = ec2; 		break;
 		}
 
-		if (dw) {
-			if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
-				vicii_drawpixelat(y,x, uc);
-			}
-			x++;
-			if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
-				vicii_drawpixelat(y,x, uc);
-			}
-			x++;
+		if (g_vic.sprites[sprite].dw) {
+			vicii_drawspritepixel(sprite,y,uc,uc!=-1);
+			vicii_drawspritepixel(sprite,y,uc,uc!=-1);
 		}
+		vicii_drawspritepixel(sprite,y,uc,uc!=-1);
+		vicii_drawspritepixel(sprite,y,uc,uc!=-1);
 
-		if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
-			vicii_drawpixelat(y,x, uc);
-		}
-		x++;
-		if (uc != -1 && vicii_shoulddisplayspritepixel(sprite,y,x)) {
-				vicii_drawpixelat(y,x, uc);
-		}
-		x++;
 
 		data <<=2;
 	}
@@ -573,8 +566,6 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 	if (g_vic.sprites[sprite].idata == 3) {
 		g_vic.sprites[sprite].idata = 0;
 	}
-
-	g_vic.sprites[sprite].curx = x;
 }
 
 void vicii_drawsprites() {
@@ -1212,16 +1203,20 @@ void vicii_poke(word address,byte val) {
 		case VICII_SPRITEDW:
 
 			g_vic.regs[reg] = val;
+			for (int i = 0; i < 8; i++) {
+				g_vic.sprites[i].dw = (val & (0x1 << i)) > 0;
+				DEBUG_PRINTIF(g_vic.sprites[i].dw,"Sprite %d is double width.\n",i);
+			}
 
-			DEBUG_PRINTIF(val & 0x01,"Sprite 0 double width.\n");
-			DEBUG_PRINTIF(val & 0x02,"Sprite 1 double width.\n");
-			DEBUG_PRINTIF(val & 0x04,"Sprite 2 double width.\n");
-			DEBUG_PRINTIF(val & 0x08,"Sprite 3 double width.\n");
-			DEBUG_PRINTIF(val & 0x10,"Sprite 4 double width.\n");
-			DEBUG_PRINTIF(val & 0x20,"Sprite 5 double width.\n");
-			DEBUG_PRINTIF(val & 0x40,"Sprite 6 double width.\n");
-			DEBUG_PRINTIF(val & 0x80,"Sprite 7 double width.\n");
+		break;
 
+		case VICII_SPRITEPRI:
+
+			g_vic.regs[reg] = val;
+			for (int i = 0; i < 8; i++) {
+				g_vic.sprites[i].fgpri = (val & (0x1 << i)) > 0;
+				DEBUG_PRINTIF(g_vic.sprites[i].fgpri,"Foreground graphics have priority over sprite %d.\n",i);
+			}
 		break;
 
 		case VICII_SPRITEDH: 

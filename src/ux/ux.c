@@ -472,8 +472,6 @@ void ux_init() {
 	}
 
 	g_ux.passthru = true;
-
-
 }
 
 void ux_destroy() {
