@@ -270,7 +270,6 @@ void vicii_updateraster() {
 	}
 
 	if (g_vic.raster_x == VICII_NTSC_LINE_START_X) {		// Update Y raster position if we've reached end of line.
-		
 		g_vic.cycle = 1;
 		g_vic.raster_y++;
 		
@@ -822,8 +821,9 @@ void vicii_checkborderflipflops() {
 
 void vicii_main_update() {
 
-	g_vic.cycle++;										// update cycle count.
-	vicii_updateraster();								// update raster x and y and check for raster IRQ
+	g_vic.cycle++;			// update cycle count.
+
+	vicii_updateraster(); 	// update raster x and y and check for raster IRQ
 	vicii_checkborderflipflops();
 
 	switch(g_vic.cycle) {
@@ -1031,40 +1031,42 @@ void vicii_main_update() {
 				g_vic.rc = (g_vic.rc + 1) & 0x7;
 			}
 			vicii_checkspriteson();
+			vicii_paccess(0);
+			vicii_saccess(0);
 
 		break;
 		case 59:
 			vicii_drawgraphics(); 
+			vicii_saccess(0);
+			vicii_saccess(0);
 		break;
 		case 60: 
 			vicii_drawsprites();
-			vicii_paccess(0);
-			vicii_saccess(0);
-		break;
-		case 61: 
-			vicii_saccess(0);
-			vicii_saccess(0);
-		break;
-		case 62: 
 			vicii_paccess(1);
 			vicii_saccess(1);
 		break;
-		// * turn on border. 
-		case 63:
+		case 61: 
 			vicii_saccess(1);
 			vicii_saccess(1);
 		break;
-		case 64: 
+		case 62: 
 			vicii_paccess(2);
 			vicii_saccess(2);
 		break;
+		// * turn on border. 
+		case 63:
+			vicii_saccess(2);
+			vicii_saccess(2);
+			
+		break;
+		case 64: 
+		break;
 		case 65: 
-			vicii_saccess(2);
-			vicii_saccess(2);
 		break;
 		default: 
 		break;
 	}
+
 }
 
 void vicii_update() {
@@ -1272,6 +1274,7 @@ void vicii_poke(word address,byte val) {
 				g_vic.sprites[i].yex = (val & (0x1 << i)) == 0;
 			}
 
+
 			DEBUG_PRINTIF(val & 0x01,"Sprite 0 double height.\n");
 			DEBUG_PRINTIF(val & 0x02,"Sprite 1 double height.\n");
 			DEBUG_PRINTIF(val & 0x04,"Sprite 2 double height.\n");
@@ -1284,6 +1287,7 @@ void vicii_poke(word address,byte val) {
 		break;
 		case VICII_SPRITEEN:
 			g_vic.regs[reg] = val;
+
 			DEBUG_PRINTIF(val & 0x01,"Sprite 0 enabled.\n");
 			DEBUG_PRINTIF(val & 0x02,"Sprite 1 enabled.\n");
 			DEBUG_PRINTIF(val & 0x04,"Sprite 2 enabled.\n");
@@ -1292,6 +1296,7 @@ void vicii_poke(word address,byte val) {
 			DEBUG_PRINTIF(val & 0x20,"Sprite 5 enabled.\n");
 			DEBUG_PRINTIF(val & 0x40,"Sprite 6 enabled.\n");
 			DEBUG_PRINTIF(val & 0x80,"Sprite 7 enabled.\n");
+
 		break;
 		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // cannot write to collision registers
 		break;
