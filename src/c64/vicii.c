@@ -286,6 +286,7 @@ void vicii_updateraster() {
 			//
 			g_vic.regs[VICII_ISR] |= VICII_ICR_RASTER_INTERRUPT;
 			if (g_vic.regs[VICII_ICR] & VICII_ICR_RASTER_INTERRUPT) {
+				DEBUG_PRINT("signalling raster irq.\n");
 				cpu_irq();
 			}
 		}
@@ -1241,6 +1242,14 @@ void vicii_poke(word address,byte val) {
 				DEBUG_PRINTIF(g_vic.sprites[i].dw,"Sprite %d is double width.\n",i);
 			}
 
+		break;
+
+		case VICII_ICR:
+			g_vic.regs[reg] = val;
+			DEBUG_PRINT("ICR: Raster Interrupt %s.\n",val & BIT_0 ? "on":"off");
+			DEBUG_PRINT("ICR: Sprite-Background Interrupt %s.\n",val & BIT_1 ? "on":"off");
+			DEBUG_PRINT("ICR: Sprite-Sprite Interrupt %s.\n",val & BIT_2 ? "on":"off");
+			DEBUG_PRINT("ICR: Light Pen Interrupt  %s.\n",val & BIT_3 ? "on":"off");
 		break;
 
 		case VICII_SPRITEPRI:

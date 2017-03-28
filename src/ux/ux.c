@@ -471,6 +471,17 @@ void ux_init() {
 		asm_loadfile(cfg->binload);
 	}
 
+	if (cfg->cartload != NULL) {
+		asm_loadcart(cfg->cartload);
+	}
+
+	if (cfg->breakpoint != 0) {
+		g_ux.brk = true;
+		g_ux.brk_address = cfg->breakpoint;
+
+	}
+
+
 	g_ux.passthru = true;
 }
 

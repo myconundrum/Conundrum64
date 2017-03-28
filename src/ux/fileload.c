@@ -4,7 +4,7 @@ Conundrum 64: Commodore 64 Emulator
 
 MIT License
 
-Copyright (c) 2017 Marc R. Whitten
+Copyright (c) 2017 
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
-MODULE: basicload.c
-load a basic file into c64 memory.
+MODULE:fileload.c
+direct load of various files into c64 memory.
 
 
 WORK ITEMS:
@@ -45,6 +45,32 @@ Just hacked this together.
 */
 #include "emu.h"
 #include "cpu.h"
+
+typedef struct {
+
+	byte 		signature[16]; // "C64 CARTRIDGE    "
+	uint32_t 	headerlength;  // should be 20
+	word		cartversion;   // version 0x100
+	word 		carttype;      // 0 normal 1 Action Replay 2 KCS Powercart
+	byte		exrom;		   // exrom active?
+	byte 		game;		   // game line active?
+	byte        reserved[6];
+	byte		cartname[32];  // cartridge name null terminated
+
+} CRTHEADER;
+
+typedef struct {
+
+	byte 		signature[4]; 	//  "CHIP"
+	uint32_t 	length;   		// includes header
+	word     	type;  			// 0 rom 1 ram
+	word        location; 		// 0 normal location.
+	word        loadaddress; 
+	word 		romsize;
+
+} CHIPHEADER;
+
+
 typedef struct {
 
 	word line;
@@ -215,6 +241,62 @@ void bas_tokenizeline(char * line) {
 		i++;
 	}
 }
+
+
+void asm_loadcart(char *name) {
+
+	word len;
+	byte* cur;
+	word loc = 0x8000;
+	FILE * f;
+	byte * where;
+	CRTHEADER header;
+	CHIPHEADER chip;
+
+
+	f = fopen(name,"rb");
+	
+	if (f) {
+
+		fseek(f, 0, SEEK_END);          
+    	len = ftell(f);            
+    	rewind(f);
+    	DEBUG_PRINT("loading cart file %s size %d\n",name,len);
+
+
+    	where = (byte *) malloc(sizeof(byte) * len);   
+    	fread(&header,sizeof(header),1,f);
+    	fread(&chip,sizeof(chip),1,f);
+		fread(where,1,len-sizeof(header)-sizeof(chip),f);
+		cur = where;
+
+		
+
+		DEBUG_PRINT("signature:       %s\n",header.signature);
+		DEBUG_PRINT("header length:   %x\n",header.headerlength);
+		DEBUG_PRINT("cart version:    %04X\n",header.cartversion);
+		DEBUG_PRINT("cart type:       %04X\n",header.carttype);
+		DEBUG_PRINT("exrom:           %02X\n",header.exrom);
+		DEBUG_PRINT("game:            %02X\n",header.game);
+		DEBUG_PRINT("cartname:        %s\n",header.cartname);
+
+		DEBUG_PRINT("chip signature:  %c%c%c%c\n",chip.signature[0],chip.signature[1],chip.signature[2],chip.signature[3]);
+		DEBUG_PRINT("length:          %x\n",chip.length);
+		DEBUG_PRINT("type:            %02x\n",chip.type);
+		DEBUG_PRINT("location:        %x\n",chip.location);
+		DEBUG_PRINT("rom size:        %04x\n",chip.romsize);
+		DEBUG_PRINT("load address:    %04x\n",chip.loadaddress);
+
+		while (cur < where + len) {
+			mem_poke(loc++,*cur++);
+		}
+
+		free(where);
+		fclose(f);
+	}
+
+}
+
 
 void asm_loadfile(char *name) {
 

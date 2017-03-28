@@ -1,3 +1,4 @@
+
 /*
 Conundrum 64: Commodore 64 Emulator
 
@@ -24,74 +25,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
-MODULE: emu.h
-
-WORK ITEMS:
-
-KNOWN BUGS:
+MODULE:fileload.c
+direct load of various files into c64 memory.
 
 */
 
-#ifndef EMU_H
-#define EMU_H
+#ifndef FILELOAD_H
+#define FILELOAD_H
 
 
-#include <stdlib.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <stdbool.h>
-
-#define EMU_NAME 				"Conundrum 64"
-#define EMU_VERSION_MINOR		1
-#define EMU_VERSION_MAJOR		0
-
-typedef struct {
-    
-    const char* 	kernalpath;
-    const char* 	charpath;
-    const char* 	basicpath;
-    const char* 	binload;
-    const char* 	cartload;
-    uint16_t  breakpoint;
-
-} EMU_CONFIGURATION;
-
-
-EMU_CONFIGURATION * emu_getconfig();
-
-
-
-
-#define DEBUG 1
-#define EMU_DOUBLE_SCREEN 1
-
-
-
-
-
-
-
-
-
-#if defined(DEBUG) && DEBUG > 0
-
-FILE * g_debug;
-
-char * emu_getname();
-
- #define DEBUG_INIT(log) g_debug = fopen(log,"w+")
- #define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[%s@%d] %s(): " fmt, \
-    __FILE__, __LINE__, __func__, ##args)
- #define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[%s@%d] %s(): " fmt, \
-    __FILE__, __LINE__, __func__, ##args);}
- #define DEBUG_DESTROY() fclose(g_debug)
-#else
- #define DEBUG_INIT(log)
- #define DEBUG_PRINT(fmt, args...) /* Don't do anything in release builds */
- #define DEBUG_PRINTIF(b,fmt,args...) 
- #define DEBUG_DESTROY()
-
-#endif
-
+void bas_loadfile(char * string);
+void asm_loadfile(char * string);
 
 #endif

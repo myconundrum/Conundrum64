@@ -72,6 +72,12 @@ static int config_handler(
     } else if (MATCH("bin", "load")) {
         c->binload = strdup(value);
         DEBUG_PRINT("bin load file is %s\n",c->binload);
+    }  else if (MATCH("bin", "loadcart")) {
+        c->cartload = strdup(value);
+        DEBUG_PRINT("bin load file is %s\n",c->cartload);
+    }  else if (MATCH("debug", "breakpoint")) {
+        c->breakpoint = strtoul(value,NULL,16);
+        DEBUG_PRINT("bin load file is %04x\n",c->breakpoint);
     } else {
         return 0;  
     }
