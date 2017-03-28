@@ -136,8 +136,6 @@ typedef enum {
 	VICII_LAST
 } VICII_REG;
 
-
-
 //
 // In this implementation, the three mode bits are combined into the low 3 bits of a mode value. 
 // in the order ECM|BMM|MCM 
@@ -713,10 +711,6 @@ void vicii_checkspritesdmaon() {
 	int i;
 
 	for (i = 0; i < 8; i++) {
-		
-		//if (g_vic.sprites[i].on) {
-		//	continue;
-		//}
 
 		if ((g_vic.regs[VICII_SPRITEEN] & (0x1 << i)) && 
 			g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
@@ -1005,7 +999,7 @@ void vicii_main_update() {
    			*/
 			for (int i = 0; i < 8; i++) {
 
-				if (g_vic.regs[VICII_SPRITEDH] & (0x1 << 8)) {
+				if (g_vic.regs[VICII_SPRITEDH] & (0x1 << i)) {
 					g_vic.sprites[i].yex = !g_vic.sprites[i].yex;
 				}
 			}
@@ -1243,6 +1237,7 @@ void vicii_poke(word address,byte val) {
 				g_vic.sprites[i].dw = (val & (0x1 << i)) > 0;
 				DEBUG_PRINTIF(g_vic.sprites[i].dw,"Sprite %d is double width.\n",i);
 			}
+
 
 		break;
 
