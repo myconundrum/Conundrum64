@@ -270,7 +270,7 @@ void asm_loadcart(char *name) {
 		fread(where,1,len-sizeof(header)-sizeof(chip),f);
 		cur = where;
 
-		
+
 
 		DEBUG_PRINT("signature:       %s\n",header.signature);
 		DEBUG_PRINT("header length:   %x\n",header.headerlength);
@@ -318,7 +318,7 @@ void asm_loadfile(char *name) {
 		fread(where,1,len,f);
 
 		loc = where[0] | (where[1] << 8);
-
+		DEBUG_PRINT("placing in memory at %04X\n",loc);
 		cur = where + 2;
 		while (cur < where + len) {
 			mem_poke(loc++,*cur++);

@@ -45,3 +45,7 @@ asm/901226-01-basic.bin
 
 asm/901227-03-kernal.bin
 
+
+*.crt
+
+*.prg
