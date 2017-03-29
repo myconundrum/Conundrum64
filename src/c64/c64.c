@@ -98,10 +98,12 @@ C64_MAPPED_IO g_io;
 
 
 void c64_rompoke(word address, byte val) {}
-byte c64_kernalpeek(word address) 		{return g_io.rKernal[address];}
-byte c64_basicpeek(word address) 		{return g_io.rBasic[address];}
-byte c64_charpeek(word address) 		{return g_io.rChar[address];}
-byte c64_bankswitchpeek(word address) 	{return mem_nonmappable_peek(address);}
+byte c64_kernalpeek(word address) 				{return g_io.rKernal[address];}
+void c64_kernalpoke(word address,byte val) 		{return mem_nonmappable_poke(address+KERNAL_ROM_LOW_ADDRESS,val);}
+void c64_basicpoke(word address,byte val) 		{return mem_nonmappable_poke(address+BASIC_ROM_LOW_ADDRESS,val);}
+byte c64_basicpeek(word address) 				{return g_io.rBasic[address];}
+byte c64_charpeek(word address) 				{return g_io.rChar[address];}
+byte c64_bankswitchpeek(word address) 			{return mem_nonmappable_peek(address);}
 
 void c64_bankswitchpoke(word address, byte val) {
 	
@@ -165,8 +167,8 @@ void c64_init() {
 	g_io.rKernal 		= c64_init_rom(cfg->kernalpath);
 	g_io.rBasic 		= c64_init_rom(cfg->basicpath);
 	g_io.rChar 			= c64_init_rom(cfg->charpath);
-	g_io.mKernal 		= mem_map(KERNAL_ROM_LOW_ADDRESS,KERNAL_ROM_HIGH_ADDRESS,c64_kernalpeek,c64_rompoke);
-	g_io.mBasic 		= mem_map(BASIC_ROM_LOW_ADDRESS,BASIC_ROM_HIGH_ADDRESS,c64_basicpeek,c64_rompoke);
+	g_io.mKernal 		= mem_map(KERNAL_ROM_LOW_ADDRESS,KERNAL_ROM_HIGH_ADDRESS,c64_kernalpeek,c64_kernalpoke);
+	g_io.mBasic 		= mem_map(BASIC_ROM_LOW_ADDRESS,BASIC_ROM_HIGH_ADDRESS,c64_basicpeek,c64_basicpoke);
 	g_io.mChar 			= mem_map(CHAR_ROM_LOW_ADDRESS,CHAR_ROM_HIGH_ADDRESS,c64_charpeek,c64_rompoke);
 	g_io.mCia1			= mem_map(CIA1_AREA_LOW_ADDRESS,CIA1_AREA_HIGH_ADDRESS,cia1_peek,cia1_poke);
 	g_io.mCia2			= mem_map(CIA2_AREA_LOW_ADDRESS,CIA2_AREA_HIGH_ADDRESS,cia2_peek,cia2_poke);

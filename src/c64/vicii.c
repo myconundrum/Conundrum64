@@ -39,6 +39,7 @@ KNOWN BUGS:
 #include "vicii.h"
 #include "sysclock.h"
 
+
 #define VICII_ICR_RASTER_INTERRUPT 				0b00000001
 #define VICII_ICR_SPRITE_BACKGROUND_INTERRUPT	0b00000010
 #define VICII_ICR_SPRITE_SPRITE_INTERRUPT		0b00000100
@@ -159,6 +160,7 @@ typedef struct {
 	byte pointer;  		// fetched in paccess 	for sprite.
 	byte data[3];  		// fetched in saccesses for sprite.
 	byte idata;			// index of data byte.
+	byte bitstodraw;    // how many bits are there to read?
 
 	byte mc;		
 	byte mcbase;
@@ -528,11 +530,6 @@ void vicii_drawecmtext() {
    bits form one pixel.
  */
 
-//
-// BUGBUG: No Multicolor mode yet.
-//
-
-
 
 void vicii_drawstandardspritebyte(byte sprite) {
 
@@ -609,18 +606,16 @@ void vicii_drawsprites() {
 		g_vic.sprites[sprite].curx = g_vic.regs[VICII_S0X + sprite*2];
 		mcm = g_vic.regs[VICII_SPRITEMCM] & (0x1 << sprite);
 
-		//
-		// three bytes of data per sprite line.
-		// 
-		if (mcm) {
-			vicii_drawmulticolorspritebyte(sprite);
-			vicii_drawmulticolorspritebyte(sprite);
-			vicii_drawmulticolorspritebyte(sprite);
-		} else {  
-			vicii_drawstandardspritebyte(sprite); 
-			vicii_drawstandardspritebyte(sprite); 
-			vicii_drawstandardspritebyte(sprite); 
-		}		
+
+		while (g_vic.sprites[sprite].bitstodraw) {
+			g_vic.sprites[sprite].bitstodraw -= 8;
+
+			if (mcm) {
+				vicii_drawmulticolorspritebyte(sprite);
+			} else {  
+				vicii_drawstandardspritebyte(sprite); 
+			}		
+		}
 	}
 }
 
@@ -687,6 +682,7 @@ void vicii_saccess(byte num) {
 
 	if (g_vic.sprites[num].dma) {
 		g_vic.sprites[num].data[g_vic.sprites[num].idata++] = vicii_peekspritedata(num);
+		g_vic.sprites[num].bitstodraw+=8;
 	}
 	if (g_vic.sprites[num].idata == 3) {
 		g_vic.sprites[num].idata = 0;
@@ -715,6 +711,7 @@ void vicii_checkspritesdmaon() {
 			g_vic.regs[VICII_S0Y+i*2] == (g_vic.raster_y & 0xFF)) {
 			if (!g_vic.sprites[i].dma) {
 				g_vic.sprites[i].dma = true;
+				g_vic.sprites[i].bitstodraw =0;
 				g_vic.sprites[i].mcbase = 0;
 
 				if (g_vic.regs[VICII_SPRITEDH] & (0x1 << i)) {
@@ -1088,6 +1085,8 @@ void vicii_setbank() {
 }
 
 byte vicii_peek(word address) {
+
+
 	
 	byte reg = address % VICII_LAST;
 	byte rval;
