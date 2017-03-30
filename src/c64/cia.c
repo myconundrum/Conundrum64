@@ -45,7 +45,7 @@ KNOWN BUGS:
 
 
 typedef struct _CIA CIA;
-typedef byte (*PORTBDATAHANDLER)(CIA * c);
+typedef byte (*PORTDATAHANDLER)(CIA * c);
 typedef void (*SIGNALIRQHANDLER)();
 
 struct _CIA {
@@ -58,7 +58,8 @@ struct _CIA {
 								// the tenths register is read. 
 	unsigned long todstart;
 
-	PORTBDATAHANDLER bfn;		// port b data handler.
+	PORTDATAHANDLER bfn;		// port b data handler.
+	PORTDATAHANDLER afn;		// port a data handler
 	SIGNALIRQHANDLER irqfn;		// signal irqs here.
 
 };
@@ -115,7 +116,7 @@ void cia_realtolatch(CIA * c,byte reg) {
 	c->regs[CIA_LATCH][reg] = c->regs[CIA_REAL][reg];
 }
 
-byte cia_getkbdprb(CIA * c) {
+byte cia1_getportb(CIA * c) {
 
 	int i = 0;
 	byte val = 0xff;
@@ -126,17 +127,28 @@ byte cia_getkbdprb(CIA * c) {
 			val &= c64kbd_getrow(i);
 		}
 	}
+
+	val &= joy_getport(1);
+
 	return val;
 
 }
 
-byte cia_getserialprb(CIA * c) {
+byte cia2_getportb(CIA * c) {
 
 	// not implemented
 	return 0xff;
 
 }
 
+byte cia1_getporta(CIA * c) {
+
+	return cia_getreal(c,CIA_PRA) & joy_getport(0);
+}
+
+byte cia2_getporta(CIA *c) {
+	return cia_getreal(c,CIA_PRA);
+}
 
 void cia_latchtod(CIA * c) {
 
@@ -159,6 +171,8 @@ byte cia_peek(CIA * c,byte address) {
 		case CIA_ICR: 
 			val = c->isr;
 		break;
+		case CIA_PRA:
+			val = c->afn(c);
 		case CIA_PRB:
 			val = c->bfn(c);
 		break;
@@ -314,8 +328,10 @@ void cia_init() {
 	//
 	// connect the cia chips to other components
 	//
-	g_cia1.bfn = cia_getkbdprb;
-	g_cia2.bfn = cia_getserialprb;
+	g_cia1.bfn = cia1_getportb;
+	g_cia2.bfn = cia2_getportb;
+	g_cia1.afn = cia1_getporta;
+	g_cia2.afn = cia2_getporta;
 
 	g_cia1.irqfn = cpu_irq;
 	g_cia2.irqfn = cpu_nmi;
