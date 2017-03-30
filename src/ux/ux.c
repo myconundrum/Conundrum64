@@ -86,26 +86,7 @@ typedef struct {
  	15 light gray
 */
 
-/* Alpha  R G B */
-Uint32 g_colors[0x10] = {
-	0xFF000000,
-	0xFFFFFFFF,
-	0xFF683728,
-	0xFF70A4B2,
-	0xFF6F3D86,
-	0xFF588D43,
-	0xFF352879,
-	0xFFB8C76F,
-	0xFF6F4F25,
-	0xFF433900,
-	0xFF9A6759,
-	0xFF444444,
-	0xFF6C6C6C,
-	0xFF9AD284,
-	0xFF6C5EB5,
-	0xFF959595
-	
-};
+
 
 typedef struct {
 
@@ -569,7 +550,6 @@ void ux_updateScreen() {
 	int 	row;
 	int 	col;
 	Uint32 * dst;
-	Uint32  val;
 #ifdef EMU_DOUBLE_SCREEN
 	Uint32 * dst2;
 #endif 
@@ -590,13 +570,11 @@ void ux_updateScreen() {
 
 		for (col = 0; col < VICII_SCREENFRAME_WIDTH; col++) {
 
-			val = g_colors[frame->data[row][col]];
-
-			*dst++ = val;
+			*dst++ = frame->data[row][col];
 #ifdef EMU_DOUBLE_SCREEN
-			*dst++ = val;
-			*dst2++ = val;
-			*dst2++ = val;
+			*dst++ = frame->data[row][col];
+			*dst2++ = frame->data[row][col];
+			*dst2++ = frame->data[row][col];
 #endif 
 
 		}
@@ -663,7 +641,12 @@ void ux_update() {
 			g_ux.passthru = false;
 			ux_fillDisassembly(cpu_getpc());
 		}
+
+		if (vicii_frameready()) {
+			ux_updateScreenWindow();
+		}
 	}
+
 
 	if (g_ux.cycles++ % 10000) {
 		return;
@@ -671,8 +654,10 @@ void ux_update() {
 
 	SDL_Event e;
 
-	ux_updateScreenWindow();
 	ux_updateMonitorWindow();
+	if (!ux_running()) {
+		ux_updateScreenWindow();
+	}
 
 	while (SDL_PollEvent (&e)) {
 	

@@ -62,6 +62,51 @@ KNOWN BUGS:
 #define VICII_FIRST_DISPLAY_LINE 16
 
 
+
+
+/*
+	RGB values of C64 colors from 
+	http://unusedino.de/ec64/technical/misc/vic656x/colors/
+
+	0 black
+  	1 white
+  	2 red
+  	3 cyan
+  	4 pink
+  	5 green
+  	6 blue
+  	7 yellow
+  	8 orange
+  	9 brown
+ 	10 light red
+ 	11 dark gray
+ 	12 medium gray
+ 	13 light green
+ 	14 light blue
+ 	15 light gray
+*/
+
+/* Alpha  R G B */
+uint32_t g_colors[0x10] = {
+	0xFF000000,
+	0xFFFFFFFF,
+	0xFF683728,
+	0xFF70A4B2,
+	0xFF6F3D86,
+	0xFF588D43,
+	0xFF352879,
+	0xFFB8C76F,
+	0xFF6F4F25,
+	0xFF433900,
+	0xFF9A6759,
+	0xFF444444,
+	0xFF6C6C6C,
+	0xFF9AD284,
+	0xFF6C5EB5,
+	0xFF959595	
+};
+
+
 typedef struct {
 
 	byte data;
@@ -176,6 +221,8 @@ typedef struct {
 } VICII_SPRITE;
 
 
+
+
 typedef enum {
 	VICII_FG_PIXEL,
 	VICII_BG_PIXEL,
@@ -240,6 +287,7 @@ typedef struct {
 
 	VICII_SCREENFRAME out;		// colors for each pixel
 	VICII_SCREENFRAME type;     // pixel type (fg, bg, border, sprite)
+	bool frameready; 			// ready when a new frame is being generated.
 	word xpos;
 
 } VICII;
@@ -263,6 +311,8 @@ void vicii_init() {
 	g_vic.displayright 		= VICII_DISPLAY_RIGHT_0;
 
 }
+
+bool vicii_frameready() {return g_vic.frameready;}
 
 void vicii_updateraster() {
 
@@ -296,6 +346,8 @@ void vicii_updateraster() {
 VICII_SCREENFRAME * vicii_getframe() {
 	return &g_vic.out;
 }
+
+
 
 
 byte vicii_realpeek(word address) {
@@ -358,7 +410,7 @@ byte vicii_peekmem(word address) {
 }
 
 void vicii_drawpixel(byte c,VICII_PIXELTYPE type) {
-	g_vic.out.data[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = c;
+	g_vic.out.data[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = g_colors[c];
 	g_vic.type.data[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = type;
 	g_vic.xpos++;
 }
@@ -393,7 +445,7 @@ void vicii_drawspritepixel(byte sprite,word row, byte c,bool shown) {
 		}
 	
 		if (!s->fgpri || g_vic.type.data[row][s->curx] != VICII_FG_PIXEL) {
-			g_vic.out.data[row][s->curx] = c;
+			g_vic.out.data[row][s->curx] = g_colors[c];
 			g_vic.type.data[row][s->curx] = VICII_SPRITE_PIXEL;
 
 		}
@@ -835,6 +887,7 @@ void vicii_main_update() {
 			g_vic.xpos = 0;
 
 			if (g_vic.raster_y == 1) {
+				g_vic.frameready = true;
 				g_vic.vcbase = 0;			// reset on line zero.
 			}
 
@@ -864,6 +917,9 @@ void vicii_main_update() {
 			vicii_saccess(3);
 		break;
 		case 2: 
+			if (g_vic.raster_y == 1) {
+				g_vic.frameready = false;
+			}
 			vicii_saccess(3);
 			vicii_saccess(3);
 		break;
