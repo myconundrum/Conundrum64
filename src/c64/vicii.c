@@ -1081,7 +1081,7 @@ void vicii_destroy(){}
 void vicii_setbank() {
 	g_vic.bank = ((~mem_peek(0xDD00)) & 0x03);
 	g_vic.bank <<=14;
-	DEBUG_PRINT("vic bank is: %04x\n",g_vic.bank);
+	DEBUG_PRINT("vic bank is: 0x%04X\n",g_vic.bank);
 }
 
 byte vicii_peek(word address) {

@@ -103,27 +103,36 @@ void c64_kernalpoke(word address,byte val) 		{return mem_nonmappable_poke(addres
 void c64_basicpoke(word address,byte val) 		{return mem_nonmappable_poke(address+BASIC_ROM_LOW_ADDRESS,val);}
 byte c64_basicpeek(word address) 				{return g_io.rBasic[address];}
 byte c64_charpeek(word address) 				{return g_io.rChar[address];}
-byte c64_bankswitchpeek(word address) 			{return mem_nonmappable_peek(address);}
+byte c64_bankswitchpeek(word address) 			{return mem_nonmappable_peek(address+1);}
 
 void c64_bankswitchpoke(word address, byte val) {
 	
-	mem_nonmappable_poke(address,val);
+	bool allram = false;
 
-	if (!(val & 0x03)) {
-		//
-		// nothing mapped. 
-		//
-		val = 0;
-	} else {
-		//
-		// do memory mapping.
-		//
-		mem_mapactive(g_io.mKernal,val & 0x02);mem_mapactive(g_io.mBasic,val & 0x01);
-		mem_mapactive(g_io.mChar, val && ((val & 0x04) == 0));
-		mem_mapactive(g_io.mCia1, val & 0x04);
-		mem_mapactive(g_io.mCia2, val & 0x04);
-		mem_mapactive(g_io.mVicii, val & 0x04);
+	if ((val & 0x03) ==0) {
+		allram = true;
 	}
+	
+	//
+	// do memory mapping.
+	//
+	mem_mapactive(g_io.mKernal,!allram && (val & 0x02));
+	mem_mapactive(g_io.mBasic, !allram && (val & 0x01));
+	mem_mapactive(g_io.mChar, !allram && (val && ((val & 0x04) == 0)));
+	mem_mapactive(g_io.mCia1, !allram && (val & 0x04));
+	mem_mapactive(g_io.mCia2, !allram && (val & 0x04));
+	mem_mapactive(g_io.mVicii, !allram && (val & 0x04));
+
+	if ((mem_nonmappable_peek(address + 1) & 0x7) != (val & 0x7)) {
+
+		DEBUG_PRINT("Kernal:    %s.\n",!allram && (val & 0x02) ? "active":"inactive");
+		DEBUG_PRINT("Char Rom:  %s.\n",!allram && (val && ((val & 0x04) == 0))? "active":"inactive");
+		DEBUG_PRINT("CIA1:      %s.\n",!allram && (val & 0x04) ? "active":"inactive");
+		DEBUG_PRINT("CIA2:      %s.\n",!allram && (val & 0x04) ? "active":"inactive");
+		DEBUG_PRINT("VICII:     %s.\n",!allram && (val & 0x04) ? "active":"inactive");
+	}
+
+	mem_nonmappable_poke(address+1,val);
 }
 
 
