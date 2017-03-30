@@ -39,6 +39,6 @@ MODULE: joystick.h
 #define JOY_RIGHT	BIT_3
 #define JOY_FIRE	BIT_4
 
-void joy_pressed(byte port, byte input, bool pressed);
+void joy_input(byte port, byte input, bool pressed);
 byte joy_getport(byte port);
 
