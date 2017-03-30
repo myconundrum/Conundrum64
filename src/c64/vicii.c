@@ -309,7 +309,7 @@ byte vicii_realpeek(word address) {
 			rval = c64_charpeek(address & 0xFFF);
 		break;
 		default:
-			rval = mem_peek(address); 
+			rval = mem_nonmappable_peek(address); 
 	}
 	return rval;
 }
