@@ -40,6 +40,7 @@ KNOWN BUGS:
 #include "vicii.h"
 #include "sysclock.h"
 #include "c64kbd.h"
+#include "joystick.h"
 
 
 
@@ -61,31 +62,6 @@ typedef struct {
 
 
 #define DISLINESCOUNT 16
-
-
-
-/*
-	RGB values of C64 colors from 
-	http://unusedino.de/ec64/technical/misc/vic656x/colors/
-
-	0 black
-  	1 white
-  	2 red
-  	3 cyan
-  	4 pink
-  	5 green
-  	6 blue
-  	7 yellow
-  	8 orange
-  	9 brown
- 	10 light red
- 	11 dark gray
- 	12 medium gray
- 	13 light green
- 	14 light blue
- 	15 light gray
-*/
-
 
 
 typedef struct {
@@ -123,6 +99,9 @@ typedef struct {
 	bool 			running;					// c64 is running
 	bool 			done;						// user wishes to quit when true
 	bool			passthru;					// send input to c64 if true, otherwise monitor
+
+	bool 			joyon;						// joystick mode (vs keyboard mode)
+	byte			joyport;						// which joystick port (0 or 1)
 	
 	int 			cycles;						// track ux cycles (used for rendering perf)
 
@@ -224,6 +203,17 @@ void ux_handlecommand() {
 		if (p) {
 			asm_loadfile(p);
 		}
+	} else if (!strcmp(p,"JOY")) {
+		p = strtok(NULL," ");
+		if (p) {
+			g_ux.joyport 	= atoi(p);	
+		} else {
+			g_ux.joyport = 0;
+		}
+		g_ux.joyon 		= true;
+	} else if (!strcmp(p,"KEY")) {
+		g_ux.joyon 		= false;
+
 	}
 
 }
@@ -786,6 +776,26 @@ unsigned int ux_checkshiftedkey(SDL_Event e) {
 	return key;
 }
 
+void ux_handlec64joystick(SDL_Event e) {
+
+	unsigned int key = e.key.keysym.sym;
+	byte input = 0;
+	switch(key) {
+
+		case SDLK_w: input = JOY_UP; 				break;
+		case SDLK_a: input = JOY_LEFT; 				break;
+		case SDLK_s: input = JOY_DOWN; 				break;
+		case SDLK_d: input = JOY_RIGHT; 			break;
+		case SDLK_q: input = JOY_UP    | JOY_LEFT; 	break;
+		case SDLK_e: input = JOY_UP    | JOY_RIGHT; break;
+		case SDLK_z: input = JOY_DOWN  | JOY_LEFT; 	break;
+		case SDLK_c: input = JOY_DOWN  | JOY_RIGHT; break;
+		case SDLK_SPACE: input = JOY_UP; 			break;
+	}
+
+	joy_input(g_ux.joyport,input,e.type == SDL_KEYDOWN);
+}
+
 
 void ux_handlec64key(SDL_Event e) {
 
@@ -861,7 +871,12 @@ void ux_handleKeyPress(SDL_Event e) {
 	ux_handleMetaCommands(e);
 
 	if (g_ux.passthru) {
-		ux_handlec64key(e);
+		if (!g_ux.joyon) {
+			ux_handlec64key(e);
+		}
+		else {
+			ux_handlec64joystick(e);
+		}
 		return;
 	}
 

@@ -38,7 +38,7 @@ byte joy_getport(byte port) {
 	return g_joyports[port];
 }
 
-void joy_pressed(byte port, byte in, bool pressed) {
+void joy_input(byte port, byte in, bool pressed) {
 
 	//
 	// bit is cleared in appropriate register when set. 
