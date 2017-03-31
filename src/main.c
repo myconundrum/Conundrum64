@@ -41,6 +41,7 @@ KNOWN BUGS:
 
 #include "emu.h"
 
+#include <time.h>
 
 
 EMU_CONFIGURATION g_config = {0};
@@ -89,6 +90,8 @@ static int config_handler(
 
 int main(int argc, char**argv) {
 
+ 
+
 	DEBUG_INIT("c64.log");
 	
 	sprintf(g_nameString,"%s (version %d.%d)",EMU_NAME,EMU_VERSION_MAJOR,EMU_VERSION_MINOR);
@@ -106,12 +109,15 @@ int main(int argc, char**argv) {
 	
 	do {
 		ux_update();
-		if (ux_running()) {c64_update();}
+        if (ux_running()) {
+            c64_update();
+        }
 
 	} while (!ux_done());
 
 	c64_destroy();
 	ux_destroy();
+
 
 	DEBUG_DESTROY();
 	return 0;

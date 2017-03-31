@@ -638,6 +638,9 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 	}
 }
 
+int g_lastpos = 0;
+int g_frames = 0;
+
 void vicii_drawsprites() {
 
 	int sprite;
@@ -653,6 +656,11 @@ void vicii_drawsprites() {
 		
 		if (g_vic.sprites[sprite].on == false) {
 			continue;
+		}
+
+		if (g_lastpos != g_vic.regs[VICII_S0X]) {
+			DEBUG_PRINT("Sprite Moved. new position is 0x%02X. Frame count: %d\n",g_vic.regs[VICII_S0X],g_frames);
+			g_lastpos = g_vic.regs[VICII_S0X];
 		}
 
 		g_vic.sprites[sprite].curx = g_vic.regs[VICII_S0X + sprite*2];
@@ -888,6 +896,7 @@ void vicii_main_update() {
 
 			if (g_vic.raster_y == 1) {
 				g_vic.frameready = true;
+				g_frames++;
 				g_vic.vcbase = 0;			// reset on line zero.
 			}
 

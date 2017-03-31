@@ -655,6 +655,8 @@ void ux_handleevents() {
 
 void ux_update() {
 
+	
+
 	if (ux_running()) {
 		
 		if (g_ux.deferredinit && cpu_getpc() == 0xA480) { // basic warm start. 
@@ -669,8 +671,9 @@ void ux_update() {
 		}
 
 		if (vicii_frameready()) {
-			ux_updateScreenWindow();
 			ux_handleevents();
+			ux_updateScreenWindow();
+			
 		}
 	}
 
@@ -791,6 +794,7 @@ unsigned int ux_checkshiftedkey(SDL_Event e) {
 	return key;
 }
 
+bool g_pressed = false;
 void ux_handlec64joystick(SDL_Event e) {
 
 	unsigned int key = e.key.keysym.sym;
@@ -805,10 +809,10 @@ void ux_handlec64joystick(SDL_Event e) {
 		case SDLK_e: input = JOY_UP    | JOY_RIGHT; break;
 		case SDLK_z: input = JOY_DOWN  | JOY_LEFT; 	break;
 		case SDLK_c: input = JOY_DOWN  | JOY_RIGHT; break;
-		case SDLK_SPACE: input = JOY_UP; 			break;
+		case SDLK_SPACE: input = JOY_FIRE; 			break;
 	}
 
-	joy_input(g_ux.joyport,input,e.type == SDL_KEYDOWN);
+	joy_input(g_ux.joyport,input,e.type == SDL_KEYDOWN);	
 }
 
 
