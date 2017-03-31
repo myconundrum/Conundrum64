@@ -105,7 +105,9 @@ typedef struct {
 	
 	int 			cycles;						// track ux cycles (used for rendering perf)
 
-	char        	nameString
+	char        	nameString;
+
+	bool 			deferredinit;
 	
 } UX;
 
@@ -417,6 +419,20 @@ void ux_init_c64keymapping() {
 	//ux_mapkey(SDLK_DELETE,C64KEY_DELETE,true,false);
 }
 
+void ux_deferredinit() {
+
+	EMU_CONFIGURATION *cfg = emu_getconfig();
+	
+	if (cfg->binload != NULL) {
+		asm_loadfile(cfg->binload);
+	}
+
+	if (cfg->cartload != NULL) {
+		asm_loadcart(cfg->cartload);
+	}
+	g_ux.deferredinit = false;
+}
+
 
 void ux_init() {
 
@@ -425,27 +441,19 @@ void ux_init() {
 
 	memset(&g_ux,0,sizeof(UX));
 
+	g_ux.deferredinit = true; // initialization hook post C64 bootup.
+
 	ux_init_monitor();
 	ux_init_screen();	
 	ux_init_c64keymapping();
 
 	ux_fillDisassembly(cpu_getpc());
 
-	if (cfg->binload != NULL) {
-		asm_loadfile(cfg->binload);
-	}
-
-	if (cfg->cartload != NULL) {
-		asm_loadcart(cfg->cartload);
-	}
-
 	if (cfg->breakpoint != 0) {
 		g_ux.brk = true;
 		g_ux.brk_address = cfg->breakpoint;
 
 	}
-
-
 	g_ux.passthru = true;
 }
 
@@ -620,37 +628,12 @@ void ux_updateScreenWindow() {
 	}
 }
 
-void ux_update() {
 
-	char ch;
-
-	if (ux_running()) {
-		if (g_ux.brk && cpu_getpc() == g_ux.brk_address) {
-			g_ux.running = false;
-			g_ux.brk = false;
-			g_ux.passthru = false;
-			ux_fillDisassembly(cpu_getpc());
-		}
-
-		if (vicii_frameready()) {
-			ux_updateScreenWindow();
-		}
-	}
-
-
-	if (g_ux.cycles++ % 10000) {
-		return;
-	}
+void ux_handleevents() {
 
 	SDL_Event e;
-
-	ux_updateMonitorWindow();
-	if (!ux_running()) {
-		ux_updateScreenWindow();
-	}
-
 	while (SDL_PollEvent (&e)) {
-	
+			
 		switch (e.type) {
 			case SDL_WINDOWEVENT:
 				ux_handleWindowEvent(&e);
@@ -668,12 +651,44 @@ void ux_update() {
         	break;
     	}
 	}
+}
 
-	//
-	// if all windows have been closed, exit.
-	//
-	if (ux_allWindowsClosed()) {
-		g_ux.done = true;
+void ux_update() {
+
+	if (ux_running()) {
+		
+		if (g_ux.deferredinit && cpu_getpc() == 0xA480) { // basic warm start. 
+			ux_deferredinit();
+		}
+
+		if (g_ux.brk && cpu_getpc() == g_ux.brk_address) {
+			g_ux.running = false;
+			g_ux.brk = false;
+			g_ux.passthru = false;
+			ux_fillDisassembly(cpu_getpc());
+		}
+
+		if (vicii_frameready()) {
+			ux_updateScreenWindow();
+			ux_handleevents();
+		}
+	}
+
+	if (g_ux.cycles++ % 1000 == 0) {
+
+		if (!ux_running()) {
+			ux_updateScreenWindow();
+			
+		}
+		ux_updateMonitorWindow();
+		ux_handleevents();
+
+		//
+		// if all windows have been closed, exit.
+		//
+		if (ux_allWindowsClosed()) {
+			g_ux.done = true;
+		}
 	}
 }
 //
