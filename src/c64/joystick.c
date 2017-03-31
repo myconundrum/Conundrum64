@@ -44,7 +44,8 @@ void joy_input(byte port, byte in, bool pressed) {
 	// bit is cleared in appropriate register when set. 
 	//
 	if (pressed) {
-		g_joyports[port] |= ~in;
+		g_joyports[port] &= ~in;
+		
 	}
 	else {
 		g_joyports[port] |= in;

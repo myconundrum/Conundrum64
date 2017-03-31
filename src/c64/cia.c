@@ -173,6 +173,7 @@ byte cia_peek(CIA * c,byte address) {
 		break;
 		case CIA_PRA:
 			val = c->afn(c);
+		break;
 		case CIA_PRB:
 			val = c->bfn(c);
 		break;

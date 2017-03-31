@@ -206,13 +206,13 @@ void ux_handlecommand() {
 	} else if (!strcmp(p,"JOY")) {
 		p = strtok(NULL," ");
 		if (p) {
-			g_ux.joyport 	= atoi(p);	
+			g_ux.joyport = atoi(p);	
 		} else {
 			g_ux.joyport = 0;
 		}
-		g_ux.joyon 		= true;
+		g_ux.joyon 	= true;
 	} else if (!strcmp(p,"KEY")) {
-		g_ux.joyon 		= false;
+		g_ux.joyon 	= false;
 
 	}
 
