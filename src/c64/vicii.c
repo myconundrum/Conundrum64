@@ -210,7 +210,7 @@ typedef struct {
 	byte mc;		
 	byte mcbase;
 
-	byte curx;			// where to draw next pixel
+	word curx;			// where to draw next pixel
 
 	bool on;			// if on, we are displaying this sprite.
 	bool dma; 			// if true, we are loading data for this sprite.
@@ -638,8 +638,6 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 	}
 }
 
-int g_lastpos = 0;
-int g_frames = 0;
 
 void vicii_drawsprites() {
 
@@ -658,14 +656,17 @@ void vicii_drawsprites() {
 			continue;
 		}
 
-		if (g_lastpos != g_vic.regs[VICII_S0X]) {
-			DEBUG_PRINT("Sprite Moved. new position is 0x%02X. Frame count: %d\n",g_vic.regs[VICII_S0X],g_frames);
-			g_lastpos = g_vic.regs[VICII_S0X];
-		}
-
 		g_vic.sprites[sprite].curx = g_vic.regs[VICII_S0X + sprite*2];
-		mcm = g_vic.regs[VICII_SPRITEMCM] & (0x1 << sprite);
+		g_vic.sprites[sprite].curx |= (g_vic.regs[VICII_SMSB] & (0x1 << sprite)) ? 0x0100 : 0;
 
+		//
+		// BUGBUG: Sprites are 8 bits off for some reason. This is a huge hack until I find the bug. 
+		// need to fix this.
+		//
+		g_vic.sprites[sprite].curx += 8;
+		DEBUG_PRINT("curx is %04X\n",g_vic.sprites[sprite].curx);
+
+		mcm = g_vic.regs[VICII_SPRITEMCM] & (0x1 << sprite);
 
 		while (g_vic.sprites[sprite].bitstodraw) {
 			g_vic.sprites[sprite].bitstodraw -= 8;
@@ -895,8 +896,7 @@ void vicii_main_update() {
 			g_vic.xpos = 0;
 
 			if (g_vic.raster_y == 1) {
-				g_vic.frameready = true;
-				g_frames++;
+				g_vic.frameready = true;    // signal ux system to draw frame. 
 				g_vic.vcbase = 0;			// reset on line zero.
 			}
 

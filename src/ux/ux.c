@@ -880,6 +880,17 @@ void ux_handleMetaCommands(SDL_Event e) {
 			g_ux.passthru = !g_ux.passthru;
 		}
 	}
+
+	//
+	// BUGBUG: Hack to toggle joystick and keyboard mode.
+	//
+	if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_TAB) {
+
+		if (e.key.keysym.mod == KMOD_RSHIFT || e.key.keysym.mod ==KMOD_LSHIFT) {
+			g_ux.joyon = !g_ux.joyon;
+		}
+		
+	}
 }
 
 void ux_handleKeyPress(SDL_Event e) {

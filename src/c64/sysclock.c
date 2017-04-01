@@ -48,6 +48,9 @@ typedef struct {
 	clock_t		  clastreal;		// time at last refresh
 	word	      lastadd;			// amount of ticks added in last call to sysclock_addticks()
 
+	
+	
+
 } SYSCLOCK;
 
 SYSCLOCK g_sysclock;
@@ -57,6 +60,10 @@ void sysclock_init(void) {
 	g_sysclock.total 			= 0;
 	g_sysclock.clast 			= 0;
 	g_sysclock.clastreal		= clock();
+
+
+
+
 }
 
 

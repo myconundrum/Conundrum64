@@ -18,4 +18,4 @@ OBJ_NAME = con64
 
 #This is the target that compiles our executable
 all : $(OBJS)
-	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME) -I./src/ux -I./src/c64 -I./src/ -I./src/inih
+	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME) -I./src/ux -I./src/c64 -I./src/ -I./src/inih -I/usr/local/include
