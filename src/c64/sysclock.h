@@ -57,6 +57,9 @@ KNOWN BUGS:
 #define PAL_TICKS_PER_SECOND 		(PAL_FPS*CLOCK_TICKS_PER_LINE_PAL*PAL_LINES)
 
 
+
+bool sysclock_isPALfrequency();
+bool sysclock_isNTSCfrequency();
 void sysclock_init(void);
 void sysclock_addticks(unsigned long ticks);
 unsigned long sysclock_getticks(void);

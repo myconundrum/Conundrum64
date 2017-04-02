@@ -285,8 +285,11 @@ typedef struct {
 	byte lastcolor;			// ready to render color
 	byte lastdata;			// ready to render data pattern
 
-	VICII_SCREENFRAME out;		// colors for each pixel
-	VICII_SCREENFRAME type;     // pixel type (fg, bg, border, sprite)
+	uint32_t ** out;			// colors for each pixel.
+	byte ** type; 				// pixel type.
+	word screenheight;
+	word screenwidth;
+	
 	bool frameready; 			// ready when a new frame is being generated.
 	word xpos;
 
@@ -301,6 +304,29 @@ bool vicii_stuncpu() 						{return g_vic.balow;}
 void vicii_init() {
 
 	DEBUG_PRINT("** Initializing VICII...\n");
+
+	if (sysclock_isNTSCfrequency()) {
+		
+		DEBUG_PRINT("VICII initialized in NTSC mode.\n");
+
+		g_vic.screenwidth = VICII_NTSC_SCREENFRAME_WIDTH;
+		g_vic.screenheight = VICII_NTSC_SCREENFRAME_HEIGHT;
+
+		g_vic.out = malloc(sizeof(uint32_t *)*g_vic.screenheight);
+		g_vic.type = malloc(sizeof(byte *)*g_vic.screenheight);
+
+		if(!g_vic.out || !g_vic.type) {
+			FATAL_ERROR("Fatal error initializing emulator graphics.\n");
+		}
+		for (int i = 0 ; i < g_vic.screenheight; i++) {
+
+			g_vic.out[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
+			g_vic.type[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
+			if(!g_vic.out[i] || !g_vic.type[i]) {
+				FATAL_ERROR("Fatal error initializing emulator graphics.\n");
+			}
+		}
+	}
 	//
 	// BUGBUG: This magic value needs to be configurable by model and type of VICII
 	// e.g. revision number, NTSC, PAL, etc.
@@ -312,6 +338,9 @@ void vicii_init() {
 	g_vic.displayleft 		= VICII_DISPLAY_LEFT_0;
 	g_vic.displayright 		= VICII_DISPLAY_RIGHT_0;
 
+	if (!g_vic.out || !g_vic.type) {
+		FATAL_ERROR("Fatal error intiailizing emulator graphics..\n");
+	}
 }
 
 bool vicii_frameready() {return g_vic.frameready;}
@@ -345,8 +374,8 @@ void vicii_updateraster() {
 }
 
 
-VICII_SCREENFRAME * vicii_getframe() {
-	return &g_vic.out;
+uint32_t ** vicii_getframe() {
+	return g_vic.out;
 }
 
 
@@ -411,8 +440,10 @@ byte vicii_peekmem(word address) {
 }
 
 void vicii_drawpixel(byte c,VICII_PIXELTYPE type) {
-	g_vic.out.data[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = g_colors[c];
-	g_vic.type.data[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = type;
+	
+	g_vic.out[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = g_colors[c];
+	
+	g_vic.type[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = type;
 	g_vic.xpos++;
 }
 
@@ -437,17 +468,17 @@ void vicii_drawspritepixel(byte sprite,word row, byte c,bool shown) {
 		// sprite pixels can cause collision detection with other pixel types.
 		// if enabled, this may cause an interrupt.
 		//
-		if (g_vic.type.data[row][s->curx] == VICII_FG_PIXEL) {
+		if (g_vic.type[row][s->curx] == VICII_FG_PIXEL) {
 			g_vic.regs[VICII_SBCOLLIDE] |= (1 << sprite);
 			vicii_checkcollisioninterrupt(BIT_1,&g_vic.irqbackground);
-		} else if (g_vic.type.data[row][s->curx] == VICII_SPRITE_PIXEL) {
+		} else if (g_vic.type[row][s->curx] == VICII_SPRITE_PIXEL) {
 			g_vic.regs[VICII_SSCOLLIDE] |= (1 << sprite);
 			vicii_checkcollisioninterrupt(BIT_2,&g_vic.irqsprite);
 		}
 	
-		if (!s->fgpri || g_vic.type.data[row][s->curx] != VICII_FG_PIXEL) {
-			g_vic.out.data[row][s->curx] = g_colors[c];
-			g_vic.type.data[row][s->curx] = VICII_SPRITE_PIXEL;
+		if (!s->fgpri || g_vic.type[row][s->curx] != VICII_FG_PIXEL) {
+			g_vic.out[row][s->curx] = g_colors[c];
+			g_vic.type[row][s->curx] = VICII_SPRITE_PIXEL;
 
 		}
 
@@ -1107,7 +1138,16 @@ void vicii_update() {
 	}
 }
 
-void vicii_destroy(){} 
+void vicii_destroy() {
+
+	for (int i = 0;i < g_vic.screenheight; i++) {
+		free(g_vic.out[i]);
+		free(g_vic.type[i]);
+	}
+	free(g_vic.out);
+	free(g_vic.type);
+
+} 
 
 void vicii_setbank() {
 	g_vic.bank = ((~mem_peek(0xDD00)) & 0x03);

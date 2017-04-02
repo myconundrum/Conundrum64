@@ -48,13 +48,9 @@ KNOWN BUGS:
 #define VICII_NTSC_VBLANK  			16 // 16 lines of vblank.
 #define VICII_NTSC_VBLANK_LEFT		96 // n cycles of no drawgraphics.
 #define VICII_NTSC_VBLANK_RIGHT		48
-#define VICII_SCREENFRAME_HEIGHT (VICII_NTSC_HEIGHT - VICII_NTSC_VBLANK)
-#define VICII_SCREENFRAME_WIDTH  (VICII_NTSC_WIDTH  - VICII_NTSC_VBLANK_LEFT - VICII_NTSC_VBLANK_RIGHT) 
+#define VICII_NTSC_SCREENFRAME_HEIGHT (VICII_NTSC_HEIGHT - VICII_NTSC_VBLANK)
+#define VICII_NTSC_SCREENFRAME_WIDTH  (VICII_NTSC_WIDTH  - VICII_NTSC_VBLANK_LEFT - VICII_NTSC_VBLANK_RIGHT) 
 
-
-typedef struct {
-	uint32_t data[VICII_SCREENFRAME_HEIGHT][VICII_SCREENFRAME_WIDTH];
-} VICII_SCREENFRAME;
 
 
 void vicii_init();
@@ -65,6 +61,7 @@ byte vicii_peek(word address);
 void vicii_poke(word address,byte val);
 bool vicii_badline();
 
-VICII_SCREENFRAME * vicii_getframe();
+
+uint32_t ** vicii_getframe();
 
 #endif

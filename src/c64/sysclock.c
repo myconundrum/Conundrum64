@@ -77,6 +77,15 @@ void sysclock_init(void) {
 
 }
 
+bool sysclock_isPALfrequency() {
+	return g_sysclock.tickspersec == PAL_TICKS_PER_SECOND;
+}
+
+
+bool sysclock_isNTSCfrequency() {
+	return g_sysclock.tickspersec == NTSC_TICKS_PER_SECOND;
+}
+
 
 
 word sysclock_getlastaddticks() {return g_sysclock.lastadd;}
