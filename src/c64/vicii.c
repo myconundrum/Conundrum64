@@ -40,12 +40,42 @@ KNOWN BUGS:
 #include "sysclock.h"
 
 
+
+#define VICII_NTSC_HEIGHT 							263
+#define VICII_NTSC_WIDTH  							520 
+#define VICII_PAL_HEIGHT							312
+#define VICII_PAL_WIDTH								504
+
+ 
+//
+// SCREEN is the 40X25 display grid, does not include border. 
+//
+#define VICII_SCREEN_WIDTH 			320
+#define VICII_SCREEN_HEIGHT 		200
+#define VICII_VBLANK 	 			16 // 16 lines of vblank.
+
+
+#define VICII_NTSC_VBLANK_LEFT		96 // n cycles of no drawgraphics.
+#define VICII_NTSC_VBLANK_RIGHT		48
+#define VICII_NTSC_SCREENFRAME_HEIGHT (VICII_NTSC_HEIGHT - VICII_VBLANK)
+#define VICII_NTSC_SCREENFRAME_WIDTH  (VICII_NTSC_WIDTH  - VICII_NTSC_VBLANK_LEFT - VICII_NTSC_VBLANK_RIGHT) 
+#define VICII_PAL_VBLANK_LEFT						76
+#define VICII_PAL_VBLANK_RIGHT						23
+#define VICII_PAL_SCREENFRAME_HEIGHT (VICII_PAL_HEIGHT - VICII_VBLANK)
+#define VICII_PAL_SCREENFRAME_WIDTH  (VICII_PAL_WIDTH - VICII_PAL_VBLANK_LEFT - VICII_PAL_VBLANK_RIGHT)
+
+
+
+
 #define VICII_ICR_RASTER_INTERRUPT 				0b00000001
 #define VICII_ICR_SPRITE_BACKGROUND_INTERRUPT	0b00000010
 #define VICII_ICR_SPRITE_SPRITE_INTERRUPT		0b00000100
 #define VICII_ICR_LIGHT_PEN_INTERRUPT			0b00001000 
 
 #define VICII_NTSC_LINE_START_X			0x1A0
+#define VICII_PAL_LINE_START_X 			0x198
+
+
 #define VICII_COLOR_MEM_BASE			0xD800
 
 
@@ -59,7 +89,7 @@ KNOWN BUGS:
 #define VICII_DISPLAY_RIGHT_1  			0x160
 
 
-#define VICII_FIRST_DISPLAY_LINE 16
+#define VICII_FIRST_DISPLAY_LINE 16  	//BUGBUG: Isn't this just vlbank?
 
 
 
@@ -220,9 +250,6 @@ typedef struct {
 
 } VICII_SPRITE;
 
-
-
-
 typedef enum {
 	VICII_FG_PIXEL,
 	VICII_BG_PIXEL,
@@ -287,8 +314,10 @@ typedef struct {
 
 	uint32_t ** out;			// colors for each pixel.
 	byte ** type; 				// pixel type.
-	word screenheight;
-	word screenwidth;
+	word screenheight;			// varies by NTSC and PAL. Height of screen frame.
+	word screenwidth;			// varies by NTSC and PAL. width of screen frame.
+	word linestart_x; 		    // varies by NTSC and PAL. Value of x at start of a raster line.
+	word rasterlines;			// varies by NTSC and PAL. How many raster lines?
 	
 	bool frameready; 			// ready when a new frame is being generated.
 	word xpos;
@@ -301,6 +330,13 @@ VICII g_vic = {0};
 
 bool vicii_stuncpu() 						{return g_vic.balow;}
 
+word vicii_getscreenheight() {
+	return g_vic.screenheight;
+}
+word vicii_getscreenwidth() {
+	return g_vic.screenwidth;
+}
+
 void vicii_init() {
 
 	DEBUG_PRINT("** Initializing VICII...\n");
@@ -311,27 +347,37 @@ void vicii_init() {
 
 		g_vic.screenwidth = VICII_NTSC_SCREENFRAME_WIDTH;
 		g_vic.screenheight = VICII_NTSC_SCREENFRAME_HEIGHT;
+		g_vic.linestart_x = VICII_NTSC_LINE_START_X;
+		g_vic.rasterlines = NTSC_LINES;
 
-		g_vic.out = malloc(sizeof(uint32_t *)*g_vic.screenheight);
-		g_vic.type = malloc(sizeof(byte *)*g_vic.screenheight);
+	}
+	else {
 
-		if(!g_vic.out || !g_vic.type) {
+		DEBUG_PRINT("VICII initialized in PAL mode.\n");
+		g_vic.screenwidth = VICII_PAL_SCREENFRAME_WIDTH;
+		g_vic.screenheight = VICII_PAL_SCREENFRAME_HEIGHT;
+		g_vic.linestart_x = VICII_PAL_LINE_START_X;
+		g_vic.rasterlines = PAL_LINES;
+
+	}
+
+	g_vic.out = malloc(sizeof(uint32_t *)*g_vic.screenheight);
+	g_vic.type = malloc(sizeof(byte *)*g_vic.screenheight);
+
+	if(!g_vic.out || !g_vic.type) {
+		FATAL_ERROR("Fatal error initializing emulator graphics.\n");
+	}
+	for (int i = 0 ; i < g_vic.screenheight; i++) {
+
+		g_vic.out[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
+		g_vic.type[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
+		if(!g_vic.out[i] || !g_vic.type[i]) {
 			FATAL_ERROR("Fatal error initializing emulator graphics.\n");
 		}
-		for (int i = 0 ; i < g_vic.screenheight; i++) {
-
-			g_vic.out[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
-			g_vic.type[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
-			if(!g_vic.out[i] || !g_vic.type[i]) {
-				FATAL_ERROR("Fatal error initializing emulator graphics.\n");
-			}
-		}
 	}
-	//
-	// BUGBUG: This magic value needs to be configurable by model and type of VICII
-	// e.g. revision number, NTSC, PAL, etc.
-	//
-	g_vic.raster_x = VICII_NTSC_LINE_START_X; // starting X coordinate for an NTSC VICII.
+
+
+	g_vic.raster_x = g_vic.linestart_x; 
 
 	g_vic.displaytop 		= VICII_DISPLAY_TOP_0;
 	g_vic.displaybottom 	= VICII_DISPLAY_BOTTOM_0;
@@ -352,11 +398,11 @@ void vicii_updateraster() {
 		g_vic.raster_x = 0;
 	}
 
-	if (g_vic.raster_x == VICII_NTSC_LINE_START_X) {		// Update Y raster position if we've reached end of line.
+	if (g_vic.raster_x == g_vic.linestart_x) {		// Update Y raster position if we've reached end of line.
 		g_vic.cycle = 1;
 		g_vic.raster_y++;
 		
-		if (g_vic.raster_y == NTSC_LINES) {					//  End of screen, wrap to raster 0. 
+		if (g_vic.raster_y == g_vic.rasterlines) {					//  End of screen, wrap to raster 0. 
 			g_vic.raster_y = 0;
 		}
 
@@ -441,9 +487,9 @@ byte vicii_peekmem(word address) {
 
 void vicii_drawpixel(byte c,VICII_PIXELTYPE type) {
 	
-	g_vic.out[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = g_colors[c];
+	g_vic.out[g_vic.raster_y-VICII_VBLANK][g_vic.xpos] = g_colors[c];
 	
-	g_vic.type[g_vic.raster_y-VICII_NTSC_VBLANK][g_vic.xpos] = type;
+	g_vic.type[g_vic.raster_y-VICII_VBLANK][g_vic.xpos] = type;
 	g_vic.xpos++;
 }
 
@@ -620,7 +666,7 @@ void vicii_drawstandardspritebyte(byte sprite) {
 	int i;
 	byte data = g_vic.sprites[sprite].data[g_vic.sprites[sprite].idata++];
 	byte c = g_vic.regs[VICII_S0C+sprite] & 0xf;
-	word y = g_vic.raster_y - VICII_NTSC_VBLANK;
+	word y = g_vic.raster_y - VICII_VBLANK;
 	
 	for (i = 0; i < 8; i++) {
 
@@ -645,7 +691,7 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 	byte ec1 	= g_vic.regs[VICII_ESPRITECOL1] & 0xf;
 	byte ec2 	= g_vic.regs[VICII_ESPRITECOL2] & 0xf;
 	int uc;  // used color (which color to use for multicolor mode)
-	word y = g_vic.raster_y - VICII_NTSC_VBLANK;
+	word y = g_vic.raster_y - VICII_VBLANK;
 
 	for (i = 0; i < 4; i++) {
 		
@@ -936,8 +982,8 @@ void vicii_main_update() {
 			// Check whether we should skip this line.
 			//
 
-			g_vic.displayline = g_vic.raster_y >= VICII_NTSC_VBLANK && 
-				g_vic.raster_y <= NTSC_LINES;
+			g_vic.displayline = g_vic.raster_y >= VICII_VBLANK && 
+				g_vic.raster_y <= g_vic.rasterlines;
 
 			//
 			// check to see if this is a badline.

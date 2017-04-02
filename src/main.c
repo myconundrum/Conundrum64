@@ -108,8 +108,9 @@ static int config_handler(
 int main(int argc, char**argv) {
 
     sprintf(g_nameString,"%s (version %d.%d)",EMU_NAME,EMU_VERSION_MAJOR,EMU_VERSION_MINOR);
-
+    time_t start = time(NULL);
 	DEBUG_INIT("c64.log");
+    DEBUG_PRINT("Local time: %s",asctime(localtime(&start)));
 		
     DEBUG_PRINT("Reading configuration file.\n");
     if (ini_parse("conundrum64.ini", config_handler, &g_config) < 0) {

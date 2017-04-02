@@ -90,7 +90,7 @@ EMU_CONFIGURATION * emu_getconfig();
 	#define DEBUG_INIT(log) do {    					\
 			g_debug = fopen(log,"w+");   				\
 			g_debugstart = clock();						\
-			DEBUG_PRINT("Starting %s.\n",emu_getname()); 	\
+			DEBUG_PRINT("Starting %s.\n",emu_getname()); \
 		}while (0)
 
 	#define DEBUG_DESTROY() do {											\
