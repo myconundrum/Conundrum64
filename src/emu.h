@@ -40,6 +40,7 @@ KNOWN BUGS:
 #include <ctype.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <time.h>
 
 #define EMU_NAME 				"Conundrum 64"
 #define EMU_VERSION_MINOR		1
@@ -76,32 +77,46 @@ EMU_CONFIGURATION * emu_getconfig();
 
 #if defined(DEBUG) && DEBUG > 0
 
-FILE * g_debug;
+	FILE * 	g_debug;
+	clock_t g_debugstart;
 
-char * emu_getname();
+	char * emu_getname();
 
-#define DEBUG_INIT(log) g_debug = fopen(log,"w+")
-#define DEBUG_DESTROY() fclose(g_debug)
+	#define DEBUG_INIT(log) do {    					\
+			g_debug = fopen(log,"w+");   				\
+			g_debugstart = clock();						\
+			DEBUG_PRINT("Starting Conundrum 64.\n"); 	\
+		}while (0)
 
+	#define DEBUG_DESTROY() do {											\
+			DEBUG_PRINT("Ending Conundrum 64. Run lasted %lf seconds.\n", 	\
+				(double) (clock() - g_debugstart)/CLOCKS_PER_SEC);          \
+			fclose(g_debug);												\
+		}while (0)
+	#define DEBUG_IF(x) if(x) {
+	#define DEBUG_ENDIF() }
 
-#ifdef DEBUG_SHOW_SOURCE
-#define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[%s@%d] %s(): " fmt, \
-    __FILE__, __LINE__, __func__, ##args)
-#define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[%s@%d] %s(): " fmt, \
-    __FILE__, __LINE__, __func__, ##args);}
-#else 
-#define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[PC: 0x%04X] " fmt,cpu_getpc(),##args)
-#define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[PC: 0x%04X] " fmt,cpu_getpc(),##args);}
-#endif
+	#ifdef DEBUG_SHOW_SOURCE
+		#define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[%s@%d] %s(): " fmt, \
+    		__FILE__, __LINE__, __func__, ##args)
+		#define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[%s@%d] %s(): " fmt, \
+    		__FILE__, __LINE__, __func__, ##args);}
+	#else 
+		#define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[PC: 0x%04X] " fmt,cpu_getpc(),##args)
+		#define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[PC: 0x%04X] " fmt,cpu_getpc(),##args);}
+	#endif
 
 
 #else
- #define DEBUG_INIT(log)
- #define DEBUG_PRINT(fmt, args...) /* Don't do anything in release builds */
- #define DEBUG_PRINTIF(b,fmt,args...) 
- #define DEBUG_DESTROY()
-
+	#define DEBUG_INIT(log)
+	#define DEBUG_PRINT(fmt, args...) /* Don't do anything in release builds */
+	#define DEBUG_PRINTIF(b,fmt,args...) 
+	#define DEBUG_DESTROY()
+	#define DEBUG_IF(b)
+	#define DEBUG_ENDIF()
 #endif
+
+
 
 
 #endif
