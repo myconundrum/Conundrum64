@@ -53,6 +53,7 @@ typedef struct {
     const char* 	basicpath;
     const char* 	binload;
     const char* 	cartload;
+    const char*     region;
     uint16_t  breakpoint;
 
 } EMU_CONFIGURATION;

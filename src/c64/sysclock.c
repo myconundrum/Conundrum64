@@ -47,6 +47,8 @@ typedef struct {
 	word 		  clast;			// systicks since last catchup
 	clock_t		  clastreal;		// time at last refresh
 	word	      lastadd;			// amount of ticks added in last call to sysclock_addticks()
+	unsigned int  tickspersec;		// amount of ticks that should occur in one second. varies by
+									// NTSC and PAL
 
 	
 	
@@ -57,16 +59,24 @@ SYSCLOCK g_sysclock;
 
 void sysclock_init(void) {
 
+	EMU_CONFIGURATION * cfg = emu_getconfig();
 	DEBUG_PRINT("** Initializing System Clock...\n");
 
 	g_sysclock.total 			= 0;
 	g_sysclock.clast 			= 0;
 	g_sysclock.clastreal		= clock();
 
-
-
+	if (cfg->region && !strcmp(cfg->region,"PAL")) {
+		g_sysclock.tickspersec = PAL_TICKS_PER_SECOND;
+		DEBUG_PRINT("PAL region selected. %d cycles per second.\n",g_sysclock.tickspersec);
+	}
+	else {
+		g_sysclock.tickspersec = NTSC_TICKS_PER_SECOND;
+		DEBUG_PRINT("NTSC region selected. %d cycles per second.\n",g_sysclock.tickspersec);
+	}
 
 }
+
 
 
 word sysclock_getlastaddticks() {return g_sysclock.lastadd;}
@@ -89,7 +99,7 @@ void sysclock_addticks(unsigned long ticks) {
 
 			c = clock();
 		} while (
-			(((double) g_sysclock.clast)/NTSC_TICKS_PER_SECOND) >
+			(((double) g_sysclock.clast)/g_sysclock.tickspersec) >
 			(((double) (c - g_sysclock.clastreal)) / CLOCKS_PER_SEC));
 
 		g_sysclock.clastreal = c;

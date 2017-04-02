@@ -369,7 +369,6 @@ byte vicii_realpeek(word address) {
 }
 
 
-
 //
 // memory peeks are determined by the bankswitch in CIA2 and char memory base in the VIC MSR 
 //

@@ -62,23 +62,40 @@ static int config_handler(
 	EMU_CONFIGURATION * c = (EMU_CONFIGURATION *) configdata;
 
 	if (MATCH("roms", "kernal")) {
+        
         c->kernalpath = strdup(value);
         DEBUG_PRINT("\tKernal rom Path:         %s\n",c->kernalpath);
+
     } else if (MATCH("roms", "char")) {
+        
         c->charpath = strdup(value);
         DEBUG_PRINT("\tChar rom path:           %s\n",c->charpath);
+
     } else if (MATCH("roms", "basic")) {
+        
         c->basicpath = strdup(value);
         DEBUG_PRINT("\tBasic rom path:          %s\n",c->basicpath);
+    
     } else if (MATCH("bin", "load")) {
+    
         c->binload = strdup(value);
         DEBUG_PRINT("\tBinary load:             %s\n",c->binload);
+    
     }  else if (MATCH("bin", "loadcart")) {
+    
         c->cartload = strdup(value);
-        DEBUG_PRINT("\tLoad cartridge:               %s\n",c->cartload);
+        DEBUG_PRINT("\tLoad cartridge:          %s\n",c->cartload);
+    
     }  else if (MATCH("debug", "breakpoint")) {
+    
         c->breakpoint = strtoul(value,NULL,16);
         DEBUG_PRINT("\tInitial breakpoint:      0x%04X\n",c->breakpoint);
+    
+    }  else if (MATCH("system", "region")) {
+   
+        c->region = strdup(value);
+        DEBUG_PRINT("\tRegion:                  %s\n",c->region);
+   
     } else {
         return 0;  
     }

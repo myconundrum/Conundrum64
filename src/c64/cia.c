@@ -229,7 +229,6 @@ void cia_seticr(CIA * c,byte val) {
 	DEBUG_PRINT("\tTime Of Day:               %sABLED\n",new & CIA_FLAG_TODIRQ ? "EN":"DIS");
 	DEBUG_PRINT("\tShift Register:            %sABLED\n",new & CIA_FLAG_SHRIRQ ? "EN":"DIS");
 	
-
 	cia_setreal(c,CIA_ICR,new);
 }
 
