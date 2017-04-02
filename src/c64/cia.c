@@ -443,13 +443,21 @@ void cia_update_todreg(CIA * c,byte reg,double timeincrement,byte modval) {
 	byte low;
 
 
-
+	//
+	// BUGBUG: May need to optimize this code. 
+	// In looking for another performance issue, I discovered that this code is generating a high amount of process time. 
+	// right now, these four lines of code are almost 2.5X times the amount of usage of the entire VICII chip and as much as
+	// 14% of overall time used in the program flow.  It doesn't apper that we are processor constrained right now, 
+	// but this is clearly too much. Best approach is probably a lookup table.
+	//
+	
 	val = (sysclock_getticks() - c->todstart) / (NTSC_TICKS_PER_SECOND * timeincrement); // total number of those increments
 	val %= modval; 	   // what flips back to zero.
 	high = (val / 10) << 4;
 	low =  val % 10; 
+	
 	//
-	// BUGBUG am/pm!
+	// BUGBUG: am/pm!
 	//
 	cia_setreal(c,reg,high|low);
 	

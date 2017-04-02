@@ -427,9 +427,7 @@ void ux_deferredinit() {
 		asm_loadfile(cfg->binload);
 	}
 
-	if (cfg->cartload != NULL) {
-		asm_loadcart(cfg->cartload);
-	}
+
 	g_ux.deferredinit = false;
 }
 
@@ -448,6 +446,10 @@ void ux_init() {
 	ux_init_c64keymapping();
 
 	ux_fillDisassembly(cpu_getpc());
+
+	if (cfg->cartload != NULL) {
+		asm_loadcart(cfg->cartload);
+	}
 
 	if (cfg->breakpoint != 0) {
 		g_ux.brk = true;
@@ -672,7 +674,8 @@ void ux_update() {
 
 		if (vicii_frameready()) {
 			ux_handleevents();
-			ux_updateScreenWindow();
+				ux_updateScreenWindow();
+			
 			
 		}
 	}

@@ -64,6 +64,7 @@ EMU_CONFIGURATION * emu_getconfig();
 
 #define DEBUG 1
 #define EMU_DOUBLE_SCREEN 1
+#define DEBUG_SHOW_SOURCE 1
 
 
 
@@ -79,12 +80,21 @@ FILE * g_debug;
 
 char * emu_getname();
 
- #define DEBUG_INIT(log) g_debug = fopen(log,"w+")
- #define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[%s@%d] %s(): " fmt, \
+#define DEBUG_INIT(log) g_debug = fopen(log,"w+")
+#define DEBUG_DESTROY() fclose(g_debug)
+
+
+#ifdef DEBUG_SHOW_SOURCE
+#define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[%s@%d] %s(): " fmt, \
     __FILE__, __LINE__, __func__, ##args)
- #define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[%s@%d] %s(): " fmt, \
+#define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[%s@%d] %s(): " fmt, \
     __FILE__, __LINE__, __func__, ##args);}
- #define DEBUG_DESTROY() fclose(g_debug)
+#else 
+#define DEBUG_PRINT(fmt, args...) fprintf(g_debug, "[PC: 0x%04X] " fmt,cpu_getpc(),##args)
+#define DEBUG_PRINTIF(b,fmt,args...) if ((b)) {fprintf(g_debug, "[PC: 0x%04X] " fmt,cpu_getpc(),##args);}
+#endif
+
+
 #else
  #define DEBUG_INIT(log)
  #define DEBUG_PRINT(fmt, args...) /* Don't do anything in release builds */
