@@ -64,8 +64,7 @@ MEMORY g_memory;
 byte mem_map(word low, word high, PEEKHANDLER peekfn, POKEHANDLER pokefn) {
 
 	if (g_memory.mapNext == MAX_MEMORY_MAPS) {
-		DEBUG_PRINT("Memory: Out of memory mapping space.\n");
-		return 0;
+		FATAL_ERROR("Memory: Out of memory mapping space.\n");
 	}
 	g_memory.maps[g_memory.mapNext].low = low;
 	g_memory.maps[g_memory.mapNext].high = high;
@@ -78,7 +77,9 @@ byte mem_map(word low, word high, PEEKHANDLER peekfn, POKEHANDLER pokefn) {
 
 void mem_mapactive(byte map, bool flag) {g_memory.maps[map].active = flag;}
 
-void mem_init() {memset(&g_memory,0,sizeof(MEMORY));}
+void mem_init() {
+	DEBUG_PRINT("** Initializing Memory...\n");
+	memset(&g_memory,0,sizeof(MEMORY));}
 void mem_destroy() {}
 
 MEMORY_MAP *mem_getmap(address) {

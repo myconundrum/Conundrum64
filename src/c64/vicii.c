@@ -299,6 +299,8 @@ VICII g_vic = {0};
 bool vicii_stuncpu() 						{return g_vic.balow;}
 
 void vicii_init() {
+
+	DEBUG_PRINT("** Initializing VICII...\n");
 	//
 	// BUGBUG: This magic value needs to be configurable by model and type of VICII
 	// e.g. revision number, NTSC, PAL, etc.
@@ -335,7 +337,7 @@ void vicii_updateraster() {
 			//
 			g_vic.regs[VICII_ISR] |= VICII_ICR_RASTER_INTERRUPT;
 			if (g_vic.regs[VICII_ICR] & VICII_ICR_RASTER_INTERRUPT) {
-				DEBUG_PRINT("signalling raster irq.\n");
+				DEBUG_PRINT("VICII is signalling raster irq.\n");
 				cpu_irq();
 			}
 		}
@@ -1111,7 +1113,8 @@ void vicii_destroy(){}
 void vicii_setbank() {
 	g_vic.bank = ((~mem_peek(0xDD00)) & 0x03);
 	g_vic.bank <<=14;
-	DEBUG_PRINT("vic bank is: 0x%04X\n",g_vic.bank);
+	DEBUG_PRINT("VICII bank updated.\n");
+	DEBUG_PRINT("\tViewing memory between 0x%04X and 0x%04X.\n",g_vic.bank,g_vic.bank+0x3FFF);
 }
 
 byte vicii_peek(word address) {
@@ -1179,23 +1182,47 @@ byte vicii_peek(word address) {
 	return rval;
 }
 
+const char * vicii_getmodename() {
+
+	switch(g_vic.mode) {
+
+
+
+	
+
+	case VICII_MODE_STANDARD_TEXT: 		return "Standard Text";break;
+	case VICII_MODE_MULTICOLOR_TEXT: 	return "Multicolor Text";break;
+	case VICII_MODE_STANDARD_BITMAP: 	return "Standard Bitmap";break;
+	case VICII_MODE_MULTICOLOR_BITMAP: 	return "Multicolor Bitmap";break;
+	case VICII_MODE_ECM_TEXT:			return "Extended Color Mode Text";break;
+	case VICII_MODE_INVALID_TEXT: 		return "Invalid Text";break;
+	case VICII_MODE_INVALID_BITMAP_1: 	return "Invalid Bitmap 1";break;
+	case VICII_MODE_INVALID_BITMAP_2:	return "Invalid Bitmap 2";break;
+	} 
+
+	return "undefined";
+
+
+}
+
 void vicii_poke(word address,byte val) {
 	byte reg = address % VICII_LAST;
 
 	switch(reg) {
 
 		case VICII_CR1: 	
+			DEBUG_PRINT("VICII Control Register 1 updated.\n");
 			g_vic.regs[reg] = val;
 			// latch bit 7. Its part of the irq raster compare. 
 			g_vic.raster_irq = (g_vic.raster_irq & 0xFF) | (((word) val & BIT_7)<<1) ;
 			// set the vertical screen height
 			if (val & BIT_3) {
-				DEBUG_PRINT("Screen Height is 1\n");
+				DEBUG_PRINT("\tScreen Height is 1\n");
 				g_vic.displaytop = VICII_DISPLAY_TOP_1;
 				g_vic.displaybottom = VICII_DISPLAY_BOTTOM_1;
 			}
 			else {
-				DEBUG_PRINT("Screen Height is 0\n");
+				DEBUG_PRINT("\tScreen Height is 0\n");
 				g_vic.displaytop = VICII_DISPLAY_TOP_0;
 				g_vic.displaybottom = VICII_DISPLAY_BOTTOM_0;
 			}
@@ -1208,18 +1235,19 @@ void vicii_poke(word address,byte val) {
 			if (val & BIT_6) {
 				g_vic.mode |= BIT_2;
 			}
-			DEBUG_PRINT("CR1: Graphics Mode is %d\n",g_vic.mode);
+			DEBUG_PRINT("\tGraphics Mode is: %s\n",vicii_getmodename());
 		break;
-		case VICII_CR2: 	
+		case VICII_CR2: 
+			DEBUG_PRINT("VICII Control Register 2 updated.\n");	
 			g_vic.regs[reg] = val;
 			// set the horizaontal screen width
 			if (val & BIT_3) {
-				DEBUG_PRINT("Screen Width is 1\n");
+				DEBUG_PRINT("\tScreen Width is 1\n");
 				g_vic.displayleft = VICII_DISPLAY_LEFT_1;
 				g_vic.displayright = VICII_DISPLAY_RIGHT_1;
 			}
 			else {
-				DEBUG_PRINT("Screen Width is 0\n");
+				DEBUG_PRINT("\tScreen Width is 0\n");
 				g_vic.displayleft = VICII_DISPLAY_LEFT_0;
 				g_vic.displayright = VICII_DISPLAY_RIGHT_0;
 			}
@@ -1229,11 +1257,11 @@ void vicii_poke(word address,byte val) {
 				g_vic.mode |= BIT_0;
 				
 			}
-			DEBUG_PRINT("CR2: Graphics Mode is %d\n",g_vic.mode);
+			DEBUG_PRINT("\tGraphics Mode is: %s\n",vicii_getmodename());
 		break;
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
-			DEBUG_PRINT("Raster IRQ Set to %d\n",g_vic.raster_irq);
+			DEBUG_PRINT("VICII Raster IRQ Set to raster line %d\n",g_vic.raster_irq);
 		break;
 
 		case VICII_MEMSR: 
@@ -1241,23 +1269,16 @@ void vicii_poke(word address,byte val) {
 			g_vic.vidmembase = (val & (BIT_7 | BIT_6 | BIT_5 | BIT_4)) << 6;
 			g_vic.charmembase = (val & (BIT_1 | BIT_2 | BIT_3)) << 10; 
 			g_vic.bitmapmembase = (val & BIT_3) << 10;
-			DEBUG_PRINT("Video Memory Base:      0x%04X\n",g_vic.vidmembase);
-			DEBUG_PRINT("Character Memory Base:  0x%04X\n",g_vic.charmembase);
-			DEBUG_PRINT("Bitmap Memory Base:     0x%04X\n",g_vic.bitmapmembase);
+			DEBUG_PRINT("VICII Memory Setup register updated.\n");
+			DEBUG_PRINT("\tVideo Memory base:      0x%04X\n",g_vic.vidmembase);
+			DEBUG_PRINT("\tCharacter Memory base:  0x%04X\n",g_vic.charmembase);
+			DEBUG_PRINT("\tBitmap Memory base:     0x%04X\n",g_vic.bitmapmembase);
 		break;
 
 		case VICII_SPRITEMCM: 
 
 			g_vic.regs[reg] = val;
 
-			DEBUG_PRINTIF(val & 0x01,"Sprite 0 MCM enabled.\n");
-			DEBUG_PRINTIF(val & 0x02,"Sprite 1 MCM enabled.\n");
-			DEBUG_PRINTIF(val & 0x04,"Sprite 2 MCM enabled.\n");
-			DEBUG_PRINTIF(val & 0x08,"Sprite 3 MCM enabled.\n");
-			DEBUG_PRINTIF(val & 0x10,"Sprite 4 MCM enabled.\n");
-			DEBUG_PRINTIF(val & 0x20,"Sprite 5 MCM enabled.\n");
-			DEBUG_PRINTIF(val & 0x40,"Sprite 6 MCM enabled.\n");
-			DEBUG_PRINTIF(val & 0x80,"Sprite 7 MCM enabled.\n");
 
 		break;
 
@@ -1266,7 +1287,6 @@ void vicii_poke(word address,byte val) {
 			g_vic.regs[reg] = val;
 			for (int i = 0; i < 8; i++) {
 				g_vic.sprites[i].dw = (val & (0x1 << i)) > 0;
-				DEBUG_PRINTIF(g_vic.sprites[i].dw,"Sprite %d is double width.\n",i);
 			}
 
 
@@ -1274,10 +1294,11 @@ void vicii_poke(word address,byte val) {
 
 		case VICII_ICR:
 			g_vic.regs[reg] = val;
-			DEBUG_PRINT("ICR: Raster Interrupt %s.\n",val & BIT_0 ? "on":"off");
-			DEBUG_PRINT("ICR: Sprite-Background Interrupt %s.\n",val & BIT_1 ? "on":"off");
-			DEBUG_PRINT("ICR: Sprite-Sprite Interrupt %s.\n",val & BIT_2 ? "on":"off");
-			DEBUG_PRINT("ICR: Light Pen Interrupt  %s.\n",val & BIT_3 ? "on":"off");
+			DEBUG_PRINT("VICII Interrupt Control Register updated.\n");
+			DEBUG_PRINT("\tRaster Interrupt:              %sABLED.\n",val & BIT_0 ? "EN":"DIS");
+			DEBUG_PRINT("\tSprite-Background Interrupt:   %sABLED.\n",val & BIT_1 ? "EN":"DIS");
+			DEBUG_PRINT("\tSprite-Sprite Interrupt:       %sABLED.\n",val & BIT_2 ? "EN":"DIS");
+			DEBUG_PRINT("\tLight Pen Interrupt:           %sABLED.\n",val & BIT_3 ? "EN":"DIS");
 		break;
 
 		case VICII_SPRITEPRI:
@@ -1285,7 +1306,6 @@ void vicii_poke(word address,byte val) {
 			g_vic.regs[reg] = val;
 			for (int i = 0; i < 8; i++) {
 				g_vic.sprites[i].fgpri = (val & (0x1 << i)) > 0;
-				DEBUG_PRINTIF(g_vic.sprites[i].fgpri,"Foreground graphics have priority over sprite %d.\n",i);
 			}
 		break;
 
@@ -1303,28 +1323,11 @@ void vicii_poke(word address,byte val) {
 				g_vic.sprites[i].yex = (val & (0x1 << i)) == 0;
 			}
 
-
-			DEBUG_PRINTIF(val & 0x01,"Sprite 0 double height.\n");
-			DEBUG_PRINTIF(val & 0x02,"Sprite 1 double height.\n");
-			DEBUG_PRINTIF(val & 0x04,"Sprite 2 double height.\n");
-			DEBUG_PRINTIF(val & 0x08,"Sprite 3 double height.\n");
-			DEBUG_PRINTIF(val & 0x10,"Sprite 4 double height.\n");
-			DEBUG_PRINTIF(val & 0x20,"Sprite 5 double height.\n");
-			DEBUG_PRINTIF(val & 0x40,"Sprite 6 double height.\n");
-			DEBUG_PRINTIF(val & 0x80,"Sprite 7 double height.\n");
-
 		break;
 		case VICII_SPRITEEN:
-			g_vic.regs[reg] = val;
 
-			DEBUG_PRINTIF(val & 0x01,"Sprite 0 enabled.\n");
-			DEBUG_PRINTIF(val & 0x02,"Sprite 1 enabled.\n");
-			DEBUG_PRINTIF(val & 0x04,"Sprite 2 enabled.\n");
-			DEBUG_PRINTIF(val & 0x08,"Sprite 3 enabled.\n");
-			DEBUG_PRINTIF(val & 0x10,"Sprite 4 enabled.\n");
-			DEBUG_PRINTIF(val & 0x20,"Sprite 5 enabled.\n");
-			DEBUG_PRINTIF(val & 0x40,"Sprite 6 enabled.\n");
-			DEBUG_PRINTIF(val & 0x80,"Sprite 7 enabled.\n");
+
+			g_vic.regs[reg] = val;
 
 		break;
 		case VICII_SBCOLLIDE: case VICII_SSCOLLIDE: // cannot write to collision registers

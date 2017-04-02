@@ -805,7 +805,7 @@ void cpu_init() {
 	memset (&g_cpu,0,sizeof(CPU6502));	
 
 	
-	DEBUG_PRINT("starting cpu...\n");
+	DEBUG_PRINT("** Initializing 6502 CPU...\n");
 	
 	//
 	// load all opcodes

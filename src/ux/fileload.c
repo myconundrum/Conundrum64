@@ -258,11 +258,12 @@ void asm_loadcart(char *name) {
 	
 	if (f) {
 
+
+    	DEBUG_PRINT("Loading cartridge file %s.\n",name,len);
+
 		fseek(f, 0, SEEK_END);          
     	len = ftell(f);            
     	rewind(f);
-    	DEBUG_PRINT("loading cart file %s size %d\n",name,len);
-
 
     	where = (byte *) malloc(sizeof(byte) * len);   
     	fread(&header,sizeof(header),1,f);
@@ -271,22 +272,21 @@ void asm_loadcart(char *name) {
 		cur = where;
 
 
+		DEBUG_PRINT("\tSignature:       %s\n",header.signature);
+		DEBUG_PRINT("\tHeader Length:   0x%02X%02X\n",((word) header.headerlength & 0xFF), (word)(header.headerlength >> 24));
+		DEBUG_PRINT("\tFile Version:    %04X\n",header.cartversion);
+		DEBUG_PRINT("\tFile Type:       %04X\n",header.carttype);
+		DEBUG_PRINT("\tExrom:           %02X\n",header.exrom);
+		DEBUG_PRINT("\tGame:            %02X\n",header.game);
+		DEBUG_PRINT("\tCart Name:       %s\n",header.cartname);
+		DEBUG_PRINT("\tCHIP Signature:  %c%c%c%c\n",chip.signature[0],chip.signature[1],chip.signature[2],chip.signature[3]);
+		DEBUG_PRINT("\tLength:          0x%02X%02X\n",(byte)((chip.length>>16)&0xFF),(byte)(chip.length>>24));
+		DEBUG_PRINT("\tType:            %02X\n",chip.type);
+		DEBUG_PRINT("\tLocation:        0x%X\n",chip.location);
+		DEBUG_PRINT("\tRom Size:        0x%02X%02X\n",chip.romsize & 0xFF, chip.romsize >> 8);
+		DEBUG_PRINT("\tLoad Address:    0x%02X%02X\n",chip.loadaddress & 0xFF, chip.loadaddress  >> 8);
 
-		DEBUG_PRINT("signature:       %s\n",header.signature);
-		DEBUG_PRINT("header length:   %x\n",header.headerlength);
-		DEBUG_PRINT("cart version:    %04X\n",header.cartversion);
-		DEBUG_PRINT("cart type:       %04X\n",header.carttype);
-		DEBUG_PRINT("exrom:           %02X\n",header.exrom);
-		DEBUG_PRINT("game:            %02X\n",header.game);
-		DEBUG_PRINT("cartname:        %s\n",header.cartname);
-
-		DEBUG_PRINT("chip signature:  %c%c%c%c\n",chip.signature[0],chip.signature[1],chip.signature[2],chip.signature[3]);
-		DEBUG_PRINT("length:          %x\n",chip.length);
-		DEBUG_PRINT("type:            %02x\n",chip.type);
-		DEBUG_PRINT("location:        %x\n",chip.location);
-		DEBUG_PRINT("rom size:        %04x\n",chip.romsize);
-		DEBUG_PRINT("load address:    %04x\n",chip.loadaddress);
-
+		loc = ((chip.loadaddress & 0xFF) << 8) | chip.loadaddress  >> 8;
 		while (cur < where + len) {
 			mem_poke(loc++,*cur++);
 		}
@@ -312,18 +312,17 @@ void asm_loadfile(char *name) {
 		fseek(f, 0, SEEK_END);          
     	len = ftell(f);            
     	rewind(f);
-    	DEBUG_PRINT("loading assembled file %s size %d\n",name,len);
+    	DEBUG_PRINT("Loading program file %s.\n",name);
 
     	where = (byte *) malloc(sizeof(byte) * len);   
 		fread(where,1,len,f);
 
 		loc = where[0] | (where[1] << 8);
-		DEBUG_PRINT("placing in memory at %04X\n",loc);
+		DEBUG_PRINT("\tPlacing %d bytes in memory starting at 0x%04X\n",len-2,loc);
 		cur = where + 2;
 		while (cur < where + len) {
 			mem_poke(loc++,*cur++);
 		}
-
 
 		free(where);
 		fclose(f);
@@ -342,9 +341,10 @@ void bas_loadfile(char * string) {
 	word link;
 	int i;
 
+
+	DEBUG_PRINT("Loading basic file %s.\n",string);
 	f = fopen(string,"r+");
 	if (!f) {
-		DEBUG_PRINT("Failed to open file %s\n",string);
 		return;
 	}
 
@@ -353,14 +353,12 @@ void bas_loadfile(char * string) {
 	//
 	mem_poke(mem++,0);
 
-
-
  	while (fgets(line, 256, f)) {
  		if (line[strlen(line)-1] == '\n') {
  			line[strlen(line)-1] = 0;
  		} 
 
- 		DEBUG_PRINT("tokenizing line: %s\n",line);
+ 		DEBUG_PRINT("\tTokenizing line: %s\n",line);
  		
  		//
  		// leave room for next record lnk

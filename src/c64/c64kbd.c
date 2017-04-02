@@ -75,6 +75,7 @@ void c64kbd_reset() {
 
 void c64kbd_init() {
 
+	DEBUG_PRINT("** Initializing C64 Keyboard...\n");
 
 
 	c64kbd_InitChar(C64KEY_RUNSTOP,7,ROW_7); // STOP KEY NOT IMPL

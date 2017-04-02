@@ -57,6 +57,8 @@ SYSCLOCK g_sysclock;
 
 void sysclock_init(void) {
 
+	DEBUG_PRINT("** Initializing System Clock...\n");
+
 	g_sysclock.total 			= 0;
 	g_sysclock.clast 			= 0;
 	g_sysclock.clastreal		= clock();

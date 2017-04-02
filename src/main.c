@@ -63,22 +63,22 @@ static int config_handler(
 
 	if (MATCH("roms", "kernal")) {
         c->kernalpath = strdup(value);
-        DEBUG_PRINT("kernal path is %s\n",c->kernalpath);
+        DEBUG_PRINT("\tKernal rom Path:         %s\n",c->kernalpath);
     } else if (MATCH("roms", "char")) {
         c->charpath = strdup(value);
-        DEBUG_PRINT("char path is %s\n",c->charpath);
+        DEBUG_PRINT("\tChar rom path:           %s\n",c->charpath);
     } else if (MATCH("roms", "basic")) {
         c->basicpath = strdup(value);
-        DEBUG_PRINT("basic path is %s\n",c->basicpath);
+        DEBUG_PRINT("\tBasic rom path:          %s\n",c->basicpath);
     } else if (MATCH("bin", "load")) {
         c->binload = strdup(value);
-        DEBUG_PRINT("bin load file is %s\n",c->binload);
+        DEBUG_PRINT("\tBinary load:             %s\n",c->binload);
     }  else if (MATCH("bin", "loadcart")) {
         c->cartload = strdup(value);
-        DEBUG_PRINT("bin load file is %s\n",c->cartload);
+        DEBUG_PRINT("\tLoad cartridge:               %s\n",c->cartload);
     }  else if (MATCH("debug", "breakpoint")) {
         c->breakpoint = strtoul(value,NULL,16);
-        DEBUG_PRINT("bin load file is %04x\n",c->breakpoint);
+        DEBUG_PRINT("\tInitial breakpoint:      0x%04X\n",c->breakpoint);
     } else {
         return 0;  
     }
@@ -90,13 +90,13 @@ static int config_handler(
 
 int main(int argc, char**argv) {
 
+    sprintf(g_nameString,"%s (version %d.%d)",EMU_NAME,EMU_VERSION_MAJOR,EMU_VERSION_MINOR);
 
 	DEBUG_INIT("c64.log");
-	
-	sprintf(g_nameString,"%s (version %d.%d)",EMU_NAME,EMU_VERSION_MAJOR,EMU_VERSION_MINOR);
-
+		
+    DEBUG_PRINT("Reading configuration file.\n");
     if (ini_parse("conundrum64.ini", config_handler, &g_config) < 0) {
-        DEBUG_PRINT("Failed to load initialization file 'conundrum64.init'\n");
+        DEBUG_PRINT("Failed to load initialization file 'conundrum64.ini'\n");
     }
 
 	c64_init();

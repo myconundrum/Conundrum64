@@ -148,8 +148,7 @@ byte * c64_init_rom(char * name) {
 		fseek(f, 0, SEEK_END);          
     	len = ftell(f);            
     	rewind(f);
-    	DEBUG_PRINT("MEM: loaded binary image %s size %d\n",name,len);
-
+    	DEBUG_PRINT("Loaded %d bytes from ROM image %s.\n",len,name);
     	where = (byte *) malloc(sizeof(byte) * len);   
 		fread(where,1,len,f);
 		fclose(f);
@@ -163,6 +162,9 @@ void c64_init() {
 
 
 	EMU_CONFIGURATION * cfg = emu_getconfig();
+
+
+	DEBUG_PRINT("** Initializing computer...\n");
 
 	memset(&g_io,0,sizeof(C64_MAPPED_IO));
 	mem_init();									// init ram
@@ -184,8 +186,7 @@ void c64_init() {
 
 
 	if (!g_io.rKernal || !g_io.rBasic || !g_io.rChar) {
-		printf("%s: failed to load roms. exiting.\n",emu_getname());
-		abort();
+		FATAL_ERROR("%s: Failed to load roms. Exiting.\n",emu_getname());
 	}
 	//
 	// Bankswitching is always active. Determines which other memory locations are currently mapped. 

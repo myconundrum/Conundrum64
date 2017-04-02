@@ -222,7 +222,14 @@ void cia_seticr(CIA * c,byte val) {
 	new |= (val & 0x10) ? (fillbit & 0x10) : (old & 0x10);  
 	new |= (val & 0x20) ? (fillbit & 0x20) : (old & 0x20);
 	new |= (val & 0x40) ? (fillbit & 0x40) : (old & 0x40);  
+
+	DEBUG_PRINT("CIA%s IRQ Control Register Updated.\n",c == &g_cia1 ? "1":"2");
+	DEBUG_PRINT("\tTimer A Underflow:         %sABLED\n",new & CIA_FLAG_TAUIRQ ? "EN":"DIS");
+	DEBUG_PRINT("\tTimer B Underflow:         %sABLED\n",new & CIA_FLAG_TBUIRQ ? "EN":"DIS");
+	DEBUG_PRINT("\tTime Of Day:               %sABLED\n",new & CIA_FLAG_TODIRQ ? "EN":"DIS");
+	DEBUG_PRINT("\tShift Register:            %sABLED\n",new & CIA_FLAG_SHRIRQ ? "EN":"DIS");
 	
+
 	cia_setreal(c,CIA_ICR,new);
 }
 
@@ -304,6 +311,7 @@ void cia_poke(CIA * c,byte address,byte val) {
 
 void cia_init() {
 
+	DEBUG_PRINT("** Initializing CIA Chips...\n");
 	memset(&g_cia1,0,sizeof(CIA));
 	memset(&g_cia2,0,sizeof(CIA));
 	//

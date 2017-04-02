@@ -65,7 +65,7 @@ EMU_CONFIGURATION * emu_getconfig();
 
 #define DEBUG 1
 #define EMU_DOUBLE_SCREEN 1
-#define DEBUG_SHOW_SOURCE 1
+//#define DEBUG_SHOW_SOURCE 1
 
 
 
@@ -73,7 +73,11 @@ EMU_CONFIGURATION * emu_getconfig();
 
 
 
-
+#define FATAL_ERROR(fmt, args...) do {		\
+		printf(fmt, ##args); 				\
+		DEBUG_DESTROY();					\
+		abort();							\
+	} while (0)								\
 
 #if defined(DEBUG) && DEBUG > 0
 
@@ -85,11 +89,12 @@ EMU_CONFIGURATION * emu_getconfig();
 	#define DEBUG_INIT(log) do {    					\
 			g_debug = fopen(log,"w+");   				\
 			g_debugstart = clock();						\
-			DEBUG_PRINT("Starting Conundrum 64.\n"); 	\
+			DEBUG_PRINT("Starting %s.\n",emu_getname()); 	\
 		}while (0)
 
 	#define DEBUG_DESTROY() do {											\
-			DEBUG_PRINT("Ending Conundrum 64. Run lasted %lf seconds.\n", 	\
+			DEBUG_PRINT("Ending %s. Run lasted %lf seconds.\n",				\
+				emu_getname(), 												\
 				(double) (clock() - g_debugstart)/CLOCKS_PER_SEC);          \
 			fclose(g_debug);												\
 		}while (0)
