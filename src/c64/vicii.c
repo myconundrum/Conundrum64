@@ -74,18 +74,18 @@ KNOWN BUGS:
 
 #define VICII_RASTER_X_FIRST_VISIBLE_PIXEL_PAL			0x0
 #define VICII_RASTER_X_FIRST_VISIBLE_PIXEL_NTSC			0x0
-#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_PAL			0x168
-#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_NTSC			0x168
-#define VICII_VISIBLE_BORDER_CYCLES						4
+#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_PAL			0x170
+#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_NTSC			0x170
+#define VICII_VISIBLE_BORDER_CYCLES						6
 #define VICII_CANVAS_WIDTH								320
 #define VICII_RASTER_X_OVERFLOW_PAL						0x1F8
 #define VICII_RASTER_X_OVERFLOW_NTSC					0x200
 #define VICII_RASTER_X_START_PAL						0x190
 #define VICII_RASTER_X_START_NTSC						0x198
-#define VICII_40COL_LEFT								0x10
-#define VICII_38COL_LEFT								0x18
-#define VICII_40COL_RIGHT								0x150
-#define VICII_38COL_RIGHT								0x148
+#define VICII_40COL_LEFT								0x18
+#define VICII_38COL_LEFT								0x20
+#define VICII_40COL_RIGHT								0x158
+#define VICII_38COL_RIGHT								0x150
 #define VICII_25ROW_TOP									0x33
 #define VICII_24ROW_TOP									0x37
 #define VICII_25ROW_BOTTOM								0xFA
@@ -772,11 +772,6 @@ void vicii_drawsprites() {
 		g_vic.sprites[sprite].curx = g_vic.regs[VICII_S0X + sprite*2];
 		g_vic.sprites[sprite].curx |= (g_vic.regs[VICII_SMSB] & (0x1 << sprite)) ? 0x0100 : 0;
 
-		//
-		// BUGBUG: Sprites are 8 bits off for some reason. This is a huge hack until I find the bug. 
-		// need to fix this.
-		//
-		g_vic.sprites[sprite].curx += 8;
 
 		mcm = g_vic.regs[VICII_SPRITEMCM] & (0x1 << sprite);
 
@@ -1001,7 +996,6 @@ void vicii_checkborderflipflops() {
 	}
 }
 
-int g_framecount = 0;
 
 void vicii_main_update() {
 
@@ -1010,9 +1004,7 @@ void vicii_main_update() {
 	vicii_updateraster(); 	// update raster x and y and check for raster IRQ
 	vicii_checkborderflipflops();
 
-	DEBUG_PRINTIF(g_framecount==200 && g_vic.raster_y ==100,"cycle: %d rasterx: 0x%04X hblank: %d border %d\n",
-		g_vic.cycle, g_vic.raster_x, g_vic.hblank,g_vic.vertborder  || g_vic.mainborder);
-
+	
 	switch(g_vic.cycle) {
 
 
@@ -1026,7 +1018,6 @@ void vicii_main_update() {
 
 			if (g_vic.raster_y == 1) {
 				g_vic.frameready = true;    // signal ux system to draw frame. 
-				g_framecount++;
 				g_vic.vcbase = 0;			// reset on line zero.
 			}
 
@@ -1119,12 +1110,11 @@ void vicii_main_update() {
 		// * start refreshing video matrix if balow.
 		case 15:
 			
-			vicii_caccess();
 			break;
 		case 16:
 			vicii_checkspritesdmaoff();
 			
-			vicii_gaccess();
+			
 			vicii_caccess();
 			break;
 		case 17:
@@ -1150,6 +1140,7 @@ void vicii_main_update() {
 		case 55:
 			g_vic.balow = false;
 			vicii_gaccess();	
+			vicii_caccess();
 
 			/*
 				2. If the MxYE bit is set in the first phase of cycle 55, the expansion
@@ -1166,6 +1157,7 @@ void vicii_main_update() {
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
+			vicii_gaccess();
 			
 			
 				
