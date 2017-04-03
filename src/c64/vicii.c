@@ -41,10 +41,10 @@ KNOWN BUGS:
 
 
 
-#define VICII_NTSC_HEIGHT 							263
-#define VICII_NTSC_WIDTH  							520 
-#define VICII_PAL_HEIGHT							312
-#define VICII_PAL_WIDTH								504
+#define VICII_HEIGHT_NTSC 							263
+#define VICII_WIDTH_NTSC 							520 
+#define VICII_HEIGHT_PAL							312
+#define VICII_HEIGHT_WIDTH							504
 
  
 //
@@ -55,14 +55,44 @@ KNOWN BUGS:
 #define VICII_VBLANK 	 			16 // 16 lines of vblank.
 
 
-#define VICII_NTSC_VBLANK_LEFT		96 // n cycles of no drawgraphics.
-#define VICII_NTSC_VBLANK_RIGHT		48
-#define VICII_NTSC_SCREENFRAME_HEIGHT (VICII_NTSC_HEIGHT - VICII_VBLANK)
-#define VICII_NTSC_SCREENFRAME_WIDTH  (VICII_NTSC_WIDTH  - VICII_NTSC_VBLANK_LEFT - VICII_NTSC_VBLANK_RIGHT) 
-#define VICII_PAL_VBLANK_LEFT						76
-#define VICII_PAL_VBLANK_RIGHT						23
-#define VICII_PAL_SCREENFRAME_HEIGHT (VICII_PAL_HEIGHT - VICII_VBLANK)
-#define VICII_PAL_SCREENFRAME_WIDTH  (VICII_PAL_WIDTH - VICII_PAL_VBLANK_LEFT - VICII_PAL_VBLANK_RIGHT)
+//
+// new settings
+//
+
+
+//
+// BUGBUG: Based on the Bauer doc, this is what I calculate the first visible pixels. 
+// but, I don't like either hte complicated screen math or the 
+// fat borders, so I'm trimming them down. Probably needs to be fixed to be accurate at some point.
+//
+//#define VICII_RASTER_X_FIRST_VISIBLE_PIXEL_PAL			0x1E0
+//#define VICII_RASTER_X_FIRST_VISIBLE_PIXEL_NTSC			0x1E8
+//#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_PAL				0x180
+//#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_NTSC			0x180
+//#define VICII_VISIBLE_BORDER_CYCLES						11
+
+
+#define VICII_RASTER_X_FIRST_VISIBLE_PIXEL_PAL			0x0
+#define VICII_RASTER_X_FIRST_VISIBLE_PIXEL_NTSC			0x0
+#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_PAL			0x168
+#define VICII_RASTER_X_LAST_VISIBLE_PIXEL_NTSC			0x168
+#define VICII_VISIBLE_BORDER_CYCLES						4
+#define VICII_CANVAS_WIDTH								320
+#define VICII_RASTER_X_OVERFLOW_PAL						0x1F8
+#define VICII_RASTER_X_OVERFLOW_NTSC					0x200
+#define VICII_RASTER_X_START_PAL						0x190
+#define VICII_RASTER_X_START_NTSC						0x198
+#define VICII_40COL_LEFT								0x10
+#define VICII_38COL_LEFT								0x18
+#define VICII_40COL_RIGHT								0x150
+#define VICII_38COL_RIGHT								0x148
+#define VICII_25ROW_TOP									0x33
+#define VICII_24ROW_TOP									0x37
+#define VICII_25ROW_BOTTOM								0xFA
+#define VICII_24ROW_BOTTOM								0xF6
+#define VICII_FRAMEBUFFER_WIDTH							(VICII_CANVAS_WIDTH+VICII_VISIBLE_BORDER_CYCLES*8)
+#define VICII_FRAMEBUFFER_HEIGHT_PAL					(VICII_HEIGHT_PAL 	- VICII_VBLANK)
+#define VICII_FRAMEBUFFER_HEIGHT_NTSC					(VICII_HEIGHT_NTSC 	- VICII_VBLANK)
 
 
 
@@ -79,19 +109,8 @@ KNOWN BUGS:
 #define VICII_COLOR_MEM_BASE			0xD800
 
 
-#define VICII_DISPLAY_TOP_0 			0x37
-#define VICII_DISPLAY_TOP_1 			0x33
-#define VICII_DISPLAY_BOTTOM_0  		0xf6
-#define VICII_DISPLAY_BOTTOM_1  		0xfa
-#define VICII_DISPLAY_LEFT_0 			0x27
-#define VICII_DISPLAY_LEFT_1 			0x20
-#define VICII_DISPLAY_RIGHT_0 	 		0x158
-#define VICII_DISPLAY_RIGHT_1  			0x160
-
 
 #define VICII_FIRST_DISPLAY_LINE 16  	//BUGBUG: Isn't this just vlbank?
-
-
 
 
 /*
@@ -143,7 +162,7 @@ typedef struct {
 	byte color;
 
 } VICII_VIDEODATA;
-
+							//$D000 + value below.
 typedef enum {
 	VICII_S0X      			=0x00,  // S0X-S7X and S0Y-S7Y are X and Y positions for the seven HW Sprites.
 	VICII_S0Y				=0x01,
@@ -230,6 +249,14 @@ typedef enum {
 } VICII_GRAPHICS_MODES;
 
 
+typedef enum {
+	VICII_FG_PIXEL,
+	VICII_BG_PIXEL,
+	VICII_BORDER_PIXEL,
+	VICII_SPRITE_PIXEL
+} VICII_PIXELTYPE;
+
+
 typedef struct {
 
 	byte pointer;  		// fetched in paccess 	for sprite.
@@ -250,12 +277,6 @@ typedef struct {
 
 } VICII_SPRITE;
 
-typedef enum {
-	VICII_FG_PIXEL,
-	VICII_BG_PIXEL,
-	VICII_BORDER_PIXEL,
-	VICII_SPRITE_PIXEL
-} VICII_PIXELTYPE;
 
 typedef struct {
 
@@ -268,7 +289,8 @@ typedef struct {
 	word raster_y;					// raster Y position -- CPU can get this through registers.
 	word raster_irq;				// raster irq compare -- CPU can set this through registers.
 	word raster_x;					// raster x position  -- VIC internal only. 
-	
+
+	bool hblank; 					// are we in horizontal blanking?
 	bool badline;					// Vic needs extra cycles to fetch data during this line. 
 	bool balow;						// BAlow stuns the CPU on badline situations.
 	bool den;						// is display enabled? 
@@ -318,9 +340,13 @@ typedef struct {
 	word screenwidth;			// varies by NTSC and PAL. width of screen frame.
 	word linestart_x; 		    // varies by NTSC and PAL. Value of x at start of a raster line.
 	word rasterlines;			// varies by NTSC and PAL. How many raster lines?
+	word firstvisible;			// varies by NTSC and PAL. First visible pixel on a line.
+	word lastvisible;			// varies by NTSC and PAL. Last visible pixel on a line.
+	word raster_x_overflow;		// varies by NTSC and PAL. where do x coordinates wrap on a line.
+	
 	
 	bool frameready; 			// ready when a new frame is being generated.
-	word xpos;
+	
 
 } VICII;
 
@@ -328,37 +354,40 @@ VICII g_vic = {0};
 
 
 
-bool vicii_stuncpu() 						{return g_vic.balow;}
-
-word vicii_getscreenheight() {
-	return g_vic.screenheight;
-}
-word vicii_getscreenwidth() {
-	return g_vic.screenwidth;
-}
+bool vicii_stuncpu() 			{return g_vic.balow;}
+word vicii_getscreenheight() 	{return g_vic.screenheight;}
+word vicii_getscreenwidth() 	{return g_vic.screenwidth;}
 
 void vicii_init() {
 
 	DEBUG_PRINT("** Initializing VICII...\n");
 
+
+
+
+	g_vic.screenwidth = VICII_FRAMEBUFFER_WIDTH;
+
 	if (sysclock_isNTSCfrequency()) {
 		
 		DEBUG_PRINT("VICII initialized in NTSC mode.\n");
 
-		g_vic.screenwidth = VICII_NTSC_SCREENFRAME_WIDTH;
-		g_vic.screenheight = VICII_NTSC_SCREENFRAME_HEIGHT;
-		g_vic.linestart_x = VICII_NTSC_LINE_START_X;
-		g_vic.rasterlines = NTSC_LINES;
+		g_vic.screenheight 				= VICII_FRAMEBUFFER_HEIGHT_NTSC;
+		g_vic.linestart_x 				= VICII_RASTER_X_START_NTSC;
+		g_vic.rasterlines 				= NTSC_LINES;
+		g_vic.firstvisible 				= VICII_RASTER_X_FIRST_VISIBLE_PIXEL_NTSC;
+		g_vic.lastvisible 				= VICII_RASTER_X_LAST_VISIBLE_PIXEL_NTSC;
+		g_vic.raster_x_overflow 		= VICII_RASTER_X_OVERFLOW_NTSC;
 
 	}
 	else {
 
 		DEBUG_PRINT("VICII initialized in PAL mode.\n");
-		g_vic.screenwidth = VICII_PAL_SCREENFRAME_WIDTH;
-		g_vic.screenheight = VICII_PAL_SCREENFRAME_HEIGHT;
-		g_vic.linestart_x = VICII_PAL_LINE_START_X;
-		g_vic.rasterlines = PAL_LINES;
-
+		g_vic.screenheight 				= VICII_FRAMEBUFFER_HEIGHT_PAL;
+		g_vic.linestart_x 				= VICII_RASTER_X_START_PAL;
+		g_vic.rasterlines 				= PAL_LINES;
+		g_vic.firstvisible 				= VICII_RASTER_X_FIRST_VISIBLE_PIXEL_PAL;
+		g_vic.lastvisible 				= VICII_RASTER_X_LAST_VISIBLE_PIXEL_PAL;
+		g_vic.raster_x_overflow 		= VICII_RASTER_X_OVERFLOW_PAL;
 	}
 
 	g_vic.out = malloc(sizeof(uint32_t *)*g_vic.screenheight);
@@ -370,7 +399,7 @@ void vicii_init() {
 	for (int i = 0 ; i < g_vic.screenheight; i++) {
 
 		g_vic.out[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
-		g_vic.type[i] = malloc(sizeof(uint32_t) * g_vic.screenwidth);
+		g_vic.type[i] = malloc(sizeof(byte) * g_vic.screenwidth);
 		if(!g_vic.out[i] || !g_vic.type[i]) {
 			FATAL_ERROR("Fatal error initializing emulator graphics.\n");
 		}
@@ -379,10 +408,11 @@ void vicii_init() {
 
 	g_vic.raster_x = g_vic.linestart_x; 
 
-	g_vic.displaytop 		= VICII_DISPLAY_TOP_0;
-	g_vic.displaybottom 	= VICII_DISPLAY_BOTTOM_0;
-	g_vic.displayleft 		= VICII_DISPLAY_LEFT_0;
-	g_vic.displayright 		= VICII_DISPLAY_RIGHT_0;
+
+	g_vic.displaytop 		= VICII_25ROW_TOP;
+	g_vic.displaybottom 	= VICII_25ROW_BOTTOM;
+	g_vic.displayleft 		= VICII_40COL_LEFT;
+	g_vic.displayright 		= VICII_40COL_RIGHT;
 
 	if (!g_vic.out || !g_vic.type) {
 		FATAL_ERROR("Fatal error intiailizing emulator graphics..\n");
@@ -393,10 +423,19 @@ bool vicii_frameready() {return g_vic.frameready;}
 
 void vicii_updateraster() {
 
-	g_vic.raster_x +=8;										// Increment X raster position. wraps at 0x1FF
-	if (g_vic.raster_x >= 0x1FF ) {
+									// Increment X raster position. wraps at 0x1FF
+	if (g_vic.raster_x == g_vic.raster_x_overflow ) {
 		g_vic.raster_x = 0;
 	}
+
+	if (g_vic.raster_x == g_vic.lastvisible) {
+		g_vic.hblank = true;
+	}
+	if (g_vic.raster_x == g_vic.firstvisible) {
+		g_vic.hblank = false;
+	}
+
+
 
 	if (g_vic.raster_x == g_vic.linestart_x) {		// Update Y raster position if we've reached end of line.
 		g_vic.cycle = 1;
@@ -423,8 +462,6 @@ void vicii_updateraster() {
 uint32_t ** vicii_getframe() {
 	return g_vic.out;
 }
-
-
 
 
 byte vicii_realpeek(word address) {
@@ -487,10 +524,9 @@ byte vicii_peekmem(word address) {
 
 void vicii_drawpixel(byte c,VICII_PIXELTYPE type) {
 	
-	g_vic.out[g_vic.raster_y-VICII_VBLANK][g_vic.xpos] = g_colors[c];
-	
-	g_vic.type[g_vic.raster_y-VICII_VBLANK][g_vic.xpos] = type;
-	g_vic.xpos++;
+	g_vic.out[g_vic.raster_y-VICII_VBLANK][g_vic.raster_x] = g_colors[c];	
+	g_vic.type[g_vic.raster_y-VICII_VBLANK][g_vic.raster_x++] = type;
+
 }
 
 void vicii_checkcollisioninterrupt(byte bit,bool *cantrigger) {
@@ -501,7 +537,6 @@ void vicii_checkcollisioninterrupt(byte bit,bool *cantrigger) {
 		*cantrigger = false;
 		cpu_irq();
 	}
-
 }
 
 void vicii_drawspritepixel(byte sprite,word row, byte c,bool shown) {
@@ -759,9 +794,21 @@ void vicii_drawsprites() {
 
 void vicii_drawgraphics() {
 
-	if (!g_vic.displayline) {return;}
-	if (g_vic.vertborder) {vicii_drawborder();return;}
-	if (g_vic.mainborder) {vicii_drawborder();return;}
+
+	//
+	// if this is in a non display area, just move the raster beam forward 8 pixels.
+	// BUGBUG: Not handling idle mode access correctly.
+	//
+
+	if (g_vic.hblank || !g_vic.displayline) {
+		g_vic.raster_x+=8;
+		return;
+	}
+
+	if (g_vic.vertborder || g_vic.mainborder) {
+		vicii_drawborder();
+		return;
+	}
 	
 	switch(g_vic.mode) {
 		case VICII_MODE_STANDARD_TEXT: 		vicii_drawstandardtext(); 		break;
@@ -773,7 +820,7 @@ void vicii_drawgraphics() {
 
 	// BUGBUG: ECM Text not working correctly. 
 	// BUGBUG: Have not implemented "invalid" modes.
-	// BUGBUG: Not properly handling idle access gfx.
+	
 }
 
 //
@@ -954,6 +1001,7 @@ void vicii_checkborderflipflops() {
 	}
 }
 
+int g_framecount = 0;
 
 void vicii_main_update() {
 
@@ -962,7 +1010,12 @@ void vicii_main_update() {
 	vicii_updateraster(); 	// update raster x and y and check for raster IRQ
 	vicii_checkborderflipflops();
 
+	DEBUG_PRINTIF(g_framecount==200 && g_vic.raster_y ==100,"cycle: %d rasterx: 0x%04X hblank: %d border %d\n",
+		g_vic.cycle, g_vic.raster_x, g_vic.hblank,g_vic.vertborder  || g_vic.mainborder);
+
 	switch(g_vic.cycle) {
+
+
 		
 		// * various setup activities. 
 		case 1: 
@@ -971,10 +1024,9 @@ void vicii_main_update() {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
 			}
 
-			g_vic.xpos = 0;
-
 			if (g_vic.raster_y == 1) {
 				g_vic.frameready = true;    // signal ux system to draw frame. 
+				g_framecount++;
 				g_vic.vcbase = 0;			// reset on line zero.
 			}
 
@@ -1051,11 +1103,11 @@ void vicii_main_update() {
 			} 
 		break;
 		case 13:
-			vicii_drawgraphics();
+			
 		break;
 		// * reset internal indices on cycle 14.
 		case 14: 
-			vicii_drawgraphics();
+			
 			g_vic.vmli = 0;
 			g_vic.vc = g_vic.vcbase;
 
@@ -1066,22 +1118,22 @@ void vicii_main_update() {
 		break;
 		// * start refreshing video matrix if balow.
 		case 15:
-			vicii_drawgraphics();
+			
 			vicii_caccess();
 			break;
 		case 16:
 			vicii_checkspritesdmaoff();
-			vicii_drawgraphics();
+			
 			vicii_gaccess();
 			vicii_caccess();
 			break;
 		case 17:
-			vicii_drawgraphics();
+			
 			vicii_gaccess();
 			vicii_caccess();
 		break;
 		case 18:
-			vicii_drawgraphics();
+			
 			vicii_gaccess();
 			vicii_caccess();
 		break;
@@ -1090,14 +1142,13 @@ void vicii_main_update() {
 		case 35: case 36: case 37: case 38: case 39: case 40: case 41: case 42:
 		case 43: case 44: case 45: case 46: case 47: case 48: case 49: case 50:
 		case 51: case 52: case 53: case 54: 			
-			vicii_drawgraphics();
+			
 			vicii_gaccess();
 			vicii_caccess();
 		break;
 		// * turn off balow because of badline.
 		case 55:
 			g_vic.balow = false;
-			vicii_drawgraphics();
 			vicii_gaccess();	
 
 			/*
@@ -1115,18 +1166,17 @@ void vicii_main_update() {
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
-			vicii_drawgraphics();
+			
 			
 				
 			vicii_checkspritesdmaon();
 		break;
 		// * turn on border in 40 column mode.
 		case 57:
-			vicii_drawgraphics();
 		break;
 		// * reset vcbase if rc == 7. handle display/idle.
 		case 58: 
-			vicii_drawgraphics();
+			
 			if (g_vic.rc == 7) {
 				g_vic.vcbase = g_vic.vc;
 				g_vic.idle = true;
@@ -1141,7 +1191,6 @@ void vicii_main_update() {
 
 		break;
 		case 59:
-			vicii_drawgraphics(); 
 			vicii_saccess(0);
 			vicii_saccess(0);
 		break;
@@ -1172,6 +1221,10 @@ void vicii_main_update() {
 		break;
 	}
 
+	//
+	// draw 8 pixels of grpahics (or idle if we are in vblank/hblank)
+	//
+	vicii_drawgraphics();
 }
 
 void vicii_update() {
@@ -1303,13 +1356,13 @@ void vicii_poke(word address,byte val) {
 			// set the vertical screen height
 			if (val & BIT_3) {
 				DEBUG_PRINT("\tScreen Height is 1\n");
-				g_vic.displaytop = VICII_DISPLAY_TOP_1;
-				g_vic.displaybottom = VICII_DISPLAY_BOTTOM_1;
+				g_vic.displaytop = VICII_25ROW_TOP;
+				g_vic.displaybottom = VICII_25ROW_BOTTOM;
 			}
 			else {
 				DEBUG_PRINT("\tScreen Height is 0\n");
-				g_vic.displaytop = VICII_DISPLAY_TOP_0;
-				g_vic.displaybottom = VICII_DISPLAY_BOTTOM_0;
+				g_vic.displaytop = VICII_24ROW_TOP;
+				g_vic.displaybottom = VICII_24ROW_BOTTOM;
 			}
 
 			// update graphics mode bits.
@@ -1328,13 +1381,13 @@ void vicii_poke(word address,byte val) {
 			// set the horizaontal screen width
 			if (val & BIT_3) {
 				DEBUG_PRINT("\tScreen Width is 1\n");
-				g_vic.displayleft = VICII_DISPLAY_LEFT_1;
-				g_vic.displayright = VICII_DISPLAY_RIGHT_1;
+				g_vic.displayleft = VICII_40COL_LEFT;
+				g_vic.displayright = VICII_40COL_RIGHT;
 			}
 			else {
 				DEBUG_PRINT("\tScreen Width is 0\n");
-				g_vic.displayleft = VICII_DISPLAY_LEFT_0;
-				g_vic.displayright = VICII_DISPLAY_RIGHT_0;
+				g_vic.displayleft = VICII_38COL_LEFT;
+				g_vic.displayright = VICII_38COL_RIGHT;
 			}
 
 			g_vic.mode &= ~(BIT_0);

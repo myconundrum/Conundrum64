@@ -252,6 +252,7 @@ ux_init_screen() {
 	int width = vicii_getscreenwidth();
 	int height = vicii_getscreenheight();
 
+
 #ifdef EMU_DOUBLE_SCREEN
 	width *=2;
 	height *=2;
@@ -540,7 +541,6 @@ void ux_updateConsole() {
 	FC_Draw(g_ux.mon.font,g_ux.mon.renderer,0,360,g_ux.buf);
 
 }
-
 
 void ux_updateScreen() {
 
