@@ -52,7 +52,7 @@ KNOWN BUGS:
 //
 #define VICII_SCREEN_WIDTH 			320
 #define VICII_SCREEN_HEIGHT 		200
-#define VICII_VBLANK 	 			16 // 16 lines of vblank.
+#define VICII_VBLANK_TOP	 		24 
 
 
 //
@@ -91,8 +91,8 @@ KNOWN BUGS:
 #define VICII_25ROW_BOTTOM								0xFA
 #define VICII_24ROW_BOTTOM								0xF6
 #define VICII_FRAMEBUFFER_WIDTH							(VICII_CANVAS_WIDTH+VICII_VISIBLE_BORDER_CYCLES*8)
-#define VICII_FRAMEBUFFER_HEIGHT_PAL					(VICII_HEIGHT_PAL 	- VICII_VBLANK)
-#define VICII_FRAMEBUFFER_HEIGHT_NTSC					(VICII_HEIGHT_NTSC 	- VICII_VBLANK)
+#define VICII_FRAMEBUFFER_HEIGHT_PAL					(VICII_HEIGHT_PAL 	- VICII_VBLANK_TOP)
+#define VICII_FRAMEBUFFER_HEIGHT_NTSC					(VICII_HEIGHT_NTSC 	- VICII_VBLANK_TOP)
 
 
 
@@ -102,57 +102,31 @@ KNOWN BUGS:
 #define VICII_ICR_SPRITE_SPRITE_INTERRUPT		0b00000100
 #define VICII_ICR_LIGHT_PEN_INTERRUPT			0b00001000 
 
-#define VICII_NTSC_LINE_START_X			0x1A0
-#define VICII_PAL_LINE_START_X 			0x198
-
-
 #define VICII_COLOR_MEM_BASE			0xD800
-
-
-
-#define VICII_FIRST_DISPLAY_LINE 16  	//BUGBUG: Isn't this just vlbank?
-
 
 /*
 	RGB values of C64 colors from 
 	http://unusedino.de/ec64/technical/misc/vic656x/colors/
+	Alpha  R G B 
 
-	0 black
-  	1 white
-  	2 red
-  	3 cyan
-  	4 pink
-  	5 green
-  	6 blue
-  	7 yellow
-  	8 orange
-  	9 brown
- 	10 light red
- 	11 dark gray
- 	12 medium gray
- 	13 light green
- 	14 light blue
- 	15 light gray
 */
-
-/* Alpha  R G B */
 uint32_t g_colors[0x10] = {
-	0xFF000000,
-	0xFFFFFFFF,
-	0xFF683728,
-	0xFF70A4B2,
-	0xFF6F3D86,
-	0xFF588D43,
-	0xFF352879,
-	0xFFB8C76F,
-	0xFF6F4F25,
-	0xFF433900,
-	0xFF9A6759,
-	0xFF444444,
-	0xFF6C6C6C,
-	0xFF9AD284,
-	0xFF6C5EB5,
-	0xFF959595	
+	0xFF000000, 				// 0 black
+	0xFFFFFFFF,					// 1 white
+	0xFF683728,					// 2 red
+	0xFF70A4B2,					// 3 cyan
+	0xFF6F3D86,					// 4 pink
+	0xFF588D43,					// 5 green
+	0xFF352879,					// 6 blue
+	0xFFB8C76F,					// 7 yellow
+	0xFF6F4F25,					// 8 orange
+	0xFF433900,					// 9 brown
+	0xFF9A6759,					// 10 light red
+	0xFF444444,					// 11 dark gray
+	0xFF6C6C6C,					// 12 medium gray
+	0xFF9AD284,					// 13 light green
+	0xFF6C5EB5,					// 14 light blue
+	0xFF959595					// 15 light gray
 };
 
 
@@ -524,8 +498,8 @@ byte vicii_peekmem(word address) {
 
 void vicii_drawpixel(byte c,VICII_PIXELTYPE type) {
 	
-	g_vic.out[g_vic.raster_y-VICII_VBLANK][g_vic.raster_x] = g_colors[c];	
-	g_vic.type[g_vic.raster_y-VICII_VBLANK][g_vic.raster_x++] = type;
+	g_vic.out[g_vic.raster_y-VICII_VBLANK_TOP][g_vic.raster_x] = g_colors[c];	
+	g_vic.type[g_vic.raster_y-VICII_VBLANK_TOP][g_vic.raster_x++] = type;
 
 }
 
@@ -701,7 +675,7 @@ void vicii_drawstandardspritebyte(byte sprite) {
 	int i;
 	byte data = g_vic.sprites[sprite].data[g_vic.sprites[sprite].idata++];
 	byte c = g_vic.regs[VICII_S0C+sprite] & 0xf;
-	word y = g_vic.raster_y - VICII_VBLANK;
+	word y = g_vic.raster_y - VICII_VBLANK_TOP;
 	
 	for (i = 0; i < 8; i++) {
 
@@ -726,7 +700,7 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 	byte ec1 	= g_vic.regs[VICII_ESPRITECOL1] & 0xf;
 	byte ec2 	= g_vic.regs[VICII_ESPRITECOL2] & 0xf;
 	int uc;  // used color (which color to use for multicolor mode)
-	word y = g_vic.raster_y - VICII_VBLANK;
+	word y = g_vic.raster_y - VICII_VBLANK_TOP;
 
 	for (i = 0; i < 4; i++) {
 		
@@ -1024,8 +998,7 @@ void vicii_main_update() {
 			//
 			// Check whether we should skip this line.
 			//
-
-			g_vic.displayline = g_vic.raster_y >= VICII_VBLANK && 
+			g_vic.displayline = g_vic.raster_y >= VICII_VBLANK_TOP && 
 				g_vic.raster_y <= g_vic.rasterlines;
 
 			//
@@ -1042,7 +1015,6 @@ void vicii_main_update() {
 			if (g_vic.badline) {
 				g_vic.idle = false;
 			}
-
 			vicii_paccess(3);
 			vicii_saccess(3);
 		break;
@@ -1113,8 +1085,6 @@ void vicii_main_update() {
 			break;
 		case 16:
 			vicii_checkspritesdmaoff();
-			
-			
 			vicii_caccess();
 			break;
 		case 17:
@@ -1123,7 +1093,7 @@ void vicii_main_update() {
 			vicii_caccess();
 		break;
 		case 18:
-			
+
 			vicii_gaccess();
 			vicii_caccess();
 		break;
@@ -1203,7 +1173,6 @@ void vicii_main_update() {
 		case 63:
 			vicii_saccess(2);
 			vicii_saccess(2);
-			
 		break;
 		case 64: 
 		break;
