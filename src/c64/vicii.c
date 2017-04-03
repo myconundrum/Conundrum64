@@ -76,6 +76,8 @@ KNOWN BUGS:
 #define VICII_RASTER_X_FIRST_VISIBLE_PIXEL_NTSC			0x0
 #define VICII_RASTER_X_LAST_VISIBLE_PIXEL_PAL			0x170
 #define VICII_RASTER_X_LAST_VISIBLE_PIXEL_NTSC			0x170
+#define VICII_RASTER_Y_LAST_VISIBLE_LINE_PAL			280
+#define VICII_RASTER_Y_LAST_VISIBLE_LINE_NTSC			262
 #define VICII_VISIBLE_BORDER_CYCLES						6
 #define VICII_CANVAS_WIDTH								320
 #define VICII_RASTER_X_OVERFLOW_PAL						0x1F8
@@ -91,8 +93,8 @@ KNOWN BUGS:
 #define VICII_25ROW_BOTTOM								0xFA
 #define VICII_24ROW_BOTTOM								0xF6
 #define VICII_FRAMEBUFFER_WIDTH							(VICII_CANVAS_WIDTH+VICII_VISIBLE_BORDER_CYCLES*8)
-#define VICII_FRAMEBUFFER_HEIGHT_PAL					(VICII_HEIGHT_PAL 	- VICII_VBLANK_TOP)
-#define VICII_FRAMEBUFFER_HEIGHT_NTSC					(VICII_HEIGHT_NTSC 	- VICII_VBLANK_TOP)
+#define VICII_FRAMEBUFFER_HEIGHT_PAL					(VICII_RASTER_Y_LAST_VISIBLE_LINE_PAL+1 - VICII_VBLANK_TOP)
+#define VICII_FRAMEBUFFER_HEIGHT_NTSC					(VICII_RASTER_Y_LAST_VISIBLE_LINE_NTSC+1 - VICII_VBLANK_TOP)
 
 
 
@@ -317,6 +319,7 @@ typedef struct {
 	word firstvisible;			// varies by NTSC and PAL. First visible pixel on a line.
 	word lastvisible;			// varies by NTSC and PAL. Last visible pixel on a line.
 	word raster_x_overflow;		// varies by NTSC and PAL. where do x coordinates wrap on a line.
+	word lastvisibleraster;		// varies by NTSC and PAL. where is the last visible raster?
 	
 	
 	bool frameready; 			// ready when a new frame is being generated.
@@ -351,6 +354,7 @@ void vicii_init() {
 		g_vic.firstvisible 				= VICII_RASTER_X_FIRST_VISIBLE_PIXEL_NTSC;
 		g_vic.lastvisible 				= VICII_RASTER_X_LAST_VISIBLE_PIXEL_NTSC;
 		g_vic.raster_x_overflow 		= VICII_RASTER_X_OVERFLOW_NTSC;
+		g_vic.lastvisibleraster			= VICII_RASTER_Y_LAST_VISIBLE_LINE_NTSC;
 
 	}
 	else {
@@ -362,6 +366,7 @@ void vicii_init() {
 		g_vic.firstvisible 				= VICII_RASTER_X_FIRST_VISIBLE_PIXEL_PAL;
 		g_vic.lastvisible 				= VICII_RASTER_X_LAST_VISIBLE_PIXEL_PAL;
 		g_vic.raster_x_overflow 		= VICII_RASTER_X_OVERFLOW_PAL;
+		g_vic.lastvisibleraster			= VICII_RASTER_Y_LAST_VISIBLE_LINE_PAL;
 	}
 
 	g_vic.out = malloc(sizeof(uint32_t *)*g_vic.screenheight);
@@ -999,7 +1004,7 @@ void vicii_main_update() {
 			// Check whether we should skip this line.
 			//
 			g_vic.displayline = g_vic.raster_y >= VICII_VBLANK_TOP && 
-				g_vic.raster_y <= g_vic.rasterlines;
+				g_vic.raster_y <= g_vic.lastvisibleraster;
 
 			//
 			// check to see if this is a badline.
