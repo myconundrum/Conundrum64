@@ -212,17 +212,23 @@ void c64_init() {
 
 void c64_update() {
 
-	cia_update();
-	if (!vicii_stuncpu()) {
-		cpu_update();
-		vicii_update();
-	}
-	else {
-		
+	sysclock_update();
+	
+	if (sysclock_getphase()) {
 		//
-		// badline -- starving the CPU for ~40 cycles.
+		// CPU update on high signal, unless VIC has claimed the bus.
 		//
-		sysclock_addticks(1);
+		cia_update();
+		if (!vicii_stuncpu()) {
+			cpu_update();
+		}
+		else {
+			vicii_update();
+		}
+	} else {
+		//
+		// VIC updates on low signal.
+		//
 		vicii_update();
 	}	
 }

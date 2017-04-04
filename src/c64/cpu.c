@@ -48,6 +48,9 @@ typedef struct cpu6502 {
 	bool irq;					// irq signal.
 	bool nmi;					// nmi signal.
 
+	byte ucycles;				// how many cycles have we used executing? This must be 0 to execute next
+								// instruction
+
 } CPU6502;
 
 
@@ -93,7 +96,7 @@ word pull_word() {
 byte fetch() {
 
 	if (((g_cpu.pc + 1) & 0xFF) == 0) {
-		sysclock_addticks(1);
+		g_cpu.ucycles++;
 	}
 
 	return mem_peek(g_cpu.pc++);
@@ -153,13 +156,13 @@ void setPCFromOffset(byte val) {
 	//
 	// add a cycle on successful branch.
 	//
-	sysclock_addticks(1);
+	g_cpu.ucycles++;
 
 	//
 	// add cycle on page boundary cross.
 	//
 	if ((g_cpu.pc & 0xFF) != (old & 0xFF)) {
-		sysclock_addticks(1);
+		g_cpu.ucycles++;
 	}
 }
 
@@ -771,17 +774,21 @@ void cpu_checkinterrupts() {
 
 }
 
+
 void cpu_update() {
 
 	byte op;
 
 
-	cpu_checkinterrupts();
-
-	op = fetch();
-	g_opcodes[op].fn(g_opcodes[op].am);
-	sysclock_addticks(g_opcodes[op].cycles);
-
+	if (g_cpu.ucycles == 0) {
+		cpu_checkinterrupts();
+		op = fetch();
+		g_opcodes[op].fn(g_opcodes[op].am);
+		g_cpu.ucycles += g_opcodes[op].cycles;
+	}
+	else {
+		g_cpu.ucycles--;
+	}
 }
 
 void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
