@@ -1009,7 +1009,7 @@ void vicii_checkborderflipflops() {
 }
 
 
-void vicii_run_one_cycle() {
+void vicii_update() {
 
 	g_vic.cycle++;			// update cycle count.
 
@@ -1230,15 +1230,7 @@ void vicii_run_one_cycle() {
 	vicii_drawgraphics();
 }
 
-void vicii_update() {
 
-	int i;
-	int ticks = sysclock_getlastaddticks();
-
-	for (i = 0; i < ticks; i++) {
-		vicii_run_one_cycle();
-	}
-}
 
 void vicii_setbank() {
 	g_vic.bank = ((~mem_peek(0xDD00)) & 0x03);

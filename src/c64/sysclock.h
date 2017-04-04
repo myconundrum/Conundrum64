@@ -61,8 +61,8 @@ KNOWN BUGS:
 bool sysclock_isPALfrequency();
 bool sysclock_isNTSCfrequency();
 void sysclock_init(void);
-void sysclock_addticks(unsigned long ticks);
-unsigned long sysclock_getticks(void);
+void sysclock_update(void);
+bool sysclock_getphase(void);
 unsigned long sysclock_gettickspersec(void);
 word sysclock_getlastaddticks(void);
 double sysclock_getelapsedseconds(void);
