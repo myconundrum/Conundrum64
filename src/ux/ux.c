@@ -249,8 +249,9 @@ ux_init_monitor() {
 
 ux_init_screen() {
 
-	int width = VICII_SCREENFRAME_WIDTH;
-	int height = VICII_SCREENFRAME_HEIGHT;
+	int width = vicii_getscreenwidth();
+	int height = vicii_getscreenheight();
+
 
 #ifdef EMU_DOUBLE_SCREEN
 	width *=2;
@@ -541,15 +542,18 @@ void ux_updateConsole() {
 
 }
 
-
 void ux_updateScreen() {
 
-	VICII_SCREENFRAME *frame = vicii_getframe();
+	Uint32 **frame = vicii_getframe();
 	void * pixels;
 	int    pitch;
 	int 	row;
 	int 	col;
 	Uint32 * dst;
+
+	word height = vicii_getscreenheight();
+	word width = vicii_getscreenwidth();
+
 #ifdef EMU_DOUBLE_SCREEN
 	Uint32 * dst2;
 #endif 
@@ -559,7 +563,7 @@ void ux_updateScreen() {
 		return;
 	}
 
-	for (row = 0 ; row < VICII_SCREENFRAME_HEIGHT ; row++) {
+	for (row = 0 ; row < height ; row++) {
 
 #ifdef EMU_DOUBLE_SCREEN
 		dst = (Uint32*) ((Uint8 *)pixels + (row*2) * pitch);
@@ -568,13 +572,13 @@ void ux_updateScreen() {
 		dst = (Uint32*) ((Uint8 *)pixels + (row) * pitch);
 #endif 
 
-		for (col = 0; col < VICII_SCREENFRAME_WIDTH; col++) {
+		for (col = 0; col < width; col++) {
 
-			*dst++ = frame->data[row][col];
+			*dst++ = frame[row][col];
 #ifdef EMU_DOUBLE_SCREEN
-			*dst++ = frame->data[row][col];
-			*dst2++ = frame->data[row][col];
-			*dst2++ = frame->data[row][col];
+			*dst++ = frame[row][col];
+			*dst2++ = frame[row][col];
+			*dst2++ = frame[row][col];
 #endif 
 
 		}
