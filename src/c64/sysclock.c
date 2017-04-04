@@ -47,12 +47,8 @@ typedef struct {
 	word 		  clast;			// systicks since last catchup
 	clock_t		  clastreal;		// time at last refresh
 	word	      lastadd;			// amount of ticks added in last call to sysclock_addticks()
-	unsigned int  tickspersec;		// amount of ticks that should occur in one second. varies by
+	unsigned long tickspersec;		// amount of ticks that should occur in one second. varies by
 									// NTSC and PAL
-
-	
-	
-
 } SYSCLOCK;
 
 SYSCLOCK g_sysclock;
@@ -86,19 +82,17 @@ bool sysclock_isNTSCfrequency() {
 	return g_sysclock.tickspersec == NTSC_TICKS_PER_SECOND;
 }
 
-
-
 word sysclock_getlastaddticks() {return g_sysclock.lastadd;}
 
 void sysclock_addticks(unsigned long ticks) {
 
 	clock_t c;
 
+	DEBUG_PRINT("ticks added %d\n",ticks);
+
 	g_sysclock.lastadd = ticks;
 	g_sysclock.total += ticks;
 	g_sysclock.clast += ticks;
-
-
 
 	if (g_sysclock.clast > SYSCLOCK_CATCHUP) {
 		//
@@ -116,6 +110,14 @@ void sysclock_addticks(unsigned long ticks) {
 	}
 }
 
+
+double sysclock_getelapsedseconds(void) {
+	return (double) g_sysclock.total / g_sysclock.tickspersec;
+}
+
+unsigned long sysclock_gettickspersec(void) {
+	return g_sysclock.tickspersec;
+}
 
 unsigned long sysclock_getticks(void) {
 	return g_sysclock.total;
