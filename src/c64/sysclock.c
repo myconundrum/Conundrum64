@@ -50,7 +50,7 @@ typedef struct {
 	unsigned long tickspersec;		// amount of ticks that should occur in one second. varies by
 									// NTSC and PAL
 
-	bool		  phase;			// true == high false == low 
+	bool		  phi;				// true == high false == low 
 } SYSCLOCK;
 
 SYSCLOCK g_sysclock = {0};
@@ -85,9 +85,9 @@ bool sysclock_isNTSCfrequency() {
 }
 
 
-bool sysclock_getphase() {
+bool sysclock_getphi() {
 
-	return g_sysclock.phase;
+	return g_sysclock.phi;
 }
 
 void sysclock_update() {
@@ -95,7 +95,7 @@ void sysclock_update() {
 
 	clock_t c;
 
-	if(!g_sysclock.phase) {
+	if(!g_sysclock.phi) {
 		g_sysclock.total++;
 		g_sysclock.clast++;
 	}
@@ -114,41 +114,9 @@ void sysclock_update() {
 		g_sysclock.clast = 0;
 	}
 
-	g_sysclock.phase = !g_sysclock.phase;
+	g_sysclock.phi = !g_sysclock.phi;
 
 }
-
-/*
-word sysclock_getlastaddticks() {return g_sysclock.lastadd;}
-
-void sysclock_addticks(unsigned long ticks) {
-
-	clock_t c;
-
-	DEBUG_PRINT("ticks added %d\n",ticks);
-
-	g_sysclock.lastadd = ticks;
-	g_sysclock.total += ticks;
-	g_sysclock.clast += ticks;
-
-	if (g_sysclock.clast > SYSCLOCK_CATCHUP) {
-		//
-		// wait for real clock to catchup.
-		//
-		do {
-
-			c = clock();
-		} while (
-			(((double) g_sysclock.clast)/g_sysclock.tickspersec) >
-			(((double) (c - g_sysclock.clastreal)) / CLOCKS_PER_SEC));
-
-		g_sysclock.clastreal = c;
-		g_sysclock.clast = 0;
-	}
-}
-*/
-
-
 
 double sysclock_getelapsedseconds(void) {
 	return (double) g_sysclock.total / g_sysclock.tickspersec;

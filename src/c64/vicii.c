@@ -1022,20 +1022,27 @@ void vicii_checkborderflipflops() {
 }
 
 
-//
-// BUGBUG: Not doing timing right. We are incrementing cycle everytime we are called. 
-// but, during badlines, we are called twice per cycle and should be splitting the work 
-// in those cycles between the high and low clock phase. This is largely the cacccess/gaccess below.
-//
 
-void vicii_update() {
+
+void vicii_update_phihigh() {
+
+	
+	if (g_vic.cycle >= 16 && g_vic.cycle <= 55) {
+
+		
+		vicii_caccess();
+	}
+	DEBUG_PRINTIF(g_vic.frames == 300,"phihigh called on cycle %d. VMLI is %d.\n",g_vic.cycle,g_vic.vmli);
+	
+}
+
+void vicii_update_philow() {
 
 	g_vic.cycle++;			// update cycle count.
 
 	vicii_updateraster(); 	// update raster x and y and check for raster IRQ
 	vicii_checkborderflipflops();
 
-	
 	switch(g_vic.cycle) {
 
 
@@ -1045,6 +1052,7 @@ void vicii_update() {
 
 			if (g_vic.raster_y == 0x30) {
 				g_vic.den = g_vic.regs[VICII_CR1] & BIT_4;
+
 			}
 
 			if (g_vic.raster_y == 1) {
@@ -1146,17 +1154,17 @@ void vicii_update() {
 			break;
 		case 16:
 			vicii_checkspritesdmaoff();
-			vicii_caccess();
+			
 			break;
 		case 17:
 			
 			vicii_gaccess();
-			vicii_caccess();
+			
 		break;
 		case 18:
 
 			vicii_gaccess();
-			vicii_caccess();
+			
 		break;
 		case 19: case 20: case 21: case 22: case 23: case 24: case 25: case 26: 
 		case 27: case 28: case 29: case 30: case 31: case 32: case 33: case 34: 
@@ -1165,13 +1173,13 @@ void vicii_update() {
 		case 51: case 52: case 53: case 54: 			
 			
 			vicii_gaccess();
-			vicii_caccess();
+			
 		break;
 		// * turn off balow because of badline.
 		case 55:
-			g_vic.balow = false;
+			
 			vicii_gaccess();	
-			vicii_caccess();
+			
 
 			/*
 				2. If the MxYE bit is set in the first phase of cycle 55, the expansion
@@ -1188,6 +1196,7 @@ void vicii_update() {
 		break;
 		// * turn on border in 38 column mode.
 		case 56: 
+			g_vic.balow = false;
 			vicii_gaccess();
 			
 			
@@ -1247,6 +1256,18 @@ void vicii_update() {
 	// draw 8 pixels of grpahics (or idle if we are in vblank/hblank)
 	//
 	vicii_drawgraphics();
+}
+
+
+void vicii_update() {
+
+	if (sysclock_getphi()==PHI_LOW) {
+		vicii_update_philow();
+	}
+	else {
+		DEBUG_PRINTIF(!vicii_stuncpu(),"!!WARNING: vicii_update called while PHI is high and BA is not low.\n");
+		vicii_update_phihigh();
+	}
 }
 
 
@@ -1355,6 +1376,8 @@ void vicii_poke(word address,byte val) {
 				g_vic.mode |= BIT_2;
 			}
 			DEBUG_PRINT("\tGraphics Mode is: %s\n",g_vicii_mode_names[g_vic.mode]);
+
+			DEBUG_PRINTIF(val & BIT_4,"\tDEN bit set. Display enaled.\n");
 
 		break;
 		case VICII_CR2: 

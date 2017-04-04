@@ -213,8 +213,9 @@ void c64_init() {
 void c64_update() {
 
 	sysclock_update();
+	fflush(g_debug);
 	
-	if (sysclock_getphase()) {
+	if (sysclock_getphi() == PHI_HIGH) {
 		//
 		// CPU update on high signal, unless VIC has claimed the bus.
 		//
@@ -227,7 +228,7 @@ void c64_update() {
 		}
 	} else {
 		//
-		// VIC updates on low signal.
+		// VIC can use the memory bus on all PHI_LOW cycles.
 		//
 		vicii_update();
 	}	

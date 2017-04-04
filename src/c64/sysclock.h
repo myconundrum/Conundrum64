@@ -56,13 +56,15 @@ KNOWN BUGS:
 #define NTSC_TICKS_PER_SECOND 		(NTSC_FPS*CLOCK_TICKS_PER_LINE_NTSC*NTSC_LINES)
 #define PAL_TICKS_PER_SECOND 		(PAL_FPS*CLOCK_TICKS_PER_LINE_PAL*PAL_LINES)
 
+#define PHI_HIGH	true
+#define PHI_LOW		false
 
 
 bool sysclock_isPALfrequency();
 bool sysclock_isNTSCfrequency();
 void sysclock_init(void);
 void sysclock_update(void);
-bool sysclock_getphase(void);
+bool sysclock_getphi(void);
 unsigned long sysclock_gettickspersec(void);
 word sysclock_getlastaddticks(void);
 double sysclock_getelapsedseconds(void);
