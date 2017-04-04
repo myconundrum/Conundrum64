@@ -218,11 +218,12 @@ void c64_update() {
 		vicii_update();
 	}
 	else {
+		
 		//
 		// badline -- starving the CPU for ~40 cycles.
 		//
-		vicii_update();
 		sysclock_addticks(1);
+		vicii_update();
 	}	
 }
 

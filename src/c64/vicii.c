@@ -258,7 +258,6 @@ typedef struct {
 
 	byte regs[0x30];				// note some reg read/writes fall through to 
 									// member variables below. 
-
 	VICII_SPRITE sprites[8];		// per sprite data.
 	VICII_VIDEODATA data[40];		// copied during badlines.
 	
@@ -323,6 +322,13 @@ typedef struct {
 	
 	
 	bool frameready; 			// ready when a new frame is being generated.
+
+
+
+	//
+	//  debug stats.
+	//
+	unsigned int frames; 		// count of frames.
 	
 
 } VICII;
@@ -338,9 +344,6 @@ word vicii_getscreenwidth() 	{return g_vic.screenwidth;}
 void vicii_init() {
 
 	DEBUG_PRINT("** Initializing VICII...\n");
-
-
-
 
 	g_vic.screenwidth = VICII_FRAMEBUFFER_WIDTH;
 
@@ -398,6 +401,41 @@ void vicii_init() {
 	}
 }
 
+
+
+
+void vicii_destroy() {
+
+	for (int i = 0;i < g_vic.screenheight; i++) {
+		free(g_vic.out[i]);
+		free(g_vic.type[i]);
+	}
+	free(g_vic.out);
+	free(g_vic.type);
+
+	DEBUG_PRINT("VICII Performance Statistics:\n");
+	DEBUG_PRINT("\tElapsed time:                %.2f seconds\n", sysclock_getelapsedseconds());
+	DEBUG_PRINT("\tTotal clock cycles:          %d\n", sysclock_getticks());
+	DEBUG_PRINT("\tTotal video frames:          %d\n", g_vic.frames);
+	DEBUG_PRINT("\tCycles per frame:            %.2f\n", (double) sysclock_getticks() / g_vic.frames);
+	DEBUG_PRINT("\tFrames per second:           %.2f\n", (double) g_vic.frames / sysclock_getelapsedseconds());
+	
+	DEBUG_IF(sysclock_isNTSCfrequency())
+
+		DEBUG_PRINT("\tNTSC Standard: 16,832 cycles per frame.\n");
+		DEBUG_PRINT("\tNTSC Standard: 59.826 frames per second.\n");
+
+	DEBUG_ENDIF()
+
+	DEBUG_IF(sysclock_isPALfrequency())
+
+		DEBUG_PRINT("\tPAL Standard: 19,656 cycles per frame.\n");
+		DEBUG_PRINT("\tPAL Standard: 50.125 frames per second.\n");
+
+	DEBUG_ENDIF()
+
+} 
+
 bool vicii_frameready() {return g_vic.frameready;}
 
 void vicii_updateraster() {
@@ -416,7 +454,8 @@ void vicii_updateraster() {
 
 
 
-	if (g_vic.raster_x == g_vic.linestart_x) {		// Update Y raster position if we've reached end of line.
+	// Update Y raster position if we've reached end of line.
+	if (g_vic.raster_x == g_vic.linestart_x) {		
 		g_vic.cycle = 1;
 		g_vic.raster_y++;
 		
@@ -424,7 +463,7 @@ void vicii_updateraster() {
 			g_vic.raster_y = 0;
 		}
 
-		if (g_vic.raster_irq == g_vic.raster_y) {			// Check for Raster IRQ
+		if (g_vic.raster_irq == g_vic.raster_y) {					// Check for Raster IRQ
 			//
 			// BUGBUG: not sure this gets cleared. 
 			//
@@ -494,9 +533,6 @@ byte vicii_peekspritedata(word sprite) {
 		g_vic.sprites[sprite].mc);
 }
 
-//
-// memory peeks are determined by the bankswitch in CIA2 and video memory base in the VIC MSR 
-//
 byte vicii_peekmem(word address) {
 	return vicii_realpeek(g_vic.bank | g_vic.vidmembase | address);
 }
@@ -541,10 +577,7 @@ void vicii_drawspritepixel(byte sprite,word row, byte c,bool shown) {
 			g_vic.type[row][s->curx] = VICII_SPRITE_PIXEL;
 
 		}
-
-
 	}
-
 	s->curx++;
 }
 
@@ -976,7 +1009,7 @@ void vicii_checkborderflipflops() {
 }
 
 
-void vicii_main_update() {
+void vicii_run_one_cycle() {
 
 	g_vic.cycle++;			// update cycle count.
 
@@ -996,10 +1029,14 @@ void vicii_main_update() {
 			}
 
 			if (g_vic.raster_y == 1) {
+
+
 				g_vic.frameready = true;    // signal ux system to draw frame. 
 				g_vic.vcbase = 0;			// reset on line zero.
+				g_vic.frames++;
 			}
 
+			
 			//
 			// Check whether we should skip this line.
 			//
@@ -1199,20 +1236,9 @@ void vicii_update() {
 	int ticks = sysclock_getlastaddticks();
 
 	for (i = 0; i < ticks; i++) {
-		vicii_main_update();
+		vicii_run_one_cycle();
 	}
 }
-
-void vicii_destroy() {
-
-	for (int i = 0;i < g_vic.screenheight; i++) {
-		free(g_vic.out[i]);
-		free(g_vic.type[i]);
-	}
-	free(g_vic.out);
-	free(g_vic.type);
-
-} 
 
 void vicii_setbank() {
 	g_vic.bank = ((~mem_peek(0xDD00)) & 0x03);
@@ -1305,8 +1331,6 @@ const char * vicii_getmodename() {
 	} 
 
 	return "undefined";
-
-
 }
 
 void vicii_poke(word address,byte val) {

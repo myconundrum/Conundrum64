@@ -47,7 +47,7 @@ KNOWN BUGS:
 */
 
 #define CLOCK_TICKS_PER_LINE_PAL 		63
-#define CLOCK_TICKS_PER_LINE_NTSC		65
+#define CLOCK_TICKS_PER_LINE_NTSC		64
 #define PAL_LINES						312
 #define NTSC_LINES						263
 #define PAL_FPS							50
@@ -63,6 +63,10 @@ bool sysclock_isNTSCfrequency();
 void sysclock_init(void);
 void sysclock_addticks(unsigned long ticks);
 unsigned long sysclock_getticks(void);
+unsigned long sysclock_gettickspersec(void);
 word sysclock_getlastaddticks(void);
+double sysclock_getelapsedseconds(void);
+
+
 
 #endif
