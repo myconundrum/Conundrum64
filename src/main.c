@@ -64,37 +64,37 @@ static int config_handler(
 	if (MATCH("roms", "kernal")) {
         
         c->kernalpath = strdup(value);
-        DEBUG_PRINT("\tKernal rom Path:         %s\n",c->kernalpath);
+        DEBUG_PRINT("%-40s [%s]\n","\tKernal rom Path:",c->kernalpath);
 
     } else if (MATCH("roms", "char")) {
         
         c->charpath = strdup(value);
-        DEBUG_PRINT("\tChar rom path:           %s\n",c->charpath);
+        DEBUG_PRINT("%-40s [%s]\n","\tChar rom path:",c->charpath);
 
     } else if (MATCH("roms", "basic")) {
         
         c->basicpath = strdup(value);
-        DEBUG_PRINT("\tBasic rom path:          %s\n",c->basicpath);
+        DEBUG_PRINT("%-40s [%s]\n","\tBasic rom path:",c->basicpath);
     
     } else if (MATCH("bin", "load")) {
     
         c->binload = strdup(value);
-        DEBUG_PRINT("\tBinary load:             %s\n",c->binload);
+        DEBUG_PRINT("%-40s [%s]\n","\tBinary load:",c->binload);
     
     }  else if (MATCH("bin", "loadcart")) {
     
         c->cartload = strdup(value);
-        DEBUG_PRINT("\tLoad cartridge:          %s\n",c->cartload);
+        DEBUG_PRINT("%-40s [%s]\n","\tLoad cartridge:",c->cartload);
     
     }  else if (MATCH("debug", "breakpoint")) {
     
         c->breakpoint = strtoul(value,NULL,16);
-        DEBUG_PRINT("\tInitial breakpoint:      0x%04X\n",c->breakpoint);
+        DEBUG_PRINT("%-40s [%s]\n","\tInitial breakpoint:",c->breakpoint);
     
     }  else if (MATCH("system", "region")) {
    
         c->region = strdup(value);
-        DEBUG_PRINT("\tRegion:                  %s\n",c->region);
+        DEBUG_PRINT("%-40s [%s]\n","\tRegion:",c->region);
    
     } else {
         return 0;  

@@ -224,6 +224,18 @@ typedef enum {
 	VICII_MODE_LAST
 } VICII_GRAPHICS_MODES;
 
+const char * g_vicii_mode_names[] = {
+
+	"Standard Text",
+	"Multicolor Text",
+	"Standard Bitmap",
+	"Multicolor Bitmap",
+	"Extended Color Text",
+	"Invalid Text",
+	"Invalid Bitmap 1",
+	"Invalid Bitmap 2"
+};
+
 
 typedef enum {
 	VICII_FG_PIXEL,
@@ -414,11 +426,11 @@ void vicii_destroy() {
 	free(g_vic.type);
 
 	DEBUG_PRINT("VICII Performance Statistics:\n");
-	DEBUG_PRINT("\tElapsed time:                %.2f seconds\n", sysclock_getelapsedseconds());
-	DEBUG_PRINT("\tTotal clock cycles:          %d\n", sysclock_getticks());
-	DEBUG_PRINT("\tTotal video frames:          %d\n", g_vic.frames);
-	DEBUG_PRINT("\tCycles per frame:            %.2f\n", (double) sysclock_getticks() / g_vic.frames);
-	DEBUG_PRINT("\tFrames per second:           %.2f\n", (double) g_vic.frames / sysclock_getelapsedseconds());
+	DEBUG_PRINT("%-40s [%.2fs]\n","\tElapsed time:", sysclock_getelapsedseconds());
+	DEBUG_PRINT("%-40s [%d]\n","\tTotal clock cycles:", sysclock_getticks());
+	DEBUG_PRINT("%-40s [%d]\n","\tTotal video frames:", g_vic.frames);
+	DEBUG_PRINT("%-40s [%.2f]\n","\tCycles per frame:", (double) sysclock_getticks() / g_vic.frames);
+	DEBUG_PRINT("%-40s [%.2f]\n","\tFrames per second:", (double) g_vic.frames / sysclock_getelapsedseconds());
 	
 	DEBUG_IF(sysclock_isNTSCfrequency())
 
@@ -851,14 +863,15 @@ void vicii_gaccess() {
 			g_vic.lastchar = vicii_peekchar((((word) g_vic.data[g_vic.vmli].data) << 3) | g_vic.rc);
 			g_vic.lastcolor = g_vic.data[g_vic.vmli].color & 0xf;
 			g_vic.lastdata = g_vic.data[g_vic.vmli].data >> 6; // used in ECM mode
-			
 		break;
+
 		case VICII_MODE_STANDARD_BITMAP:
 		case VICII_MODE_MULTICOLOR_BITMAP:
 			g_vic.lastcolor = g_vic.data[g_vic.vmli].color;  
 			g_vic.lastchar = g_vic.data[g_vic.vmli].data;
 			g_vic.lastdata = vicii_peekbitmap(((word) g_vic.vc << 3)| g_vic.rc);
 		break;
+
 		default: break;
 	}
 	g_vic.vmli = (g_vic.vmli + 1) & 0x3F;
@@ -1008,6 +1021,12 @@ void vicii_checkborderflipflops() {
 	}
 }
 
+
+//
+// BUGBUG: Not doing timing right. We are incrementing cycle everytime we are called. 
+// but, during badlines, we are called twice per cycle and should be splitting the work 
+// in those cycles between the high and low clock phase. This is largely the cacccess/gaccess below.
+//
 
 void vicii_update() {
 
@@ -1304,26 +1323,6 @@ byte vicii_peek(word address) {
 	return rval;
 }
 
-const char * vicii_getmodename() {
-
-	switch(g_vic.mode) {
-
-
-
-	
-
-	case VICII_MODE_STANDARD_TEXT: 		return "Standard Text";break;
-	case VICII_MODE_MULTICOLOR_TEXT: 	return "Multicolor Text";break;
-	case VICII_MODE_STANDARD_BITMAP: 	return "Standard Bitmap";break;
-	case VICII_MODE_MULTICOLOR_BITMAP: 	return "Multicolor Bitmap";break;
-	case VICII_MODE_ECM_TEXT:			return "Extended Color Mode Text";break;
-	case VICII_MODE_INVALID_TEXT: 		return "Invalid Text";break;
-	case VICII_MODE_INVALID_BITMAP_1: 	return "Invalid Bitmap 1";break;
-	case VICII_MODE_INVALID_BITMAP_2:	return "Invalid Bitmap 2";break;
-	} 
-
-	return "undefined";
-}
 
 void vicii_poke(word address,byte val) {
 	byte reg = address % VICII_LAST;
@@ -1355,7 +1354,8 @@ void vicii_poke(word address,byte val) {
 			if (val & BIT_6) {
 				g_vic.mode |= BIT_2;
 			}
-			DEBUG_PRINT("\tGraphics Mode is: %s\n",vicii_getmodename());
+			DEBUG_PRINT("\tGraphics Mode is: %s\n",g_vicii_mode_names[g_vic.mode]);
+
 		break;
 		case VICII_CR2: 
 			DEBUG_PRINT("VICII Control Register 2 updated.\n");	
@@ -1377,7 +1377,7 @@ void vicii_poke(word address,byte val) {
 				g_vic.mode |= BIT_0;
 				
 			}
-			DEBUG_PRINT("\tGraphics Mode is: %s\n",vicii_getmodename());
+			DEBUG_PRINT("\tGraphics Mode is: %s\n",g_vicii_mode_names[g_vic.mode]);
 		break;
 		case VICII_RASTER: // latch raster line irq compare.
 			g_vic.raster_irq = (g_vic.raster_irq & 0x0100) | val; 
@@ -1390,9 +1390,9 @@ void vicii_poke(word address,byte val) {
 			g_vic.charmembase = (val & (BIT_1 | BIT_2 | BIT_3)) << 10; 
 			g_vic.bitmapmembase = (val & BIT_3) << 10;
 			DEBUG_PRINT("VICII Memory Setup register updated.\n");
-			DEBUG_PRINT("\tVideo Memory base:      0x%04X\n",g_vic.vidmembase);
-			DEBUG_PRINT("\tCharacter Memory base:  0x%04X\n",g_vic.charmembase);
-			DEBUG_PRINT("\tBitmap Memory base:     0x%04X\n",g_vic.bitmapmembase);
+			DEBUG_PRINT("%-40s [0x%04X]\n","\tVideo Memory base:",g_vic.vidmembase);
+			DEBUG_PRINT("%-40s [0x%04X]\n","\tCharacter Memory base:",g_vic.charmembase);
+			DEBUG_PRINT("%-40s [0x%04X]\n","\tBitmap Memory base:",g_vic.bitmapmembase);
 		break;
 
 		case VICII_SPRITEMCM: 
@@ -1415,10 +1415,10 @@ void vicii_poke(word address,byte val) {
 		case VICII_ICR:
 			g_vic.regs[reg] = val;
 			DEBUG_PRINT("VICII Interrupt Control Register updated.\n");
-			DEBUG_PRINT("\tRaster Interrupt:              %sABLED.\n",val & BIT_0 ? "EN":"DIS");
-			DEBUG_PRINT("\tSprite-Background Interrupt:   %sABLED.\n",val & BIT_1 ? "EN":"DIS");
-			DEBUG_PRINT("\tSprite-Sprite Interrupt:       %sABLED.\n",val & BIT_2 ? "EN":"DIS");
-			DEBUG_PRINT("\tLight Pen Interrupt:           %sABLED.\n",val & BIT_3 ? "EN":"DIS");
+			DEBUG_PRINT("%-40s [%sABLED]\n","\tRaster Interrupt:",val & BIT_0 ? "EN":"DIS");
+			DEBUG_PRINT("%-40s [%sABLED]\n","\tSprite-Background Interrupt:",val & BIT_1 ? "EN":"DIS");
+			DEBUG_PRINT("%-40s [%sABLED]\n","\tSprite-Sprite Interrupt:",val & BIT_2 ? "EN":"DIS");
+			DEBUG_PRINT("%-40s [%sABLED]\n","\tLight Pen Interrupt:",val & BIT_3 ? "EN":"DIS");
 		break;
 
 		case VICII_SPRITEPRI:

@@ -224,10 +224,10 @@ void cia_seticr(CIA * c,byte val) {
 	new |= (val & 0x40) ? (fillbit & 0x40) : (old & 0x40);  
 
 	DEBUG_PRINT("CIA%s IRQ Control Register Updated.\n",c == &g_cia1 ? "1":"2");
-	DEBUG_PRINT("\tTimer A Underflow:         %sABLED\n",new & CIA_FLAG_TAUIRQ ? "EN":"DIS");
-	DEBUG_PRINT("\tTimer B Underflow:         %sABLED\n",new & CIA_FLAG_TBUIRQ ? "EN":"DIS");
-	DEBUG_PRINT("\tTime Of Day:               %sABLED\n",new & CIA_FLAG_TODIRQ ? "EN":"DIS");
-	DEBUG_PRINT("\tShift Register:            %sABLED\n",new & CIA_FLAG_SHRIRQ ? "EN":"DIS");
+	DEBUG_PRINT("%-40s [%sABLED]\n","\tTimer A Underflow:",new & CIA_FLAG_TAUIRQ ? "EN":"DIS");
+	DEBUG_PRINT("%-40s [%sABLED]\n","\tTimer B Underflow:",new & CIA_FLAG_TBUIRQ ? "EN":"DIS");
+	DEBUG_PRINT("%-40s [%sABLED]\n","\tTime Of Day:",new & CIA_FLAG_TODIRQ ? "EN":"DIS");
+	DEBUG_PRINT("%-40s [%sABLED]\n","\tShift Register:",new & CIA_FLAG_SHRIRQ ? "EN":"DIS");
 	
 	cia_setreal(c,CIA_ICR,new);
 }

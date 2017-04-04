@@ -126,9 +126,9 @@ void c64_bankswitchpoke(word address, byte val) {
 
 	DEBUG_IF((mem_nonmappable_peek(address + 1) & 0x7) != (val & 0x7))
 		DEBUG_PRINT("Memory changed at 0x0001. C64 memory mappings updated.\n");
-		DEBUG_PRINT("\tKernal:         %sMAPPED\n",!allram && (val & 0x02) ? "":"UN");
-		DEBUG_PRINT("\tChar Rom:       %sMAPPED\n",!allram && (val && ((val & 0x04) == 0))? "":"UN");
-		DEBUG_PRINT("\tI/O Devices:    %sMAPPED\n",!allram && (val & 0x04) ? "":"UN");
+		DEBUG_PRINT("%-40s [%sMAPPED]\n","\tKernal:",!allram && (val & 0x02) ? "":"UN");
+		DEBUG_PRINT("%-40s [%sMAPPED]\n","\tChar Rom:",!allram && (val && ((val & 0x04) == 0))? "":"UN");
+		DEBUG_PRINT("%-40s [%sMAPPED]\n","\tI/O Devices:",!allram && (val & 0x04) ? "":"UN");
 	DEBUG_ENDIF()
 
 	mem_nonmappable_poke(address+1,val);
