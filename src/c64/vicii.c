@@ -1266,11 +1266,18 @@ void vicii_update() {
 
 
 void vicii_setbank() {
-	g_vic.bank = ((~mem_peek(0xDD00)) & 0x03);
-	g_vic.bank <<=14;
-	DEBUG_PRINT("VICII bank updated.\n");
-	DEBUG_PRINT("\tViewing memory between 0x%04X and 0x%04X.\n",g_vic.bank,g_vic.bank+0x3FFF);
+
+	byte b = ((~mem_peek(0xDD00)) & 0x03);
+	b <<= 14;
+	if (b != g_vic.bank) {
+		g_vic.bank = b;
+
+		DEBUG_PRINT("VICII bank updated.\n");
+		DEBUG_PRINT("\tViewing memory between 0x%04X and 0x%04X.\n",g_vic.bank,g_vic.bank+0x3FFF);
+
+	}
 }
+
 
 byte vicii_peek(word address) {
 

@@ -42,6 +42,7 @@ KNOWN BUGS:
 #include "cia.h"
 #include "mem.h"
 #include "sysclock.h"
+#include "vdrive.h"
 
 
 
@@ -207,19 +208,20 @@ void c64_init() {
 	cpu_init();								// init 6502 CPU for C64 emulator.
 	cia_init();	
 	vicii_init();
+	vdrive_init();
 
 }
 
 void c64_update() {
 
 	sysclock_update();
-	fflush(g_debug);
 	
 	if (sysclock_getphi() == PHI_HIGH) {
 		//
 		// CPU update on high signal, unless VIC has claimed the bus.
 		//
 		cia_update();
+		vdrive_update();
 		if (!vicii_stuncpu()) {
 			cpu_update();
 		}
