@@ -105,6 +105,7 @@ static int config_handler(
 
 
 
+
 int main(int argc, char**argv) {
 
     sprintf(g_nameString,"%s (version %d.%d)",EMU_NAME,EMU_VERSION_MAJOR,EMU_VERSION_MINOR);

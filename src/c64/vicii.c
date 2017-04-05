@@ -1027,13 +1027,9 @@ void vicii_checkborderflipflops() {
 void vicii_update_phihigh() {
 
 	
-	if (g_vic.cycle >= 16 && g_vic.cycle <= 55) {
-
-		
+	if (g_vic.cycle >= 16 && g_vic.cycle <= 55) {	
 		vicii_caccess();
 	}
-	DEBUG_PRINTIF(g_vic.frames == 300,"phihigh called on cycle %d. VMLI is %d.\n",g_vic.cycle,g_vic.vmli);
-	
 }
 
 void vicii_update_philow() {
@@ -1046,7 +1042,6 @@ void vicii_update_philow() {
 	switch(g_vic.cycle) {
 
 
-		
 		// * various setup activities. 
 		case 1: 
 
@@ -1056,8 +1051,6 @@ void vicii_update_philow() {
 			}
 
 			if (g_vic.raster_y == 1) {
-
-
 				g_vic.frameready = true;    // signal ux system to draw frame. 
 				g_vic.vcbase = 0;			// reset on line zero.
 				g_vic.frames++;

@@ -85,6 +85,7 @@ byte cia2_peek(byte reg) {
 void cia2_poke(byte reg,byte val) {
 	cia_poke(&g_cia2,reg,val);
 	if (reg == 0x00) {
+		DEBUG_PRINT("cia2 DD00 Poke: %02X\n");
 		//
 		// VIC looks here to understand graphics bank switches.
 		//
