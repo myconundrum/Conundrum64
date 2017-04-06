@@ -74,6 +74,7 @@ RX
 
 #define VDRIVE_ACK				0x00
 #define VDRIVE_COMMAND_LISTEN 	0xF8
+#define VDRIVE_COMMAND_RX       0x18
 
 #define VDRIVE_BUS_CMD_MASK		0xF8
 #define VDRIVE_BUS_DATA_MASK	0xF0
@@ -87,7 +88,8 @@ RX
 typedef enum {
 
 	VDRIVE_IDLE,
-	VDRIVE_READBYTES,	
+	VDRIVE_LISTENING,
+	VDRIVE_RECEIVE_BYTE,	
 	VDRIVE_TX0,
 	VDRIVE_TX1,
 	VDRIVE_RX0,
@@ -96,34 +98,43 @@ typedef enum {
 } VDRIVE_STATE;
 
 
+
 typedef struct {
 
-	VDRIVE_STATE state;			// current drive state.
-	byte returnstate;			// rx and tx return to a state after constructing a byte.
-	byte lastbus;				// the last read of CIA2 $DD00
-	byte rx;					// the byte being received. 
-	byte tx;					// the byte being transmitted.
+	VDRIVE_STATE state;				// current drive state.
+	VDRIVE_STATE returnstate;		// rx and tx return to a state after constructing a byte.
+	byte lastbus;					// the last read of CIA2 $DD00
+
+	byte data;						// last byte being received.
 
 
-	int readcount;		
-
-	byte data[VDRIVE_MAX_READ_DATA];
-	byte idata;
+	//
+	// primitives.
+	//
+	byte rx;						// the byte being received. 
+	byte tx;						// the byte being transmitted.
 
 } VDRIVE;
 
 VDRIVE g_vdrive = {0};
 
 
-void vdrive_init() {
 
-	DEBUG_PRINT("** Initializing virtual drive.\n");
 
-	g_vdrive.state 			= VDRIVE_IDLE;
-	g_vdrive.returnstate 	= VDRIVE_IDLE;
-	g_vdrive.readcount		= -1;
+//
+// tx byte
+// listen
+// wait for ack
+//
 
-}
+byte g_vdrive_kpatch_1[] = 
+	{
+		0x40, 0xed, 0x78, 0x48 , 0x18, 0x2a ,0x18, 0x2a ,0x18, 0x2a ,0x18, 0x2a ,0x09, 0x0f ,0x2d, 0x00,
+		0xdd, 0x8d, 0x00, 0xdd , 0x20, 0x72 ,0xed, 0x68 ,0x48, 0x29 ,0xf0, 0x09 ,0x0f, 0x2d ,0x00, 0xdd,
+		0x8d, 0x00 ,0xdd, 0x20 , 0x72, 0xed ,0x68, 0x58 ,0x60, 0xad ,0x00, 0xdd ,0x09, 0xf8 ,0x8d, 0x00,
+		0xdd, 0x4c ,0x72, 0xed , 0xad, 0x00 ,0xdd, 0x29 ,0xf8, 0xc9 ,0x00, 0xd0 ,0xf7, 0x60
+	};
+
 
 
 byte vdrive_readbus() {
@@ -131,17 +142,43 @@ byte vdrive_readbus() {
 }
 
 void vdrive_writebus(byte b) {
-
 	g_vdrive.lastbus = b;
 	mem_poke (CIA2_SERIAL_BUS,(mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_BUS_CMD_MASK) | b);
 }
+
 
 void vdrive_ack() {
 	vdrive_writebus(VDRIVE_ACK);
 }
 
-void vdrive_update() {
+void vdrive_receivebyte() {
+	g_vdrive.state = VDRIVE_RX0;
+	g_vdrive.returnstate = VDRIVE_RECEIVE_BYTE;
+}
 
+void vdrive_idle() {
+	g_vdrive.state = VDRIVE_IDLE;
+}
+
+void vdrive_rx() {
+	g_vdrive.state = VDRIVE_RX0;
+}
+
+
+void vdrive_init() {
+
+	DEBUG_PRINT("** Initializing virtual drive.\n");
+	vdrive_idle();
+}
+
+
+
+void vdrive_listen() {
+	g_vdrive.state = VDRIVE_LISTENING;
+}
+
+
+void vdrive_update() {
 
 	byte b = vdrive_readbus();
 
@@ -151,10 +188,24 @@ void vdrive_update() {
 			if (b == VDRIVE_COMMAND_LISTEN) {
 				DEBUG_PRINT("Vdrive was idle, but commanded to listen.\n");
 				vdrive_ack();
-				g_vdrive.state = VDRIVE_RX0;
-				g_vdrive.returnstate = VDRIVE_READBYTES;
+				vdrive_listen();
 			}
 		break;
+
+		case VDRIVE_LISTENING:
+			if (b != g_vdrive.lastbus && b == VDRIVE_COMMAND_RX) {
+				DEBUG_PRINT("Vdrive commanded to receive a byte.\n");
+				vdrive_ack();
+				vdrive_receivebyte();
+			}
+		break;
+
+		case VDRIVE_RECEIVE_BYTE:
+			g_vdrive.data = g_vdrive.rx;
+			vdrive_idle();
+			DEBUG_PRINT("Vdrive received byte 0x%02X\n",g_vdrive.data);
+		break;
+
 		case VDRIVE_RX0:
 			if (b != g_vdrive.lastbus) {
 				g_vdrive.rx = b >> 4;
@@ -169,40 +220,7 @@ void vdrive_update() {
 				vdrive_ack();
 			}
 		break;
-		case VDRIVE_READBYTES:
-
-			if (g_vdrive.readcount == -1) {
-				g_vdrive.readcount = g_vdrive.rx; 
-				g_vdrive.idata = 0;
-				DEBUG_PRINT("Vdrive instructed to read %d bytes.\n",g_vdrive.rx);
-
-			} else if (g_vdrive.readcount) {
-				g_vdrive.data[g_vdrive.idata++] = g_vdrive.rx;
-				g_vdrive.state = VDRIVE_RX0;
-				g_vdrive.readcount--;
-				g_vdrive.returnstate =VDRIVE_READBYTES;
-			}
-			else {
-				//
-				// finished reading bytes. save last byte.
-				//
-				g_vdrive.data[g_vdrive.idata++] = g_vdrive.rx;
-
-				DEBUG_PRINT("Vdrive read %d bytes.\n",g_vdrive.data[0]);
-				for (int i = 1; i < g_vdrive.idata;i++) {
-					DEBUG_PRINT("\tbyte 0x%02X\n",g_vdrive.data[i]);
-				}
-				g_vdrive.state = VDRIVE_IDLE;
-				g_vdrive.readcount = -1;
-				g_vdrive.idata = 0;
-			}
-
-		break;
 	}
-
-
-
-
 }
 
 
