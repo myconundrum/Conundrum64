@@ -136,6 +136,27 @@ void c64_bankswitchpoke(word address, byte val) {
 }
 
 
+
+void c64_patch_kernal(word len, byte * bytes) {
+
+	word i;
+	word loc;
+
+	if (len < 2) {
+		return;
+	}
+
+	loc = bytes[0] | (bytes[1] << 8);
+
+	DEBUG_PRINT("Patching %d bytes at Kernal address %04x\n",len,loc);
+	loc -= KERNAL_ROM_LOW_ADDRESS;
+
+	for (i = 2; i < len; i++) {
+		g_io.rKernal[loc++] = bytes[i];
+	}
+}
+
+
 byte * c64_init_rom(char * name) {
 
 	FILE * 	f;

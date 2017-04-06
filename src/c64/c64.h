@@ -41,5 +41,6 @@ KNOWN BUGS:
 void c64_init();
 void c64_update();
 void c64_destroy();
+void c64_patch_kernel(word len, byte * bytes);
 
 #endif
