@@ -101,7 +101,7 @@ typedef struct {
 	bool			passthru;					// send input to c64 if true, otherwise monitor
 
 	bool 			joyon;						// joystick mode (vs keyboard mode)
-	byte			joyport;						// which joystick port (0 or 1)
+	byte			joyport;					// which joystick port (0 or 1)
 	
 	int 			cycles;						// track ux cycles (used for rendering perf)
 
@@ -128,11 +128,16 @@ void ux_fillDisassembly(word address) {
 }
 void ux_handlestep() {
 
+	while (!cpu_ready()) {
+		c64_update();
+	}
+
 	c64_update();
 	g_ux.discur++;
 	if (cpu_getpc() != g_ux.dislines[g_ux.discur].address || g_ux.discur == DISLINESCOUNT) {
 		ux_fillDisassembly(cpu_getpc());
 	}
+
 }
 
 //

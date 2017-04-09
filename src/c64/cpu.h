@@ -117,6 +117,8 @@ byte cpu_getstack();
 //
 // action signals
 //
+
+bool cpu_ready();   // cpu is ready to run one instruction.
 void cpu_update();  // run one instruction 
 void cpu_irq();  // signal irq line
 void cpu_nmi();  // signal nmi line

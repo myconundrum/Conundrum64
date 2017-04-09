@@ -774,6 +774,9 @@ void cpu_checkinterrupts() {
 
 }
 
+bool cpu_ready() {
+	return g_cpu.ucycles == 0;
+}
 
 void cpu_update() {
 

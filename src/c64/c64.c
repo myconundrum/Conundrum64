@@ -136,6 +136,25 @@ void c64_bankswitchpoke(word address, byte val) {
 }
 
 
+//
+// helper routine that reads in an asm file and writes it as a string. So that it can be added
+// into source code
+//
+void c64_create_patch_array(char *filename) {
+
+	FILE * f;
+	byte b;
+
+	f = fopen(filename,"rb");
+	
+	if (f) {
+
+		while (fread(&b,1,1,f)) {
+			printf("0x%02X, ",b);
+		}
+		fclose(f);
+	}
+}
 
 void c64_patch_kernal(word len, byte * bytes) {
 
