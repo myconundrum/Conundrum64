@@ -217,6 +217,7 @@ byte g_vdrive_kpatch_7[] = {
 	0xA0,0xEE,0x60
 };
 
+
 //
 // change send byte to ignore deferred bytes.
 //
@@ -233,6 +234,14 @@ byte g_vdrive_kpatch_9[] = {
 	0xA4, 0x20, 0x80, 0xED, 0x20, 0x62, 0xED, 0x29, 0xF0, 0x05, 0xA4, 0x85, 0xA4, 
 	0x20, 0x80, 0xED, 0x58, 0x60
 };
+
+//
+// change command to talk to nop
+//
+byte g_vdrive_kpatch_10[] = {
+	0x09,0xED,0x60
+};
+
 
 
 
@@ -257,6 +266,7 @@ void vdrive_init() {
 	c64_patch_kernal(sizeof(g_vdrive_kpatch_7),g_vdrive_kpatch_7);
 	c64_patch_kernal(sizeof(g_vdrive_kpatch_8),g_vdrive_kpatch_8);
 	c64_patch_kernal(sizeof(g_vdrive_kpatch_9),g_vdrive_kpatch_9);
+	c64_patch_kernal(sizeof(g_vdrive_kpatch_10),g_vdrive_kpatch_10);
 	g_vdrive.state = VDRIVE_STATE_IDLE;
 
 	//
@@ -264,6 +274,7 @@ void vdrive_init() {
 	// printf("******\n");
 	// c64_create_patch_array("asm/kpbusv2p2.prg");
 	//
+	
 }
 
 void vdrive_update() {
