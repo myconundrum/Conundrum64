@@ -224,6 +224,9 @@ byte g_vdrive_kpatch_8[] = {
 	0xDD,0xED,0x20,0x40,0xED,0x60
 };
 
+//
+// 
+//
 byte g_vdrive_kpatch_9[] = {
 	0x13, 0xEE, 0x78, 0xA9, 0x08, 0x09, 0x20, 0x20, 0x8B, 0xED, 0x20, 0x6C, 0xED, 
 	0x20, 0x62, 0xED, 0xAD, 0x00, 0xDD, 0x6A, 0x6A, 0x6A, 0x6A, 0x29, 0x0F, 0x85, 
@@ -235,8 +238,10 @@ byte g_vdrive_kpatch_9[] = {
 
 void vdrive_writebus(byte b) {mem_poke (CIA2_SERIAL_BUS,(mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_BUS_BITS) | b);}
 byte vdrive_readbus() {return mem_peek(CIA2_SERIAL_BUS) & VDRIVE_BUS_BITS;}
-void vdrive_set_attention() {mem_poke(mem_peek(CIA2_SERIAL_BUS) | VDRIVE_ATTN_BIT);}
-void vdrive_clear_attention() {mem_poke(mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_ATTN_BIT);}
+
+void vdrive_set_attention() {mem_poke(CIA2_SERIAL_BUS,mem_peek(CIA2_SERIAL_BUS) | VDRIVE_ATTN_BIT);}
+
+void vdrive_clear_attention() {mem_poke(CIA2_SERIAL_BUS,mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_ATTN_BIT);}
 
 
 
