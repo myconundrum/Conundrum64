@@ -37,7 +37,8 @@ KNOWN BUGS:
 
 
 
-word d64_track_to_sector(byte track);
+void d64_track_to_sector(byte track, word * sector);
+void d64_directory(FILE * file);
 
 
 

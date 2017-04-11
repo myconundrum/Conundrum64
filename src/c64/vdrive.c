@@ -111,6 +111,7 @@ Cpu Receive Byte Sequence:
 #include "emu.h"
 #include "vdrive.h"
 #include "cpu.h"
+#include "d64.h"
 
 
 #define VDRIVE_ATTN_BIT  		0x08
@@ -139,6 +140,9 @@ typedef struct {
 	VDRIVE_STATE state;				// current drive state.
 	byte rx;						// the byte being received. 
 	byte tx;						// the byte being transmitted.
+
+
+	FILE * disk;					// currently inserted disk.
 
 } VDRIVE;
 
@@ -254,6 +258,9 @@ void vdrive_clear_attention() {mem_poke(CIA2_SERIAL_BUS,mem_peek(CIA2_SERIAL_BUS
 
 
 
+
+
+
 void vdrive_init() {
 
 	DEBUG_PRINT("** Initializing virtual drive.\n");
@@ -274,7 +281,13 @@ void vdrive_init() {
 	// printf("******\n");
 	// c64_create_patch_array("asm/kpbusv2p2.prg");
 	//
+    byte track;
+	word remainder;
+
+	d64_insert_disk("asm/tapshai1.d64");
 	
+	
+
 }
 
 void vdrive_update() {
