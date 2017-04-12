@@ -281,12 +281,7 @@ void vdrive_init() {
 	// printf("******\n");
 	// c64_create_patch_array("asm/kpbusv2p2.prg");
 	//
-    byte track;
-	word remainder;
 
-	d64_insert_disk("asm/tapshai1.d64");
-	
-	
 
 }
 
@@ -313,7 +308,7 @@ void vdrive_update() {
 		case VDRIVE_STATE_RX1:
 			if (b & VDRIVE_ATTN_BIT) {
 				g_vdrive.rx |= (b & VDRIVE_DATA_MASK);
-				DEBUG_PRINT("Vdrive received byte 0x%02X\n",g_vdrive.rx);
+				DEBUG_PRINT("Vdrive received byte 0x%02X (%c)\n",g_vdrive.rx,g_vdrive.rx);
 				g_vdrive.state = VDRIVE_STATE_IDLE;
 				vdrive_clear_attention();
 			}

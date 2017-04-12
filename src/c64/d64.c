@@ -40,11 +40,11 @@ KNOWN BUGS:
 #define D64_BYTES_PER_SECTOR 256
 
 
-
-
 typedef struct {
-	
-	byte data[D64_BYTES_PER_SECTOR];
+
+	byte nTrack;
+	byte nSector;
+	byte data[D64_BYTES_PER_SECTOR-2];
 
 } D64_SECTOR;
 
@@ -64,7 +64,7 @@ typedef struct {
 	byte dSector; 				// location to first directory entry sector. ignore. always use 1
 	byte dosVersion;        	// should be 'A', 0x41
 	byte unused1;
-	D64_BAM_ENTRY entries[34]; 	// BAM entries per track
+	D64_BAM_ENTRY entries[35]; 	// BAM entries per track
 	byte diskName[16];			// Disk name padded with 0xA0
 	byte A01; 					// Filled with 0xA0
 	byte A02;   				// Filled with 0xA0
@@ -119,6 +119,7 @@ typedef struct {
 } D64_DIRECTORY;
 
 
+
 typedef struct {
 
 	FILE * 				file;  
@@ -128,6 +129,8 @@ typedef struct {
 	D64_DIRECTORY 		dir; 
 
 } D64_DATA;
+
+
 
 
 
@@ -259,32 +262,128 @@ void d64_directory(FILE * file) {
 
 
 
-void d64_read_directory() {
+void d64_seek(byte track, byte sector) {
 
 	word s;
+	
+	d64_track_to_sector(track,&s);
+	s+=sector;
+
+	fseek(g_d64.file,s*256,SEEK_SET);
+}
+
+void d64_read(void * ptr, size_t size, byte track, byte sector) {
+
+	d64_seek(track,sector);
+	fread(ptr, size, 1, g_d64.file);
+}
+
+
+bool d64_match_string(char * str1, char * str2) {
+
+
+	if (strlen(str1) != strlen(str2)) {
+		return false;
+	}
+
+	for (int i = 0; i < strlen(str1); i++) {
+		if (toupper(str1[i]) != toupper(str2[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+D64_DIRECTORY_ENTRY * d64_directory_entry_by_name(char * name) {
+
+	for (int i = 0; i < g_d64.dir.used; i++) {
+		if (d64_match_string(name,g_d64.dir.entries[i].fName)) {
+			return &g_d64.dir.entries[i];
+		}
+	}
+
+	return NULL;
+}
+
+byte d64_count_file_sectors(D64_DIRECTORY_ENTRY *e) {
+
+	byte c = 0;
 	bool done = false;
-	D64_DIRECTORY_ENTRY d[8];
-
-	d64_track_to_sector(18,&s);
-	s++;
-
-	g_d64.dir.used = 0;
-
-	fseek(g_d64.file, s * 256, SEEK_SET);
-	fread(&d,sizeof(D64_DIRECTORY_ENTRY),8,g_d64.file); 
+	
+	D64_SECTOR s; 
+	s.nTrack = e->fTrack;
+	s.nSector = e->fSector;
 
 	while (!done) {
+		d64_read(&s,sizeof(D64_SECTOR),s.nTrack,s.nSector);
+		done = s.nTrack == 0;
+		c++; 
+	}
+
+	return c;
+
+}
+
+
+void d64_close_file(D64_FILE *f) {
+	free(f->data);
+}
+
+bool d64_open_file(D64_FILE * file, char *name) {
+
+	D64_DIRECTORY_ENTRY * e = d64_directory_entry_by_name(name);
+	word cur = 0; 
+	bool done = false; 
+	D64_SECTOR s; 
+
+	if (!e) {return false;}
+
+
+
+	file->size = d64_count_file_sectors(e) * 256;
+	DEBUG_PRINT("opening file with size %d.\n",file->size);
+	fflush(g_debug);
+	file->data = (byte *) malloc(file->size * sizeof(byte));
+	
+	if (!file->data) {return false;}
+
+	s.nTrack = e->fTrack;
+	s.nSector = e->fSector;
+
+	while (!done) {
+
+		d64_read(&s,sizeof(D64_SECTOR),s.nTrack,s.nSector);
+		done = s.nTrack == 0;
+		for (int i = 0; i < D64_BYTES_PER_SECTOR - 2; i++) {
+			file->data[cur++] = s.data[i];
 		
+		}
+	}
+
+	
+	return true;
+}
+
+
+void d64_read_bam() {d64_read(&g_d64.bam,sizeof(D64_BAM),18,0);}
+
+void d64_read_directory() {
+
+	bool done = false;
+	D64_DIRECTORY_ENTRY d[8];
+	
+	g_d64.dir.used = 0;
+	d[0].nTrack = 18;
+	d[0].nSector = 1;
+
+	while (!done) {
+
+		d64_read(&d,sizeof(D64_DIRECTORY_ENTRY)*8,d[0].nTrack,d[0].nSector);
 		done = d[0].nTrack == 0;
 		
 		for (int i = 0; i < 8;i++) {
 			g_d64.dir.entries[g_d64.dir.used++] = d[i];
 		}
-
-		d64_track_to_sector(d[0].nTrack,&s);
-		s += d[0].nSector; 
-		fseek(g_d64.file, s * 256, SEEK_SET);
-		fread(&d,sizeof(D64_DIRECTORY_ENTRY),8,g_d64.file);
 	}
 }
 
@@ -307,16 +406,9 @@ void d64_insert_disk(char * path) {
 	}
 	else {
 		DEBUG_PRINT("D64: disk %s inserted.\n",path);
+		d64_read_bam();
 		d64_read_directory();
-		
 
-		for (int i = 0; i < g_d64.dir.used; i++) {
-
-		
-			DEBUG_PRINT("%-40s [0x%02X]\n","\tFile Type:",g_d64.dir.entries[i].fType);
-			DEBUG_PRINT("%-40s [%s]\n","\tFile Name:",g_d64.dir.entries[i].fName);
-			
-		}
 	}
 }
 

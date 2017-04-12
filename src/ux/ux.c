@@ -3,7 +3,7 @@ Conundrum 64: Commodore 64 Emulator
 
 MIT License
 
-Copyright (c) 2017 Marc R. Whitten
+Copyright (c) 2017
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -41,6 +41,7 @@ KNOWN BUGS:
 #include "sysclock.h"
 #include "c64kbd.h"
 #include "joystick.h"
+#include "d64.h"
 
 
 
@@ -428,9 +429,36 @@ void ux_init_c64keymapping() {
 void ux_deferredinit() {
 
 	EMU_CONFIGURATION *cfg = emu_getconfig();
+	D64_FILE f;
+	word loc;
 	
+	DEBUG_PRINT("** Deferred Initialization...\n");
+	fflush(g_debug);
 	if (cfg->binload != NULL) {
 		asm_loadfile(cfg->binload);
+	}
+	if (cfg->disk != NULL) {
+		d64_insert_disk(cfg->disk);
+		if (cfg->program) {
+			if (d64_open_file(&f,cfg->program)) {
+				DEBUG_PRINT("Opened %s with size %d.\n",cfg->program,f.size);
+				fflush(g_debug);
+				loc = f.data[0];
+				loc |= (((word) f.data[1]) << 8);
+				DEBUG_PRINT("TEST 2");
+				fflush(g_debug);
+				DEBUG_PRINT("Loading file %s at location %04X\n",cfg->program,loc);
+				fflush(g_debug);
+				for (int i = 2; i < f.size; i++) {
+					mem_poke(loc,f.data[i]);
+					loc++;
+				}
+			}
+			else {
+				DEBUG_PRINT("Unable to load file %s.\n",cfg->program);
+				fflush(g_debug);
+			}
+		}
 	}
 
 

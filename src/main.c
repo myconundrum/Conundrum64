@@ -96,6 +96,16 @@ static int config_handler(
         c->region = strdup(value);
         DEBUG_PRINT("%-40s [%s]\n","\tRegion:",c->region);
    
+    } else if (MATCH("disk", "disk")) {
+   
+        c->disk = strdup(value);
+        DEBUG_PRINT("%-40s [%s]\n","\tDisk to insert:",c->disk);
+   
+    } else if (MATCH("disk", "program")) {
+   
+        c->program = strdup(value);
+        DEBUG_PRINT("%-40s [%s]\n","\tProgram to load:",c->program);
+   
     } else {
         return 0;  
     }

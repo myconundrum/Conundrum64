@@ -35,10 +35,17 @@ KNOWN BUGS:
 #ifndef D64_H
 #define D64_H
 
+typedef struct {
+
+	word 	size; 
+	byte * 	data;
+
+} D64_FILE;
 
 
 void d64_track_to_sector(byte track, word * sector);
 void d64_directory(FILE * file);
+
 
 
 
