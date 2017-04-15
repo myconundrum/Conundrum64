@@ -184,7 +184,7 @@ byte g_vdrive_kpatch_1[] = {
 // patch LISTEN entry point to NOP
 //
 byte g_vdrive_kpatch_2[] = {
-	0x0c,0xed, 0x60
+	0x0e,0xed, 0x20, 0x40,0xed
 };
 //
 // change default CIA2 DDRB value
@@ -247,6 +247,13 @@ byte g_vdrive_kpatch_10[] = {
 };
 
 
+//
+// change 1ms delay to nop
+//
+byte g_vdrive_kpatch_11[] = {
+	0xB3,0xEE,0x60
+};
+
 
 
 void vdrive_writebus(byte b) {mem_poke (CIA2_SERIAL_BUS,(mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_BUS_BITS) | b);}
@@ -273,7 +280,8 @@ void vdrive_init() {
 	c64_patch_kernal(sizeof(g_vdrive_kpatch_7),g_vdrive_kpatch_7);
 	c64_patch_kernal(sizeof(g_vdrive_kpatch_8),g_vdrive_kpatch_8);
 	c64_patch_kernal(sizeof(g_vdrive_kpatch_9),g_vdrive_kpatch_9);
-	c64_patch_kernal(sizeof(g_vdrive_kpatch_10),g_vdrive_kpatch_10);
+	//c64_patch_kernal(sizeof(g_vdrive_kpatch_10),g_vdrive_kpatch_10);
+	c64_patch_kernal(sizeof(g_vdrive_kpatch_11),g_vdrive_kpatch_11);
 	g_vdrive.state = VDRIVE_STATE_IDLE;
 
 	//
