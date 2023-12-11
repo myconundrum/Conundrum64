@@ -38,6 +38,10 @@ KNOWN BUGS:
 #include "emu.h"
 #include "cia.h"
 #include "sysclock.h"
+#include "vicii.h"
+#include "c64kbd.h"
+#include "joystick.h"
+#include "sysclock.h"
 
 #define CIA_ALARM 0x02 // used for TOD registers only.
 #define CIA_LATCH 0x01

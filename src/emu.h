@@ -41,6 +41,9 @@ KNOWN BUGS:
 #include <stdio.h>
 #include <stdbool.h>
 #include <time.h>
+#include "cpu.h"
+#include "c64.h"
+#include "ux.h"
 
 #define EMU_NAME 				"Conundrum 64"
 #define EMU_VERSION_MINOR		1
@@ -69,8 +72,6 @@ EMU_CONFIGURATION * emu_getconfig();
 #define DEBUG 1
 #define EMU_DOUBLE_SCREEN 1
 //#define DEBUG_SHOW_SOURCE 1
-
-
 
 
 

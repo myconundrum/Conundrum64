@@ -37,7 +37,7 @@ KNOWN BUGS:
 #include "emu.h"
 #include "SDL_FontCache.h"
 #include <sdl2/sdl.h>
-#include <sdl2/SDL_ttf.h>
+#include <sdl2_ttf/SDL_ttf.h>
 
 
 

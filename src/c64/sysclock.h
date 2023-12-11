@@ -68,6 +68,7 @@ bool sysclock_getphi(void);
 unsigned long sysclock_gettickspersec(void);
 word sysclock_getlastaddticks(void);
 double sysclock_getelapsedseconds(void);
+unsigned long sysclock_getticks(void);
 
 
 

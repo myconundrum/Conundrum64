@@ -37,4 +37,6 @@ direct load of various files into c64 memory.
 void bas_loadfile(char * string);
 void asm_loadfile(char * string);
 
+void asm_loadcart(char *name);
+
 #endif

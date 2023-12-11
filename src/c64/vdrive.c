@@ -112,7 +112,8 @@ Cpu Receive Byte Sequence:
 #include "vdrive.h"
 #include "cpu.h"
 #include "d64.h"
-
+#include "mem.h"
+#include "c64.h"
 
 #define VDRIVE_ATTN_BIT  		0x08
 #define VDRIVE_DATA_MASK        0xF0

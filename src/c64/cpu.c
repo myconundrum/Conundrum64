@@ -35,6 +35,7 @@ KNOWN BUGS:
 */
 #include "emu.h"
 #include "cpu.h"
+#include "mem.h"
 
 typedef struct cpu6502 {
 

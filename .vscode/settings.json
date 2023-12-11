@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/Users/marcw/code/Conundrum64",
+            "binaryPath": "/Users/marcw/code/Conundrum64/con64",
+            "binaryArgs": []
+        }
+    ]
+}

@@ -45,9 +45,10 @@ byte vicii_peek(word address);
 void vicii_poke(word address,byte val);
 bool vicii_badline();
 
-
+bool vicii_stuncpu();
 word vicii_getscreenheight();
 word vicii_getscreenwidth();
 uint32_t ** vicii_getframe();
+bool vicii_frameready();
 
 #endif

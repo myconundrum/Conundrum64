@@ -38,7 +38,8 @@ KNOWN BUGS:
 #include "cpu.h"
 #include "vicii.h"
 #include "sysclock.h"
-
+#include "mem.h"
+#include "c64.h"
 
 
 #define VICII_HEIGHT_NTSC 							263

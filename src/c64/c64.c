@@ -43,6 +43,10 @@ KNOWN BUGS:
 #include "mem.h"
 #include "sysclock.h"
 #include "vdrive.h"
+#include "c64kbd.h"
+#include "c64.h"
+#include "vicii.h"
+#include "joystick.h"
 
 
 

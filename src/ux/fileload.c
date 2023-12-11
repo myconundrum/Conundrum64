@@ -45,6 +45,7 @@ Just hacked this together.
 */
 #include "emu.h"
 #include "cpu.h"
+#include "mem.h"
 
 typedef struct {
 
