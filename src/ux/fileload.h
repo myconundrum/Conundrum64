@@ -34,9 +34,9 @@ direct load of various files into c64 memory.
 #define FILELOAD_H
 
 
-void bas_loadfile(char * string);
-void asm_loadfile(char * string);
+void bas_loadfile(const char * string);
+void asm_loadfile(const char * string);
 
-void asm_loadcart(char *name);
+void asm_loadcart(const char *name);
 
 #endif

@@ -38,6 +38,7 @@ KNOWN BUGS:
 #include <stdio.h>
 #include <ctype.h>
 #include "ini.h"
+#include "ux.h"
 
 #include "emu.h"
 
@@ -89,12 +90,17 @@ static int config_handler(
     }  else if (MATCH("debug", "breakpoint")) {
     
         c->breakpoint = strtoul(value,NULL,16);
-        DEBUG_PRINT("%-40s [%s]\n","\tInitial breakpoint:",c->breakpoint);
+        DEBUG_PRINT("%-40s [%04X]\n","\tInitial breakpoint:",c->breakpoint);
     
     }  else if (MATCH("system", "region")) {
    
         c->region = strdup(value);
         DEBUG_PRINT("%-40s [%s]\n","\tRegion:",c->region);
+
+    } else if (MATCH("system", "font")) {
+   
+        c->font = strdup(value);
+        DEBUG_PRINT("%-40s [%s]\n","\tFont:",c->font);
    
     } else if (MATCH("disk", "disk")) {
    
@@ -120,18 +126,21 @@ int main(int argc, char**argv) {
 
     sprintf(g_nameString,"%s (version %d.%d)",EMU_NAME,EMU_VERSION_MAJOR,EMU_VERSION_MINOR);
     time_t start = time(NULL);
+    char * cfg_path = "conundrum64.ini";
 	DEBUG_INIT("c64.log");
     DEBUG_PRINT("Local time: %s",asctime(localtime(&start)));
+
+    if (argc > 1) {
+        cfg_path = argv[1];
+    }
 		
-    DEBUG_PRINT("Reading configuration file.\n");
-    if (ini_parse("conundrum64.ini", config_handler, &g_config) < 0) {
+    DEBUG_PRINT("Reading configuration file (%s).\n", cfg_path);
+    if (ini_parse(cfg_path, config_handler, &g_config) < 0) {
         DEBUG_PRINT("Failed to load initialization file 'conundrum64.ini'\n");
     }
 
 	c64_init();
 	ux_init();
-
-
 	ux_startemulator();
 	
 	do {

@@ -43,7 +43,6 @@ KNOWN BUGS:
 #include <time.h>
 #include "cpu.h"
 #include "c64.h"
-#include "ux.h"
 
 #define EMU_NAME 				"Conundrum 64"
 #define EMU_VERSION_MINOR		1
@@ -57,6 +56,7 @@ typedef struct {
     const char* 	binload;
     const char* 	cartload;
     const char*     region;
+	const char*     font;
     const char*     disk;
     const char*     program;
     uint16_t  breakpoint;

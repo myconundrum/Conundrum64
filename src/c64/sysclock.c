@@ -34,6 +34,7 @@ KNOWN BUGS:
 
 */
 #include "emu.h"
+#include "string.h"
 
 #include <time.h>
 #include "cpu.h"
@@ -66,11 +67,11 @@ void sysclock_init(void) {
 
 	if (cfg->region && !strcmp(cfg->region,"PAL")) {
 		g_sysclock.tickspersec = PAL_TICKS_PER_SECOND;
-		DEBUG_PRINT("PAL region selected. %d cycles per second.\n",g_sysclock.tickspersec);
+		DEBUG_PRINT("PAL region selected. %lu cycles per second.\n",g_sysclock.tickspersec);
 	}
 	else {
 		g_sysclock.tickspersec = NTSC_TICKS_PER_SECOND;
-		DEBUG_PRINT("NTSC region selected. %d cycles per second.\n",g_sysclock.tickspersec);
+		DEBUG_PRINT("NTSC region selected. %lu cycles per second.\n",g_sysclock.tickspersec);
 	}
 
 }

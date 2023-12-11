@@ -35,6 +35,7 @@ KNOWN BUGS:
 #include "emu.h"
 #include "cpu.h"
 #include "d64.h"
+#include "string.h"
 
 
 #define D64_BYTES_PER_SECTOR 256
@@ -123,7 +124,7 @@ typedef struct {
 typedef struct {
 
 	FILE * 				file;  
-	char * 				path;
+	const char * 		path;
 
 	D64_BAM 			bam; 
 	D64_DIRECTORY 		dir; 
@@ -279,7 +280,7 @@ void d64_read(void * ptr, size_t size, byte track, byte sector) {
 }
 
 
-bool d64_match_string(char * str1, char * str2) {
+bool d64_match_string(const char * str1, const char * str2) {
 
 
 	if (strlen(str1) != strlen(str2)) {
@@ -294,10 +295,10 @@ bool d64_match_string(char * str1, char * str2) {
 	return true;
 }
 
-D64_DIRECTORY_ENTRY * d64_directory_entry_by_name(char * name) {
+D64_DIRECTORY_ENTRY * d64_directory_entry_by_name(const char * name) {
 
 	for (int i = 0; i < g_d64.dir.used; i++) {
-		if (d64_match_string(name,g_d64.dir.entries[i].fName)) {
+		if (d64_match_string(name,(char *) g_d64.dir.entries[i].fName)) {
 			return &g_d64.dir.entries[i];
 		}
 	}
@@ -329,7 +330,7 @@ void d64_close_file(D64_FILE *f) {
 	free(f->data);
 }
 
-bool d64_open_file(D64_FILE * file, char *name) {
+bool d64_open_file(D64_FILE * file, const char *name) {
 
 	D64_DIRECTORY_ENTRY * e = d64_directory_entry_by_name(name);
 	word cur = 0; 
@@ -396,7 +397,7 @@ void d64_eject_disk() {
 	}
 }
 
-void d64_insert_disk(char * path) {
+void d64_insert_disk(const char * path) {
 
 	d64_eject_disk();
 	g_d64.file = fopen(path,"rb");

@@ -94,11 +94,11 @@ void cia_destroy();
 //
 // you have to pick which cia you are talking to on a peek or poke only used by mem.
 //
-byte cia1_peek(byte register);
-void cia1_poke(byte register, byte val);
+byte cia1_peek(word register);
+void cia1_poke(word register, byte val);
 
-byte cia2_peek(byte register);
-void cia2_poke(byte register, byte val);
+byte cia2_peek(word register);
+void cia2_poke(word register, byte val);
 
 #endif
 

@@ -33,6 +33,8 @@ WORK ITEMS:
 KNOWN BUGS:
 
 */
+#include <stdlib.h>
+#include <string.h>
 #include "emu.h"
 #include "cpu.h"
 #include "mem.h"

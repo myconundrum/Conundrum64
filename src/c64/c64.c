@@ -36,8 +36,11 @@ KNOWN BUGS:
 */
 
 
-#include "emu.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include "cpu.h"
+#include "c64.h"
 #include "vicii.h"
 #include "cia.h"
 #include "mem.h"
@@ -180,7 +183,7 @@ void c64_patch_kernal(word len, byte * bytes) {
 }
 
 
-byte * c64_init_rom(char * name) {
+byte * c64_init_rom(const char * name) {
 
 	FILE * 	f;
 	int 	len;

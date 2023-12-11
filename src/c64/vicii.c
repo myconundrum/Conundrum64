@@ -428,7 +428,7 @@ void vicii_destroy() {
 
 	DEBUG_PRINT("VICII Performance Statistics:\n");
 	DEBUG_PRINT("%-40s [%.2fs]\n","\tElapsed time:", sysclock_getelapsedseconds());
-	DEBUG_PRINT("%-40s [%d]\n","\tTotal clock cycles:", sysclock_getticks());
+	DEBUG_PRINT("%-40s [%lu]\n","\tTotal clock cycles:", sysclock_getticks());
 	DEBUG_PRINT("%-40s [%d]\n","\tTotal video frames:", g_vic.frames);
 	DEBUG_PRINT("%-40s [%.2f]\n","\tCycles per frame:", (double) sysclock_getticks() / g_vic.frames);
 	DEBUG_PRINT("%-40s [%.2f]\n","\tFrames per second:", (double) g_vic.frames / sysclock_getelapsedseconds());
@@ -1268,7 +1268,7 @@ void vicii_update() {
 
 void vicii_setbank() {
 
-	byte b = ((~mem_peek(0xDD00)) & 0x03);
+	word b = ((~mem_peek(0xDD00)) & 0x03);
 	b <<= 14;
 	if (b != g_vic.bank) {
 		g_vic.bank = b;

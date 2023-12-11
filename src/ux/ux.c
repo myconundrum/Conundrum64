@@ -49,8 +49,8 @@ KNOWN BUGS:
 typedef struct {
 	bool shift;
 	bool control;
-	char ch;
-} UX_C64KEYSTATE;
+	unsigned char ch;
+} UX_C64KEYSTATE;//
 
 UX_C64KEYSTATE g_c64keymapping[2000] = {0};
 
@@ -228,9 +228,11 @@ void ux_handlecommand() {
 }
 
 
-ux_init_monitor() {
+void ux_init_monitor(void) {
 
 	char buf[256];
+	EMU_CONFIGURATION * cfg = emu_getconfig();
+
 
 	sprintf(buf,"%s Monitor",emu_getname());
 
@@ -243,7 +245,7 @@ ux_init_monitor() {
    	SDL_RenderSetLogicalSize (g_ux.mon.renderer, MON_SCREEN_WIDTH, MON_SCREEN_HEIGHT);
 	SDL_SetRenderDrawColor (g_ux.mon.renderer, 0, 0, 0, 255);
 	FC_LoadFont(g_ux.mon.font, g_ux.mon.renderer, 
-		"/Library/Fonts/Arial Unicode.ttf", 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
+		cfg->font, 16, FC_MakeColor(255,255,255,255), TTF_STYLE_NORMAL);	
 
 	//
 	// BUGBUG: When the window is created above with SDL_WINDOW_SHOWN something doesn't init right and
@@ -254,7 +256,7 @@ ux_init_monitor() {
 
 }
 
-ux_init_screen() {
+void ux_init_screen(void ) {
 
 	int width = vicii_getscreenwidth();
 	int height = vicii_getscreenheight();
@@ -273,7 +275,7 @@ ux_init_screen() {
    	g_ux.screen.id = SDL_GetWindowID(g_ux.screen.window);
 }
 
-void ux_init_c64keymapping() {
+void ux_init_c64keymapping(void) {
 
 	int i; 
 	for (i = 0; i < 2000; i++) {

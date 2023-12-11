@@ -82,7 +82,7 @@ void mem_init() {
 	memset(&g_memory,0,sizeof(MEMORY));}
 void mem_destroy() {}
 
-MEMORY_MAP *mem_getmap(address) {
+MEMORY_MAP *mem_getmap(word address) {
 	
 	int i;
 

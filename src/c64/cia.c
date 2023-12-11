@@ -73,20 +73,20 @@ typedef word (*CLOCKHANDLER)(CIA *,byte mode);
 CIA g_cia1;
 CIA g_cia2;
 
-byte cia_peek(CIA *c,byte reg);
-void cia_poke(CIA *c,byte reg,byte val);
+byte cia_peek(CIA *c,word reg);
+void cia_poke(CIA *c,word reg,byte val);
 
-byte cia1_peek(byte reg) {
+byte cia1_peek(word reg) {
 	return cia_peek(&g_cia1,reg);
 }
-void cia1_poke(byte reg,byte val) {
+void cia1_poke(word reg,byte val) {
 	cia_poke(&g_cia1,reg,val);
 }
 
-byte cia2_peek(byte reg) {
+byte cia2_peek(word reg) {
 	return cia_peek(&g_cia2,reg);
 }
-void cia2_poke(byte reg,byte val) {
+void cia2_poke(word reg,byte val) {
 	cia_poke(&g_cia2,reg,val);
 	if (reg == 0x00) {
 		//
@@ -167,7 +167,7 @@ byte cia_readtod(CIA * c,byte reg) {
    return c->todlatched ? cia_getlatched(c,reg) : cia_getreal(c,reg);
 }
 
-byte cia_peek(CIA * c,byte address) {
+byte cia_peek(CIA * c,word address) {
 
 	byte val;
 
@@ -263,7 +263,7 @@ void cia_settod_reg(CIA * c,byte reg,byte val) {
 	c->regs[where][reg] = pm | hi | low;
 }
 
-void cia_poke(CIA * c,byte address,byte val) {
+void cia_poke(CIA * c,word address,byte val) {
 
 	byte reg = address % 0x10;
 

@@ -69,3 +69,4 @@ asm/TAPSHAI1.D64
 
 asm/testcart.asm
 .vscode/settings.json
+.vscode/launch.json

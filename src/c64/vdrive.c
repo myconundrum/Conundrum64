@@ -322,6 +322,7 @@ void vdrive_update() {
 				vdrive_clear_attention();
 			}
 		break;
+		default: break;
 	}
 }
 

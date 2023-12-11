@@ -46,6 +46,8 @@ Just hacked this together.
 #include "emu.h"
 #include "cpu.h"
 #include "mem.h"
+#include <string.h>
+#include <stdlib.h>
 
 typedef struct {
 
@@ -244,7 +246,7 @@ void bas_tokenizeline(char * line) {
 }
 
 
-void asm_loadcart(char *name) {
+void asm_loadcart(const char *name) {
 
 	word len;
 	byte* cur;
@@ -260,7 +262,7 @@ void asm_loadcart(char *name) {
 	if (f) {
 
 
-    	DEBUG_PRINT("Loading cartridge file %s.\n",name,len);
+    	DEBUG_PRINT("Loading cartridge file %s (length %04x).\n",name,len);
 
 		fseek(f, 0, SEEK_END);          
     	len = ftell(f);            
@@ -299,7 +301,7 @@ void asm_loadcart(char *name) {
 }
 
 
-void asm_loadfile(char *name) {
+void asm_loadfile(const char *name) {
 
 	word len;
 	byte* cur;
