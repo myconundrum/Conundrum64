@@ -16,10 +16,6 @@ Makefile
 .DS_Store
 *.log
 
-*.txt
-
-*.txt
-
 emu
 
 *.sav
