@@ -50,7 +50,7 @@ KNOWN BUGS:
 
 typedef struct _CIA CIA;
 typedef byte (*PORTDATAHANDLER)(CIA * c);
-typedef void (*SIGNALIRQHANDLER)();
+typedef void (*SIGNALIRQHANDLER)(void);
 
 struct _CIA {
 
@@ -139,7 +139,7 @@ byte cia1_getportb(CIA * c) {
 }
 
 byte cia2_getportb(CIA * c) {
-
+	
 	// not implemented
 	return 0xff;
 
@@ -312,7 +312,7 @@ void cia_poke(CIA * c,word address,byte val) {
 	}	
 }
 
-void cia_init() {
+void cia_init(void) {
 
 	DEBUG_PRINT("** Initializing CIA Chips...\n");
 	memset(&g_cia1,0,sizeof(CIA));
@@ -349,7 +349,7 @@ void cia_init() {
 	g_cia2.irqfn = cpu_nmi;
 }
 
-void cia_destroy() {
+void cia_destroy(void) {
 	
 }
 
@@ -479,7 +479,6 @@ void cia_update_timeofday(CIA * c) {
 
 	byte pm = c->regs[CIA_REAL][CIA_TODHRS] & BIT_7;
 	
-	unsigned long nclock = sysclock_getticks();
 
 	cia_update_todreg(c,CIA_TODTENTHS,.1,10);
 	cia_update_todreg(c,CIA_TODSECS,1,60);
@@ -528,7 +527,7 @@ void cia_update_internal(CIA *c) {
 	c->lticks = sysclock_getticks ();
 }
 
-void cia_update() {
+void cia_update(void) {
 
 	cia_update_internal(&g_cia1);
 	cia_update_internal(&g_cia2);

@@ -87,9 +87,9 @@ CIA_CRB 				=	0x0F  // Timer B control register
 //
 // these methods work on both cia chips on the c64.
 //
-void cia_update();
-void cia_init();
-void cia_destroy(); 
+void cia_update(void);
+void cia_init(void);
+void cia_destroy(void); 
 
 //
 // you have to pick which cia you are talking to on a peek or poke only used by mem.

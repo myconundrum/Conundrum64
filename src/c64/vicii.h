@@ -37,18 +37,18 @@ KNOWN BUGS:
 
 #include "emu.h"
 
-void vicii_init();
-void vicii_update();
-void vicii_destroy();
-void vicii_setbank();
+void vicii_init(void);
+void vicii_update(void);
+void vicii_destroy(void);
+void vicii_setbank(void);
 byte vicii_peek(word address);
 void vicii_poke(word address,byte val);
-bool vicii_badline();
+bool vicii_badline(void);
 
-bool vicii_stuncpu();
-word vicii_getscreenheight();
-word vicii_getscreenwidth();
-uint32_t ** vicii_getframe();
-bool vicii_frameready();
+bool vicii_stuncpu(void);
+word vicii_getscreenheight(void);
+word vicii_getscreenwidth(void);
+uint32_t ** vicii_getframe(void);
+bool vicii_frameready(void);
 
 #endif

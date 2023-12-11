@@ -43,8 +43,8 @@ typedef byte (*PEEKHANDLER)(word);
 #define MEM_PAGE_COUNT 	0xFF
 
 
-void mem_init();
-void mem_destroy();
+void mem_init(void);
+void mem_destroy(void);
 
 
 void mem_poke(word address,byte value);

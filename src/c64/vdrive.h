@@ -36,7 +36,7 @@ KNOWN BUGS:
 #ifndef VDRIVE_H
 #define VDRIVE_H
 
-void vdrive_init();
-void vdrive_update();
+void vdrive_init(void);
+void vdrive_update(void);
 
 #endif //VDRIVE_H

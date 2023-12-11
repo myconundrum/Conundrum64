@@ -72,7 +72,7 @@ typedef struct {
 	FC_Font  		* font;
 	SDL_Renderer    * renderer;
 	SDL_Texture 	* texture;
-	int  			  id;
+	unsigned int  	  id;
 
 } UX_WINDOW;
 
@@ -128,7 +128,7 @@ void ux_fillDisassembly(word address) {
 		address += cpu_disassemble(g_ux.dislines[i].buf,address);
 	}
 }
-void ux_handlestep() {
+void ux_handlestep(void) {
 
 	while (!cpu_ready()) {
 		c64_update();
@@ -162,11 +162,11 @@ void ux_mapkey(unsigned int key, char c64key, bool shift, bool control) {
 	g_c64keymapping[key].control = control;
 }
 
-bool ux_running() {return g_ux.running;}
-bool ux_done() {return g_ux.done;}
-void ux_startemulator(){g_ux.running = true;}
+bool ux_running(void) {return g_ux.running;}
+bool ux_done(void) {return g_ux.done;}
+void ux_startemulator(void){g_ux.running = true;}
 
-void ux_handlecommand() {
+void ux_handlecommand(void) {
 
 	char * p = NULL;
 	word address;	
@@ -429,7 +429,7 @@ void ux_init_c64keymapping(void) {
 	//ux_mapkey(SDLK_DELETE,C64KEY_DELETE,true,false);
 }
 
-void ux_deferredinit() {
+void ux_deferredinit(void) {
 
 	EMU_CONFIGURATION *cfg = emu_getconfig();
 	D64_FILE f;
@@ -469,9 +469,8 @@ void ux_deferredinit() {
 }
 
 
-void ux_init() {
+void ux_init(void) {
 
-	char buf[255];
 	EMU_CONFIGURATION *cfg = emu_getconfig();
 
 	memset(&g_ux,0,sizeof(UX));
@@ -496,7 +495,7 @@ void ux_init() {
 	g_ux.passthru = true;
 }
 
-void ux_destroy() {
+void ux_destroy(void) {
 
 	FC_FreeFont(g_ux.mon.font);
     SDL_DestroyWindow (g_ux.mon.window);
@@ -504,10 +503,8 @@ void ux_destroy() {
     SDL_Quit();
 }
 
-void ux_updateMemory() {
+void ux_updateMemory(void) {
 
-	int i;
-	int j; 
 	char buf[255];
 
 	SDL_Rect r = {MON_SCREEN_WIDTH - 540,40,54*10,16*20};
@@ -515,7 +512,7 @@ void ux_updateMemory() {
 	
 	for (int i = 0; i < 16; i++) {
 		sprintf(buf,"%02X:%02X:",g_ux.curpage,i*16);
-		for (j = 0; j < 16; j++) {
+		for (int j = 0; j < 16; j++) {
 			sprintf(buf+6+(j*3)," %02X",
 				mem_peek((g_ux.curpage << 8) | (i*16+j)));
 		}
@@ -523,7 +520,7 @@ void ux_updateMemory() {
 	}
 }
 
-void ux_updateRegisters() {
+void ux_updateRegisters(void) {
 
 	byte status = cpu_getstatus();
 	SDL_Rect r = {0,0,MON_SCREEN_WIDTH,40};
@@ -552,7 +549,7 @@ void ux_updateRegisters() {
 		);
 }
 
-void ux_updateDisassembly() {
+void ux_updateDisassembly(void) {
  	
 	int i;
 	SDL_Rect r = {0,40,260,16*20};
@@ -570,7 +567,7 @@ void ux_updateDisassembly() {
 }
 
 
-void ux_updateConsole() {
+void ux_updateConsole(void) {
 
 	SDL_Rect r = {0,360,MON_SCREEN_WIDTH,20};
 	SDL_RenderDrawRect(g_ux.mon.renderer,&r);
@@ -578,7 +575,7 @@ void ux_updateConsole() {
 
 }
 
-void ux_updateScreen() {
+void ux_updateScreen(void) {
 
 	Uint32 **frame = vicii_getframe();
 	void * pixels;
@@ -626,7 +623,7 @@ void ux_updateScreen() {
 	SDL_RenderPresent(g_ux.screen.renderer);
 }
 
-bool ux_allWindowsClosed() {
+bool ux_allWindowsClosed(void) {
 
 	return ((SDL_GetWindowFlags(g_ux.mon.window) & SDL_WINDOW_HIDDEN) &&
 	(SDL_GetWindowFlags(g_ux.screen.window) & SDL_WINDOW_HIDDEN));
@@ -648,7 +645,7 @@ void ux_handleWindowEvent(SDL_Event * e) {
 	}
 }
 
-void ux_updateMonitorWindow() {
+void ux_updateMonitorWindow(void) {
 
 	if (SDL_GetWindowFlags(g_ux.mon.window) & SDL_WINDOW_SHOWN) {
 		
@@ -663,7 +660,7 @@ void ux_updateMonitorWindow() {
 	}
 }
 
-void ux_updateScreenWindow() {
+void ux_updateScreenWindow(void) {
 
 	if (SDL_GetWindowFlags(g_ux.screen.window) & SDL_WINDOW_SHOWN) {
 		ux_updateScreen();
@@ -671,7 +668,7 @@ void ux_updateScreenWindow() {
 }
 
 
-void ux_handleevents() {
+void ux_handleevents(void) {
 
 	SDL_Event e;
 	while (SDL_PollEvent (&e)) {
@@ -695,7 +692,7 @@ void ux_handleevents() {
 	}
 }
 
-void ux_update() {
+void ux_update(void) {
 
 	
 

@@ -39,27 +39,27 @@ KNOWN BUGS:
 //
 // status flags
 //
-#define BIT_7 0b10000000
-#define BIT_6 0b01000000
-#define BIT_5 0b00100000 
-#define BIT_4 0b00010000
-#define BIT_3 0b00001000 
-#define BIT_2 0b00000100
-#define BIT_1 0b00000010 
-#define BIT_0 0b00000001 
+#define BIT_7 128
+#define BIT_6 64
+#define BIT_5 32 
+#define BIT_4 16
+#define BIT_3 8 
+#define BIT_2 4
+#define BIT_1 2 
+#define BIT_0 1 
 
 
 //
 // status flags
 //
-#define N_FLAG 0b10000000
-#define V_FLAG 0b01000000
-#define X_FLAG 0b00100000 
-#define B_FLAG 0b00010000
-#define D_FLAG 0b00001000 
-#define I_FLAG 0b00000100
-#define Z_FLAG 0b00000010 
-#define C_FLAG 0b00000001 
+#define N_FLAG 128
+#define V_FLAG 64
+#define X_FLAG 32
+#define B_FLAG 16
+#define D_FLAG 8
+#define I_FLAG 4
+#define Z_FLAG 2 
+#define C_FLAG 1 
 
 #define STACK_BASE 			0x0100 		// stack page 
 #define VECTOR_RESET 		0xFFFC		// reset vector 
@@ -101,27 +101,27 @@ typedef enum {
 //
 // initialization and cleanup routines
 //
-void cpu_init();
-void cpu_destroy();
+void cpu_init(void);
+void cpu_destroy(void);
 
 //
 // state accessors
 //
-byte cpu_geta();
-byte cpu_getx();
-byte cpu_gety();
-word cpu_getpc();
-byte cpu_getstatus();
-byte cpu_getstack();
+byte cpu_geta(void);
+byte cpu_getx(void);
+byte cpu_gety(void);
+word cpu_getpc(void);
+byte cpu_getstatus(void);
+byte cpu_getstack(void);
 
 //
 // action signals
 //
 
-bool cpu_ready();   // cpu is ready to run one instruction.
-void cpu_update();  // run one instruction 
-void cpu_irq();  // signal irq line
-void cpu_nmi();  // signal nmi line
+bool cpu_ready(void);   // cpu is ready to run one instruction.
+void cpu_update(void);  // run one instruction 
+void cpu_irq(void);  // signal irq line
+void cpu_nmi(void);  // signal nmi line
 
 //
 // 6502 helper routines

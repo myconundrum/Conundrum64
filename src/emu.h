@@ -64,7 +64,7 @@ typedef struct {
 } EMU_CONFIGURATION;
 
 
-EMU_CONFIGURATION * emu_getconfig();
+EMU_CONFIGURATION * emu_getconfig(void);
 
 
 
@@ -75,6 +75,8 @@ EMU_CONFIGURATION * emu_getconfig();
 
 
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 
 
 #define FATAL_ERROR(fmt, args...) do {		\
@@ -85,10 +87,11 @@ EMU_CONFIGURATION * emu_getconfig();
 
 #if defined(DEBUG) && DEBUG > 0
 
+
 	FILE * 	g_debug;
 	clock_t g_debugstart;
 
-	char * emu_getname();
+	char * emu_getname(void);
 
 	#define DEBUG_INIT(log) do {    					\
 			g_debug = fopen(log,"w+");   				\
@@ -116,6 +119,9 @@ EMU_CONFIGURATION * emu_getconfig();
 	#endif
 
 
+
+
+
 #else
 	#define DEBUG_INIT(log)
 	#define DEBUG_PRINT(fmt, args...) /* Don't do anything in release builds */
@@ -127,5 +133,6 @@ EMU_CONFIGURATION * emu_getconfig();
 
 
 
+#pragma clang diagnostic pop
 
 #endif

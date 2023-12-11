@@ -107,8 +107,8 @@ C64_MAPPED_IO g_io;
 
 void c64_rompoke(word address, byte val) {}
 byte c64_kernalpeek(word address) 				{return g_io.rKernal[address];}
-void c64_kernalpoke(word address,byte val) 		{return mem_nonmappable_poke(address+KERNAL_ROM_LOW_ADDRESS,val);}
-void c64_basicpoke(word address,byte val) 		{return mem_nonmappable_poke(address+BASIC_ROM_LOW_ADDRESS,val);}
+void c64_kernalpoke(word address,byte val) 		{mem_nonmappable_poke(address+KERNAL_ROM_LOW_ADDRESS,val);}
+void c64_basicpoke(word address,byte val) 		{mem_nonmappable_poke(address+BASIC_ROM_LOW_ADDRESS,val);}
 byte c64_basicpeek(word address) 				{return g_io.rBasic[address];}
 byte c64_charpeek(word address) 				{return g_io.rChar[address];}
 byte c64_bankswitchpeek(word address) 			{return mem_nonmappable_peek(address+1);}
@@ -206,7 +206,7 @@ byte * c64_init_rom(const char * name) {
 }
 
 
-void c64_init() {
+void c64_init(void) {
 
 
 
@@ -259,7 +259,7 @@ void c64_init() {
 
 }
 
-void c64_update() {
+void c64_update(void) {
 
 	sysclock_update();
 	
@@ -283,7 +283,7 @@ void c64_update() {
 	}	
 }
 
-void c64_destroy() {
+void c64_destroy(void) {
 	cpu_destroy();
 	mem_destroy();
 	cia_destroy(); 

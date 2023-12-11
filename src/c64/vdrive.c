@@ -258,18 +258,18 @@ byte g_vdrive_kpatch_11[] = {
 
 
 void vdrive_writebus(byte b) {mem_poke (CIA2_SERIAL_BUS,(mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_BUS_BITS) | b);}
-byte vdrive_readbus() {return mem_peek(CIA2_SERIAL_BUS) & VDRIVE_BUS_BITS;}
+byte vdrive_readbus(void) {return mem_peek(CIA2_SERIAL_BUS) & VDRIVE_BUS_BITS;}
 
-void vdrive_set_attention() {mem_poke(CIA2_SERIAL_BUS,mem_peek(CIA2_SERIAL_BUS) | VDRIVE_ATTN_BIT);}
+void vdrive_set_attention(void) {mem_poke(CIA2_SERIAL_BUS,mem_peek(CIA2_SERIAL_BUS) | VDRIVE_ATTN_BIT);}
 
-void vdrive_clear_attention() {mem_poke(CIA2_SERIAL_BUS,mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_ATTN_BIT);}
-
-
+void vdrive_clear_attention(void) {mem_poke(CIA2_SERIAL_BUS,mem_peek(CIA2_SERIAL_BUS) & ~VDRIVE_ATTN_BIT);}
 
 
 
 
-void vdrive_init() {
+
+
+void vdrive_init(void) {
 
 	DEBUG_PRINT("** Initializing virtual drive.\n");
 	c64_patch_kernal(sizeof(g_vdrive_kpatch_1),g_vdrive_kpatch_1);
@@ -294,7 +294,7 @@ void vdrive_init() {
 
 }
 
-void vdrive_update() {
+void vdrive_update(void) {
 
 	byte b = vdrive_readbus();
 

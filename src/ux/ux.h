@@ -45,12 +45,12 @@ KNOWN BUGS:
 #define MON_SCREEN_HEIGHT 	380
 
 
-void ux_init();
-void ux_destroy();
-void ux_update();
-bool ux_running();
-bool ux_done();
-void ux_startemulator();
+void ux_init(void);
+void ux_destroy(void);
+void ux_update(void);
+bool ux_running(void);
+bool ux_done(void);
+void ux_startemulator(void);
 
 #endif
 

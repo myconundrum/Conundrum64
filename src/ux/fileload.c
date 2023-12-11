@@ -261,12 +261,10 @@ void asm_loadcart(const char *name) {
 	
 	if (f) {
 
-
-    	DEBUG_PRINT("Loading cartridge file %s (length %04x).\n",name,len);
-
 		fseek(f, 0, SEEK_END);          
     	len = ftell(f);            
     	rewind(f);
+    	DEBUG_PRINT("Loading cartridge file %s (length %04x).\n",name,len);
 
     	where = (byte *) malloc(sizeof(byte) * len);   
     	fread(&header,sizeof(header),1,f);
@@ -339,7 +337,6 @@ void bas_loadfile(char * string) {
 
 	FILE * f;
 	char line[256];
-	char outputline[256];
 	word mem = 0x0800;
 	word link;
 	int i;
@@ -373,7 +370,7 @@ void bas_loadfile(char * string) {
  		mem+=2;
 
  		bas_tokenizeline(line);
- 		for (i = 0; i < strlen(line);i++) {
+ 		for (i = 0; i < (int) strlen(line);i++) {
  			mem_poke(mem++,line[i]);
  		}
  		//

@@ -69,6 +69,8 @@ __inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
 #endif
 
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 #define FC_EXTRACT_VARARGS(buffer, start_args) \
 { \
     va_list lst; \
@@ -76,7 +78,7 @@ __inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
     vsnprintf(buffer, fc_buffer_size, start_args, lst); \
     va_end(lst); \
 }
-
+#pragma clang diagnostic pop
 // Extra pixels of padding around each glyph to avoid linear filtering artifacts
 #define FC_CACHE_PADDING 1
 
@@ -2541,7 +2543,6 @@ Uint16 FC_GetPositionFromOffset(FC_Font* font, float x, float y, int column_widt
 
     if(formatted_text == NULL || column_width == 0 || font == NULL)
         return 0;
-
     FC_EXTRACT_VARARGS(fc_buffer, formatted_text);
 
     ls = FC_GetBufferFitToColumn(font, column_width, FC_MakeScale(1,1), 1);

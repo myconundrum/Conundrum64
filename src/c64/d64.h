@@ -46,7 +46,7 @@ typedef struct {
 void d64_track_to_sector(byte track, word * sector);
 
 void d64_insert_disk(const char * path);
-void d64_eject_disk();
+void d64_eject_disk(void);
 void d64_directory(FILE * file);
 
 void d64_close_file(D64_FILE *f);
@@ -55,4 +55,4 @@ bool d64_open_file(D64_FILE * file, const char *name);
 
 
 
-#endif 
+#endif

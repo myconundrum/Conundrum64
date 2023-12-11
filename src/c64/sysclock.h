@@ -60,8 +60,8 @@ KNOWN BUGS:
 #define PHI_LOW		false
 
 
-bool sysclock_isPALfrequency();
-bool sysclock_isNTSCfrequency();
+bool sysclock_isPALfrequency(void);
+bool sysclock_isNTSCfrequency(void);
 void sysclock_init(void);
 void sysclock_update(void);
 bool sysclock_getphi(void);

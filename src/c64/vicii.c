@@ -350,11 +350,11 @@ VICII g_vic = {0};
 
 
 
-bool vicii_stuncpu() 			{return g_vic.balow;}
-word vicii_getscreenheight() 	{return g_vic.screenheight;}
-word vicii_getscreenwidth() 	{return g_vic.screenwidth;}
+bool vicii_stuncpu(void) 			{return g_vic.balow;}
+word vicii_getscreenheight(void) 	{return g_vic.screenheight;}
+word vicii_getscreenwidth(void) 	{return g_vic.screenwidth;}
 
-void vicii_init() {
+void vicii_init(void) {
 
 	DEBUG_PRINT("** Initializing VICII...\n");
 
@@ -417,7 +417,7 @@ void vicii_init() {
 
 
 
-void vicii_destroy() {
+void vicii_destroy(void) {
 
 	for (int i = 0;i < g_vic.screenheight; i++) {
 		free(g_vic.out[i]);
@@ -449,9 +449,9 @@ void vicii_destroy() {
 
 } 
 
-bool vicii_frameready() {return g_vic.frameready;}
+bool vicii_frameready(void) {return g_vic.frameready;}
 
-void vicii_updateraster() {
+void vicii_updateraster(void) {
 
 									// Increment X raster position. wraps at 0x1FF
 	if (g_vic.raster_x == g_vic.raster_x_overflow ) {
@@ -490,7 +490,7 @@ void vicii_updateraster() {
 }
 
 
-uint32_t ** vicii_getframe() {
+uint32_t ** vicii_getframe(void) {
 	return g_vic.out;
 }
 
@@ -594,7 +594,7 @@ void vicii_drawspritepixel(byte sprite,word row, byte c,bool shown) {
 	s->curx++;
 }
 
-void vicii_drawborder() {
+void vicii_drawborder(void) {
 	
 	if (!g_vic.displayline) {return;}
 	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],VICII_BORDER_PIXEL);
@@ -607,7 +607,7 @@ void vicii_drawborder() {
 	vicii_drawpixel(g_vic.regs[VICII_BORDERCOL],VICII_BORDER_PIXEL);
 }
 
-void vicii_drawstandardtext() {
+void vicii_drawstandardtext(void) {
 	int i;
 	VICII_PIXELTYPE type;
 	for (i = BIT_7;i;i>>=1) {
@@ -616,7 +616,7 @@ void vicii_drawstandardtext() {
 	}
 }
 
-void vicii_drawmulticolortext() {
+void vicii_drawmulticolortext(void) {
 
 	int i;
 	byte c;
@@ -625,11 +625,11 @@ void vicii_drawmulticolortext() {
 	if (g_vic.lastcolor & BIT_3) { // MC bit is on. 2 bits per pixel mode.
 		for (i = 0; i < 4; i++) {
 			type = VICII_FG_PIXEL;
-			switch (g_vic.lastchar & 0b11000000) {
-				case 0b00000000: c = g_vic.regs[VICII_BACKCOL] & 0xf; 	type = VICII_BG_PIXEL; break;
-				case 0b01000000: c = g_vic.regs[VICII_EBACKCOL1] & 0xf;	type = VICII_BG_PIXEL; break;
-				case 0b10000000: c = g_vic.regs[VICII_EBACKCOL2] & 0xf; break;
-				case 0b11000000: c = g_vic.lastcolor & 0xf; break;
+			switch (g_vic.lastchar & 192) { // 0b11000000
+				case 0: c = g_vic.regs[VICII_BACKCOL] & 0xf; 	type = VICII_BG_PIXEL; break; // 0b00000000
+				case 64: c = g_vic.regs[VICII_EBACKCOL1] & 0xf;	type = VICII_BG_PIXEL; break; // 0b01000000
+				case 128: c = g_vic.regs[VICII_EBACKCOL2] & 0xf; break; // 0b10000000
+				case 192: c = g_vic.lastcolor & 0xf; break; // 0b11000000
 			}
 			g_vic.lastchar <<= 2;
 			vicii_drawpixel(c,type);
@@ -641,7 +641,7 @@ void vicii_drawmulticolortext() {
 	}
 }
 
-void vicii_drawmulticolorbitmap() {
+void vicii_drawmulticolorbitmap(void) {
 
 	byte c00 = g_vic.regs[VICII_BACKCOL] & 0xf;
 	byte c01 = g_vic.lastchar & 0xf;
@@ -656,11 +656,11 @@ void vicii_drawmulticolorbitmap() {
 
 		type = VICII_FG_PIXEL;
 
-		switch (g_vic.lastdata & 0b11000000) {
-			case 0b00000000: c = c00; type = VICII_BG_PIXEL; break;
-			case 0b01000000: c = c01; type = VICII_BG_PIXEL; break;
-			case 0b10000000: c = c10;break;
-			case 0b11000000: c = c11;break;
+		switch (g_vic.lastdata & 192) { // 0b11000000
+			case 0: c = c00; type = VICII_BG_PIXEL; break; // 0b00000000
+			case 64: c = c01; type = VICII_BG_PIXEL; break; // 0b01000000
+			case 128: c = c10;break; // 0b10000000
+			case 192: c = c11;break; // 0b11000000
 		}
 		g_vic.lastdata <<= 2;
 		vicii_drawpixel(c,type);
@@ -668,7 +668,7 @@ void vicii_drawmulticolorbitmap() {
 	}
 }
 
-void vicii_drawstandardbitmap() {
+void vicii_drawstandardbitmap(void) {
 
 	byte c0 = g_vic.lastchar;
 	byte c1 = g_vic.lastchar  >> 4;
@@ -681,7 +681,7 @@ void vicii_drawstandardbitmap() {
 	}	
 }
 
-void vicii_drawecmtext() {
+void vicii_drawecmtext(void) {
 
 	byte c100 = g_vic.lastcolor & 0xf;
 	byte c000 = g_vic.regs[VICII_BACKCOL] & 0xf; 
@@ -755,11 +755,11 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 
 	for (i = 0; i < 4; i++) {
 		
-		switch(data & 0b11000000) {
-			case 0b00000000:	uc = -1;		break;/*transparent*/ 
-			case 0b01000000:	uc = ec1;		break;
-			case 0b10000000:	uc = c;			break;
-			case 0b11000000:	uc = ec2; 		break;
+		switch(data & 192) { // 0b11000000
+			case 0:	uc = -1;		break;/*transparent*/ //0b00000000
+			case 64:	uc = ec1;		break; //0b01000000	
+			case 128:	uc = c;			break; //0b10000000
+			case 192:	uc = ec2; 		break; //0b11000000
 		}
 
 		if (g_vic.sprites[sprite].dw) {
@@ -777,7 +777,7 @@ void vicii_drawmulticolorspritebyte(byte sprite) {
 }
 
 
-void vicii_drawsprites() {
+void vicii_drawsprites(void) {
 
 	int sprite;
 	byte mcm;
@@ -812,7 +812,7 @@ void vicii_drawsprites() {
 	}
 }
 
-void vicii_drawgraphics() {
+void vicii_drawgraphics(void) {
 
 
 	//
@@ -846,13 +846,13 @@ void vicii_drawgraphics() {
 //
 // read data from memory into vic buffer.
 //
-void vicii_caccess() {
+void vicii_caccess(void) {
 
 	g_vic.data[g_vic.vmli].data 		= vicii_peekmem(g_vic.vc);
 	g_vic.data[g_vic.vmli].color 		= vicii_peekcolor(g_vic.vc);		
 }
 
-void vicii_gaccess() {
+void vicii_gaccess(void) {
 
 	if (g_vic.idle) {return;}
 
@@ -907,7 +907,7 @@ void vicii_saccess(byte num) {
    set the expansion flip flip is reset.
 */
 
-void vicii_checkspritesdmaon() {
+void vicii_checkspritesdmaon(void) {
 
 	int i;
 
@@ -956,7 +956,7 @@ is likely handled during the first phase of cycle 58 (see rule 4).
 //
 // BUGBUG: Not handling the cpu clear in the second phase of cycle 15 yet.
 //
-void vicii_checkspritesdmaoff() {
+void vicii_checkspritesdmaoff(void) {
 
  	int i;
 
@@ -982,7 +982,7 @@ void vicii_checkspritesdmaoff() {
 
 */
 
-void vicii_checkspriteson() {
+void vicii_checkspriteson(void) {
 
  	int i;
 
@@ -1000,7 +1000,7 @@ void vicii_checkspriteson() {
 //
 // all border flip flop logic in this function. May need to be broken into cycles later. 
 //
-void vicii_checkborderflipflops() {
+void vicii_checkborderflipflops(void) {
 
 	if (g_vic.raster_x == g_vic.displayright)  {
 		g_vic.mainborder =  true;
@@ -1025,7 +1025,7 @@ void vicii_checkborderflipflops() {
 
 
 
-void vicii_update_phihigh() {
+void vicii_update_phihigh(void) {
 
 	
 	if (g_vic.cycle >= 16 && g_vic.cycle <= 55) {	
@@ -1033,7 +1033,7 @@ void vicii_update_phihigh() {
 	}
 }
 
-void vicii_update_philow() {
+void vicii_update_philow(void) {
 
 	g_vic.cycle++;			// update cycle count.
 
@@ -1253,7 +1253,7 @@ void vicii_update_philow() {
 }
 
 
-void vicii_update() {
+void vicii_update(void) {
 
 	if (sysclock_getphi()==PHI_LOW) {
 		vicii_update_philow();
@@ -1266,7 +1266,7 @@ void vicii_update() {
 
 
 
-void vicii_setbank() {
+void vicii_setbank(void) {
 
 	word b = ((~mem_peek(0xDD00)) & 0x03);
 	b <<= 14;

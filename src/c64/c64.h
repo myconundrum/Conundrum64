@@ -38,9 +38,9 @@ KNOWN BUGS:
 #ifndef C64_H
 #define C64_H
 
-void c64_init();
-void c64_update();
-void c64_destroy();
+void c64_init(void);
+void c64_update(void);
+void c64_destroy(void);
 byte c64_charpeek(word address);
 void c64_patch_kernal(word len, byte * bytes);
 
