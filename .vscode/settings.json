@@ -5,5 +5,6 @@
             "binaryPath": "/Users/marcw/code/Conundrum64/con64",
             "binaryArgs": []
         }
-    ]
+    ],
+    "cmake.configureOnOpen": true
 }
