@@ -105,7 +105,7 @@ typedef struct {
 C64_MAPPED_IO g_io;
 
 
-void c64_rompoke(word address, byte val) {}
+void c64_rompoke(word address, byte val) {UNUSED(address); UNUSED(val);}
 byte c64_kernalpeek(word address) 				{return g_io.rKernal[address];}
 void c64_kernalpoke(word address,byte val) 		{mem_nonmappable_poke(address+KERNAL_ROM_LOW_ADDRESS,val);}
 void c64_basicpoke(word address,byte val) 		{mem_nonmappable_poke(address+BASIC_ROM_LOW_ADDRESS,val);}

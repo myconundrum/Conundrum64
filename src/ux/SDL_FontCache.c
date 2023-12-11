@@ -69,8 +69,7 @@ __inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
 #endif
 
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
+
 #define FC_EXTRACT_VARARGS(buffer, start_args) \
 { \
     va_list lst; \
@@ -78,7 +77,6 @@ __inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
     vsnprintf(buffer, fc_buffer_size, start_args, lst); \
     va_end(lst); \
 }
-#pragma clang diagnostic pop
 // Extra pixels of padding around each glyph to avoid linear filtering artifacts
 #define FC_CACHE_PADDING 1
 
@@ -1770,6 +1768,7 @@ static FC_StringList* FC_GetBufferFitToColumn(FC_Font* font, int width, FC_Scale
 
     FC_StringList *ls, *iter;
 
+    (void) scale;
     ls = (keep_newlines? FC_ExplodeAndKeep(fc_buffer, '\n') : FC_Explode(fc_buffer, '\n'));
     for(iter = ls; iter != NULL; iter = iter->next)
     {
@@ -2334,13 +2333,11 @@ FC_Rect FC_GetCharacterOffset(FC_Font* font, Uint16 position_index, int column_w
     for(iter = ls; iter != NULL;)
     {
         char* line;
-        int i = 0;
         FC_StringList* next_iter = iter->next;
 
         ++num_lines;
         for(line = iter->value; line != NULL && *line != '\0'; line = (char*)U8_next(line))
         {
-            ++i;
             --position_index;
             if(position_index == 0)
             {
@@ -2540,6 +2537,8 @@ Uint16 FC_GetPositionFromOffset(FC_Font* font, float x, float y, int column_widt
     int current_x = 0;
     int current_y = 0;
     FC_GlyphData glyph_data;
+
+    (void) align;
 
     if(formatted_text == NULL || column_width == 0 || font == NULL)
         return 0;

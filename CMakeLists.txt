@@ -4,7 +4,7 @@ project(Conundrum64)
 set(CMAKE_C_STANDARD 99) # Adjust the standard as needed
 set(CMAKE_C_COMPILER clang) # or another C compiler like clang
 # Set the compiler flags
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wfloat-equal -O2 -march=native -fstack-protector-strong -D_FORTIFY_SOURCE=2 -g -Wno-variadic-macros -Wno-gnu-zero-variadic-macro-arguments")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wfloat-equal -O2 -march=native -fstack-protector-strong -D_FORTIFY_SOURCE=2 -g -Wno-variadic-macros -Wno-format-nonliteral -Wno-gnu-zero-variadic-macro-arguments")
 
 
 set(CMAKE_MACOSX_RPATH 1)

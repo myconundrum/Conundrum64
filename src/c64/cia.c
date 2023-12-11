@@ -139,7 +139,7 @@ byte cia1_getportb(CIA * c) {
 }
 
 byte cia2_getportb(CIA * c) {
-	
+	UNUSED(c);
 	// not implemented
 	return 0xff;
 
@@ -238,7 +238,7 @@ void cia_seticr(CIA * c,byte val) {
 
 void cia_setport(CIA * c,CIA_REGISTERS reg, CIA_REGISTERS ddr, byte val) {
 
-	byte test = 0b10000000;
+	byte test = 0x80;
 	byte new = 0;
 	byte portval = cia_getreal(c,reg);
 	byte ddrval  = cia_getreal(c,ddr);
@@ -367,16 +367,16 @@ word cia_timerb_clicks(CIA * c,byte mode) {
 
 	switch(mode & (CIA_CRB_TIMERINPUT1 | CIA_CRB_TIMERINPUT2)) {
 
-		case 0b00000000: // sysclock ticks
+		case 0x00: // sysclock ticks
 			return sysclock_getticks() - c->lticks;
 		break;
-		case 0b00100000: // CNT pin
+		case 0x20: // CNT pin
 			// BUGBUG: Not implemented
 		break;
-		case 0b01000000: // TAU undeflow
+		case 0x40: // TAU undeflow
 			return (c->isr & CIA_FLAG_TAUIRQ) ? 1 : 0;
 		break;
-		case 0b01100000: // TAU underflow + CNT pin
+		case 0x60: // TAU underflow + CNT pin
 			// BUGBUG: Not implemented
 		break;
 		default: break;

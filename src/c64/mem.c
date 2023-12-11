@@ -77,10 +77,10 @@ byte mem_map(word low, word high, PEEKHANDLER peekfn, POKEHANDLER pokefn) {
 
 void mem_mapactive(byte map, bool flag) {g_memory.maps[map].active = flag;}
 
-void mem_init() {
+void mem_init(void) {
 	DEBUG_PRINT("** Initializing Memory...\n");
 	memset(&g_memory,0,sizeof(MEMORY));}
-void mem_destroy() {}
+void mem_destroy(void) {}
 
 MEMORY_MAP *mem_getmap(word address) {
 	

@@ -47,10 +47,10 @@ KNOWN BUGS:
 
 EMU_CONFIGURATION g_config = {0};
 char g_nameString[255];
-char * emu_getname() {return g_nameString;}
+char * emu_getname(void) {return g_nameString;}
 
 
-EMU_CONFIGURATION * emu_getconfig() {
+EMU_CONFIGURATION * emu_getconfig(void) {
 	return &g_config;
 }
 

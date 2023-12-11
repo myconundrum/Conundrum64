@@ -287,7 +287,7 @@ bool d64_match_string(const char * str1, const char * str2) {
 		return false;
 	}
 
-	for (int i = 0; i < strlen(str1); i++) {
+	for (int i = 0; i < (int) strlen(str1); i++) {
 		if (toupper(str1[i]) != toupper(str2[i])) {
 			return false;
 		}
@@ -366,9 +366,9 @@ bool d64_open_file(D64_FILE * file, const char *name) {
 }
 
 
-void d64_read_bam() {d64_read(&g_d64.bam,sizeof(D64_BAM),18,0);}
+void d64_read_bam(void) {d64_read(&g_d64.bam,sizeof(D64_BAM),18,0);}
 
-void d64_read_directory() {
+void d64_read_directory(void) {
 
 	bool done = false;
 	D64_DIRECTORY_ENTRY d[8];
@@ -388,7 +388,7 @@ void d64_read_directory() {
 	}
 }
 
-void d64_eject_disk() {
+void d64_eject_disk(void) {
 
 	if (g_d64.file != NULL) {
 

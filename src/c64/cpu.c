@@ -78,7 +78,7 @@ void push(byte b) {
 	mem_poke(STACK_BASE | g_cpu.reg_stack--, b);
 }
 
-byte pull() {
+byte pull(void) {
 
 	return mem_peek(STACK_BASE | ++g_cpu.reg_stack);	
 } 
@@ -88,7 +88,7 @@ void push_word(word w) {
 	push ((byte) (w & 0xFF));
 }
 
-word pull_word() {
+word pull_word(void) {
 
 	word w;
 	w = pull() ;
@@ -96,7 +96,7 @@ word pull_word() {
 	return w;
 }
 
-byte fetch() {
+byte fetch(void) {
 
 	if (((g_cpu.pc + 1) & 0xFF) == 0) {
 		g_cpu.ucycles++;
@@ -105,7 +105,7 @@ byte fetch() {
 	return mem_peek(g_cpu.pc++);
 }
 
-word fetch_word() {
+word fetch_word(void) {
 	return fetch() | (fetch() << 8);
 }
 
@@ -230,7 +230,7 @@ void handle_JSR(ENUM_AM m) {
 }
 
 void handle_RTS(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.pc = pull_word();
 	g_cpu.pc++;
 }
@@ -298,63 +298,66 @@ void handle_STY(ENUM_AM m) {
 }
 
 void handle_TAX(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_x = g_cpu.reg_a;
 	setOrClearNFlag(g_cpu.reg_x);
 	setOrClearZFlag(g_cpu.reg_x);
 }
 
 void handle_TAY(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_y = g_cpu.reg_a;
 	setOrClearNFlag(g_cpu.reg_y);
 	setOrClearZFlag(g_cpu.reg_y);
 }
 
 void handle_TXA(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_a = g_cpu.reg_x;	
 	setOrClearNFlag(g_cpu.reg_a);
 	setOrClearZFlag(g_cpu.reg_a);
 }
 
 void handle_TYA(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_a = g_cpu.reg_y;
 	setOrClearNFlag(g_cpu.reg_a);
 	setOrClearZFlag(g_cpu.reg_a);
 }
 
 void handle_TXS(ENUM_AM m) {
+	UNUSED(m);
 	g_cpu.reg_stack = g_cpu.reg_x;	
 }
 
 void handle_TSX(ENUM_AM m) {
+	UNUSED(m);
 	g_cpu.reg_x = g_cpu.reg_stack;
 	setOrClearNFlag(g_cpu.reg_x);
 	setOrClearZFlag(g_cpu.reg_x);
 }
 
 void handle_PHA(ENUM_AM m) {
+	UNUSED(m);
 	push(g_cpu.reg_a);
 }
 
 void handle_PLA(ENUM_AM m) {
 
-
+	UNUSED(m);
 	g_cpu.reg_a = pull();
 	setOrClearNFlag(g_cpu.reg_a);
 	setOrClearZFlag(g_cpu.reg_a);
 }
 
 void handle_PHP(ENUM_AM m) {
-
+	UNUSED(m);
 	push(g_cpu.reg_status);
 	
 }
 
 void handle_PLP(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status = pull();
 	
 }
@@ -380,72 +383,73 @@ void handle_DEC(ENUM_AM m) {
 }
 
 void handle_INX(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_x++;
 	setOrClearNFlag(g_cpu.reg_x);
 	setOrClearZFlag(g_cpu.reg_x);
 }
 
 void handle_INY(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_y++;
 	setOrClearNFlag(g_cpu.reg_y);
 	setOrClearZFlag(g_cpu.reg_y);
 }
 
 void handle_DEX(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_x--;
 	setOrClearNFlag(g_cpu.reg_x);
 	setOrClearZFlag(g_cpu.reg_x);
 }
 
 void handle_DEY(ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_y--;
 	setOrClearNFlag(g_cpu.reg_y);
 	setOrClearZFlag(g_cpu.reg_y);
 }
 
-void handle_NOP(ENUM_AM m) {}
+void handle_NOP(ENUM_AM m) {UNUSED(m);}
 
 void handle_CLC (ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status &= ~C_FLAG;
 }
 
 void handle_CLD (ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status &= ~D_FLAG;
 }
 
 void handle_CLI (ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status &= ~I_FLAG;
 }
 
 void handle_CLV (ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status &= ~V_FLAG;
 }
 
 void handle_SEC (ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status |= C_FLAG;
 }
 
 void handle_SED (ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status |= D_FLAG;
 }
 
 void handle_SEI (ENUM_AM m) {
-
+	UNUSED(m);
 	g_cpu.reg_status |= I_FLAG;
 }
 
 void handle_BRK (ENUM_AM m) {
 
+	UNUSED(m);
 	//
 	// push program counter onto the stack followed by processor status
 	//
@@ -464,6 +468,8 @@ void handle_BRK (ENUM_AM m) {
 
 void handle_RTI (ENUM_AM m) {
 
+	UNUSED(m);
+
 	g_cpu.reg_status = pull();
 	g_cpu.pc = pull_word();
 
@@ -473,6 +479,7 @@ void handle_RTI (ENUM_AM m) {
 
 void handle_BCC (ENUM_AM m) {
 
+	UNUSED(m);
 	byte val = fetch();
 	if ((g_cpu.reg_status & C_FLAG) == 0) {
 		setPCFromOffset(val);
@@ -480,7 +487,7 @@ void handle_BCC (ENUM_AM m) {
 }
 
 void handle_BCS (ENUM_AM m) {
-
+	UNUSED(m);
 	byte val = fetch();
 	if (g_cpu.reg_status & C_FLAG) {
 		setPCFromOffset(val);
@@ -488,7 +495,7 @@ void handle_BCS (ENUM_AM m) {
 }
 
 void handle_BEQ (ENUM_AM m) {
-
+	UNUSED(m);
 	byte val = fetch();
 	if (g_cpu.reg_status & Z_FLAG) {
 		setPCFromOffset(val);
@@ -496,7 +503,7 @@ void handle_BEQ (ENUM_AM m) {
 }
 
 void handle_BMI (ENUM_AM m) {
-
+	UNUSED(m);
 	byte val = fetch();
 	if (g_cpu.reg_status & N_FLAG) {
 		setPCFromOffset(val);
@@ -504,7 +511,7 @@ void handle_BMI (ENUM_AM m) {
 }
 
 void handle_BPL (ENUM_AM m) {
-
+	UNUSED(m);
 	byte val = fetch();
 	if ((g_cpu.reg_status & N_FLAG) == 0) {
 		setPCFromOffset(val);
@@ -512,7 +519,7 @@ void handle_BPL (ENUM_AM m) {
 }
 
 void handle_BNE (ENUM_AM m) {
-
+	UNUSED(m);
 	byte val = fetch();
 	if ((g_cpu.reg_status & Z_FLAG) == 0) {
 			setPCFromOffset(val);	
@@ -520,7 +527,7 @@ void handle_BNE (ENUM_AM m) {
 }
 
 void handle_BVC (ENUM_AM m) {
-
+	UNUSED(m);
 	byte val = fetch();
 	if ((g_cpu.reg_status & V_FLAG) == 0) {
 		setPCFromOffset(val);
@@ -528,7 +535,7 @@ void handle_BVC (ENUM_AM m) {
 }
 
 void handle_BVS (ENUM_AM m) {
-
+	UNUSED(m);
 	byte val = fetch();
 	if (g_cpu.reg_status & V_FLAG) {
 		setPCFromOffset(val);
@@ -752,7 +759,7 @@ void handle_ADC (ENUM_AM m) {
 	g_cpu.reg_a = tmp; 
 }
 
-void cpu_checkinterrupts() {
+void cpu_checkinterrupts(void) {
 
 	if (g_cpu.nmi) {
 
@@ -777,11 +784,11 @@ void cpu_checkinterrupts() {
 
 }
 
-bool cpu_ready() {
+bool cpu_ready(void) {
 	return g_cpu.ucycles == 0;
 }
 
-void cpu_update() {
+void cpu_update(void) {
 
 	byte op;
 
@@ -805,11 +812,11 @@ void setopcode(int op, char * name,ENUM_AM mode,OPHANDLER fn,byte c) {
 	g_opcodes[op].cycles = c;
 }
 
-void cpu_destroy() {
+void cpu_destroy(void) {
 
 }
 
-void cpu_init() {
+void cpu_init(void) {
 
 	int i = 0;
 	//
@@ -1016,15 +1023,15 @@ void cpu_init() {
 	g_cpu.pc = mem_peekword(VECTOR_RESET);
 }
 
-void cpu_irq() {g_cpu.irq = true;}
-void cpu_nmi() {g_cpu.nmi = true;}
+void cpu_irq(void) {g_cpu.irq = true;}
+void cpu_nmi(void) {g_cpu.nmi = true;}
 
-byte cpu_geta() 				{return g_cpu.reg_a;}
-byte cpu_getx()					{return g_cpu.reg_x;}
-byte cpu_gety()					{return g_cpu.reg_y;}
-word cpu_getpc() 				{return g_cpu.pc;}
-byte cpu_getstatus()			{return g_cpu.reg_status;}	
-byte cpu_getstack()				{return g_cpu.reg_stack;}
+byte cpu_geta(void) 				{return g_cpu.reg_a;}
+byte cpu_getx(void)					{return g_cpu.reg_x;}
+byte cpu_gety(void)					{return g_cpu.reg_y;}
+word cpu_getpc(void) 				{return g_cpu.pc;}
+byte cpu_getstatus(void)			{return g_cpu.reg_status;}	
+byte cpu_getstack(void)				{return g_cpu.reg_stack;}
 
 
 byte cpu_disassemble(char *buf,word address) {

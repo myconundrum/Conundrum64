@@ -63,9 +63,9 @@ void c64kbd_InitChar(byte ch, byte col, byte row) {
 	g_c64KeyboardTable[ch].row = row;
 }
 
-void c64kbd_destroy() {}
+void c64kbd_destroy(void) {}
 
-void c64kbd_reset() {
+void c64kbd_reset(void) {
 	int i;
 	for (i = 0; i < 8; i++) {
 		g_c64kbd[i] = 0xff;
@@ -73,7 +73,7 @@ void c64kbd_reset() {
 }
 
 
-void c64kbd_init() {
+void c64kbd_init(void) {
 
 	DEBUG_PRINT("** Initializing C64 Keyboard...\n");
 

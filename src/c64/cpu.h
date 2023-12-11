@@ -71,7 +71,7 @@ KNOWN BUGS:
 typedef unsigned char 		byte; 
 typedef unsigned short 		word; 
 
-
+#define UNUSED(x) (void)(x)
 
 #define NTSC_CYCLES_PERSECOND 1022727 
 

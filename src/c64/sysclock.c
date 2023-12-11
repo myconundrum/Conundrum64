@@ -76,22 +76,22 @@ void sysclock_init(void) {
 
 }
 
-bool sysclock_isPALfrequency() {
+bool sysclock_isPALfrequency(void) {
 	return g_sysclock.tickspersec == PAL_TICKS_PER_SECOND;
 }
 
 
-bool sysclock_isNTSCfrequency() {
+bool sysclock_isNTSCfrequency(void) {
 	return g_sysclock.tickspersec == NTSC_TICKS_PER_SECOND;
 }
 
 
-bool sysclock_getphi() {
+bool sysclock_getphi(void) {
 
 	return g_sysclock.phi;
 }
 
-void sysclock_update() {
+void sysclock_update(void) {
 
 
 	clock_t c;
